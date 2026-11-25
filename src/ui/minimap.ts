@@ -1,6 +1,6 @@
 import type { CityView, UnitView } from '../protocol';
 import { mix, shade, toCss } from '../render/color';
-import { BACKGROUND, minimapColor, PLAYER_COLORS } from '../render/palette';
+import { BACKGROUND, minimapColor, playerColor } from '../render/palette';
 import { centerX, centerY, COL_W, HEX, liftOf, ROW_H, TILT, worldSize } from '../render/projection';
 import type { ViewRect } from '../render/renderer';
 import type { GameMap } from '../sim/map';
@@ -81,7 +81,7 @@ export class Minimap {
         if (f === 0) continue;
         let color = minimapColor(map.terrain[i], map.relief[i], map.feature[i]);
         const o = tileOwner ? tileOwner[i] : -1;
-        if (o >= 0) color = mix(color, PLAYER_COLORS[o % PLAYER_COLORS.length], 0.45);
+        if (o >= 0) color = mix(color, playerColor(o), 0.45);
         b.fillStyle = toCss(f === 2 ? color : shade(color, 0.55));
         b.fillRect(centerX(c, r) - COL_W / 2, centerY(r) - (ROW_H * TILT) / 2 + (HEX * TILT) / 2, w, h);
       }
@@ -92,7 +92,7 @@ export class Minimap {
       const s = 4.5 / this.scale;
       b.fillStyle = '#ffffff';
       b.fillRect(centerX(cc, r) - s / 2 - 1 / this.scale, centerY(r) - s / 2 - 1 / this.scale, s + 2 / this.scale, s + 2 / this.scale);
-      b.fillStyle = toCss(PLAYER_COLORS[c.owner % PLAYER_COLORS.length]);
+      b.fillStyle = toCss(playerColor(c.owner));
       b.fillRect(centerX(cc, r) - s / 2, centerY(r) - s / 2, s, s);
     }
     for (const u of units) {
@@ -100,7 +100,7 @@ export class Minimap {
       const r = (u.tile / map.width) | 0;
       b.beginPath();
       b.arc(centerX(c, r), centerY(r) - liftOf(map, u.tile), 2.6 / this.scale, 0, Math.PI * 2);
-      b.fillStyle = toCss(PLAYER_COLORS[u.owner % PLAYER_COLORS.length]);
+      b.fillStyle = toCss(playerColor(u.owner));
       b.fill();
       b.lineWidth = 0.8 / this.scale;
       b.strokeStyle = '#000';

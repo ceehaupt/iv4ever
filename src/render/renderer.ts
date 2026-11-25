@@ -9,7 +9,8 @@ import { centerX, centerY, HEX, liftOf, pickTile, topPoly, worldSize } from './p
 import { TOKEN_SIZE, tokenPos, UnitLayer } from './unitLayer';
 
 export interface RendererEvents {
-  onHover(tile: number): void;
+  /** Feld unter dem Mauszeiger (-1 = keins) und Bildschirmposition für Hinweise. */
+  onHover(tile: number, x: number, y: number): void;
   /** Linksklick (ohne Ziehen) auf ein Feld. */
   onClick(tile: number): void;
   /** Rechtsklick auf ein Feld (Bewegungsbefehl). */
@@ -164,8 +165,8 @@ export class GameRenderer {
     return ms;
   }
 
-  setCities(cities: CityView[], tileOwner: Int16Array): void {
-    this.cities.update(cities, tileOwner);
+  setCities(cities: CityView[], tileOwner: Int16Array, camps: readonly number[] = []): void {
+    this.cities.update(cities, tileOwner, camps);
     this.dirty = true;
   }
 
@@ -394,11 +395,14 @@ export class GameRenderer {
     this.dirty = true;
   }
 
-  private setHover(tile: number): void {
-    if (tile === this.hover) return;
+  private setHover(tile: number, x = 0, y = 0): void {
+    if (tile === this.hover) {
+      this.events.onHover(tile, x, y);
+      return;
+    }
     this.hover = tile;
     this.overlayDirty = true;
-    this.events.onHover(tile);
+    this.events.onHover(tile, x, y);
   }
 
   private bindInput(): void {
@@ -431,7 +435,7 @@ export class GameRenderer {
         this.dirty = true;
         return;
       }
-      this.setHover(this.pick(e.offsetX, e.offsetY));
+      this.setHover(this.pick(e.offsetX, e.offsetY), e.clientX, e.clientY);
     });
 
     const endDrag = (e: PointerEvent) => {

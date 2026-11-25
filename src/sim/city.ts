@@ -71,6 +71,8 @@ export interface TurnEvent {
 /** Alles, was eine Stadtabrechnung über ihren Spieler wissen muss (einmal pro Runde berechnet). */
 export interface PlayerContext {
   knows: Knows;
+  /** Verfügbare strategische Ressourcen (Schlüssel): verbessert, im eigenen Gebiet, angebunden. */
+  strategic: Set<string>;
   rate: number;
   capital: number;
   connected: Set<number>;
@@ -137,10 +139,15 @@ export function builtWonders(state: GameState): Set<number> {
   return out;
 }
 
-/** Was kann diese Stadt jetzt bauen? */
-export function availableItems(state: GameState, c: City): BuildItem[] {
-  const knows = knowsFn(state, c.owner);
-  const items: BuildItem[] = UNIT_TYPES.map((_, id) => ({ kind: 'unit', id }));
+/** Was kann diese Stadt jetzt bauen? Einheiten brauchen Technologie und angebundene strategische Ressourcen. */
+export function availableItems(state: GameState, c: City, ctx: PlayerContext = playerContext(state, c.owner)): BuildItem[] {
+  const knows = ctx.knows;
+  const items: BuildItem[] = [];
+  UNIT_TYPES.forEach((u, id) => {
+    if (u.tech !== null && !knows(u.tech)) return;
+    if (u.resources.some((r) => !ctx.strategic.has(r))) return;
+    items.push({ kind: 'unit', id });
+  });
   const wonders = builtWonders(state);
   const coastal = isCoastal(state.map, c.tile);
   BUILDINGS.forEach((b, id) => {
@@ -292,12 +299,15 @@ export function playerContext(state: GameState, owner: number): PlayerContext {
   const { capital, connected } = tradeNetwork(state, owner, knows);
   // Luxusgüter: verbessert, im eigenen Gebiet und über die Stadt des Feldes angebunden.
   const lux = new Set<number>();
+  const strategic = new Set<string>();
   const m = state.map;
   for (let i = 0; i < state.tileOwner.length; i++) {
     if (state.tileOwner[i] !== owner) continue;
     const r = RESOURCES[m.resource[i]];
-    if (!r || r.kind !== ResourceKind.Luxury || !resourceActive(m, i, knows)) continue;
-    if (connected.has(state.tileCity[i])) lux.add(m.resource[i]);
+    if (!r || r.kind === ResourceKind.Bonus || !resourceActive(m, i, knows)) continue;
+    if (!connected.has(state.tileCity[i])) continue;
+    if (r.kind === ResourceKind.Luxury) lux.add(m.resource[i]);
+    else strategic.add(r.key);
   }
   const all = { mood: 0, supply: 0, specialistTrade: 0, coastalTrade: 0 };
   for (const c of state.cities) {
@@ -311,7 +321,7 @@ export function playerContext(state: GameState, owner: number): PlayerContext {
       all.coastalTrade += a.coastalTrade ?? 0;
     }
   }
-  return { knows, rate: state.players[owner].rate, capital, connected, luxuries: lux.size, all };
+  return { knows, strategic, rate: state.players[owner].rate, capital, connected, luxuries: lux.size, all };
 }
 
 function centerYields(state: GameState, c: City, knows: Knows): Yields {

@@ -4,7 +4,7 @@ import { neighborOf } from '../sim/hex';
 import { type GameMap, tileYields } from '../sim/map';
 import { hash2 } from '../sim/rng';
 import { shade } from './color';
-import { PLAYER_COLORS } from './palette';
+import { playerColor } from './palette';
 import { CORNER_X, CORNER_Y, centerX, centerY, liftOf, topPoly } from './projection';
 
 /** Ecken je Kantenrichtung (O, NO, NW, W, SW, SO). */
@@ -62,12 +62,13 @@ export class CityLayer {
     });
   }
 
-  update(cities: CityView[], tileOwner: Int16Array): void {
+  update(cities: CityView[], tileOwner: Int16Array, camps: readonly number[] = []): void {
     const map = this.map;
     if (!map) return;
     this.drawBorders(map, tileOwner);
     this.houseCtx.clear();
     for (const c of cities) this.drawHouses(map, c);
+    for (const t of camps) this.drawCamp(map, t);
     for (const copy of this.labelCopies) {
       copy.removeChildren().forEach((ch) => ch.destroy({ children: true }));
       for (const c of cities) copy.addChild(this.banner(map, c));
@@ -120,7 +121,7 @@ export class CityLayer {
     for (let i = 0; i < owner.length; i++) {
       const o = owner[i];
       if (o < 0) continue;
-      const color = PLAYER_COLORS[o % PLAYER_COLORS.length];
+      const color = playerColor(o);
       const p = tileCenter(map, i);
       g.poly(topPoly(p.x, p.y)).fill({ color, alpha: 0.13 });
       for (let d = 0; d < 6; d++) {
@@ -154,10 +155,25 @@ export class CityLayer {
     });
   }
 
+  /** Plündererlager: Zelte um ein Feuer mit schwarzer Fahne. */
+  private drawCamp(map: GameMap, tile: number): void {
+    const g = this.houseCtx;
+    const p = tileCenter(map, tile);
+    for (const [dx, dy] of [[-10, 2], [9, 3], [0, -5]] as const) {
+      const x = p.x + dx;
+      const y = p.y + dy;
+      g.poly([x - 7, y + 4, x, y - 7, x + 7, y + 4]).fill(0x8a6a44);
+      g.poly([x, y - 7, x + 7, y + 4, x, y + 4]).fill(0x6b5234);
+    }
+    g.circle(p.x, p.y + 6, 2.5).fill(0xf08a2a);
+    g.rect(p.x + 14, p.y - 18, 1.6, 18).fill(0x2b2116);
+    g.poly([p.x + 15.6, p.y - 18, p.x + 26, p.y - 15, p.x + 15.6, p.y - 12]).fill(0x111114);
+  }
+
   private banner(map: GameMap, c: CityView): Container {
     const p = tileCenter(map, c.tile);
     const box = new Container();
-    const color = PLAYER_COLORS[c.owner % PLAYER_COLORS.length];
+    const color = playerColor(c.owner);
     const name = new BitmapText({
       text: c.capital ? `★ ${c.name}` : c.name,
       style: { fontFamily: 'Arial', fontSize: 11, fill: 0xffffff, fontWeight: 'bold' },

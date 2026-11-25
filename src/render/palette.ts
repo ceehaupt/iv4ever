@@ -24,6 +24,18 @@ export const BACKGROUND = 0x0a1020;
 export const PLAYER_COLORS: readonly number[] = [
   0xe8453c, 0x3c7be8, 0xf2c230, 0x9b4de0, 0x2fbf71, 0xf07f2a, 0x29c7d4, 0xe04da6, 0xf5f5f5, 0x7a5230,
 ];
+export const BARBARIAN_COLOR = 0x2a2a2e;
+
+let barbarianId = -1;
+
+/** Spieler-ID der Plünderer (kommt mit jeder Spielansicht vom Worker). */
+export function setBarbarianId(id: number): void {
+  barbarianId = id;
+}
+
+export function playerColor(owner: number): number {
+  return owner === barbarianId ? BARBARIAN_COLOR : PLAYER_COLORS[owner % PLAYER_COLORS.length];
+}
 
 /** Oberflächenfarbe eines Feldes ohne Schattierung (für Minimap und Renderer). */
 export function surfaceColor(terrain: number, relief: number, feature: number): number {

@@ -1,5 +1,6 @@
 import { assignTiles, type City, recomputeOwnership } from './city';
-import { DEFAULT_RATE, type GameState, type Unit } from './game';
+import type { Camp } from './barbarians';
+import { DEFAULT_RATE, type GameState, newPlayer, type Unit } from './game';
 import { TECHS } from './rules/techs';
 import type { GameMap } from './map';
 import type { MapGenOptions } from './mapgen';
@@ -13,8 +14,9 @@ import { Rng } from './rng';
  * 1 – M2: Karte, Spieler (Erkundung), Einheiten
  * 2 – M3: Städte, Gold/Forschung/Steuersatz je Spieler
  * 3 – M4: Technologien, Forschungsziel, Verbesserungen/Straßen, Arbeiteraufträge; Bewegung ×2 (MOVE_SCALE 12)
+ * 4 – M5: Lebenspunkte/Erfahrung/Beförderungen, Plünderer (eigener Spieler) und Lager
  */
-export const SAVE_VERSION = 3;
+export const SAVE_VERSION = 4;
 
 interface SavedPlayer {
   id: number;
@@ -27,6 +29,7 @@ interface SavedPlayer {
   rate: number;
   techs: Uint8Array;
   goal: number;
+  barbarian?: boolean;
 }
 
 export interface SaveData {
@@ -41,6 +44,8 @@ export interface SaveData {
   cities: City[];
   nextCityId: number;
   jobs: Record<string, number>;
+  barbarian: number;
+  camps: Camp[];
   rngState: number;
 }
 
@@ -82,12 +87,15 @@ export function toSaveData(s: GameState): SaveData {
       rate: p.rate,
       techs: p.techs.slice(),
       goal: p.goal,
+      ...(p.barbarian ? { barbarian: true } : {}),
     })),
-    units: s.units.map((u) => ({ ...u, path: u.path ? u.path.slice() : null })),
+    units: s.units.map((u) => ({ ...u, path: u.path ? u.path.slice() : null, promotions: u.promotions.slice() })),
     nextUnitId: s.nextUnitId,
     cities: s.cities.map((c) => structuredClone(c)),
     nextCityId: s.nextCityId,
     jobs: { ...s.jobs },
+    barbarian: s.barbarian,
+    camps: s.camps.map((c) => ({ ...c })),
     rngState: s.rng.getState(),
   };
 }
@@ -119,6 +127,19 @@ function migrate(d: SaveData): SaveData {
       jobs: {},
     };
   }
+  if (d.version === 3) {
+    const n = d.map.width * d.map.height;
+    const barbarian = d.players.length;
+    const { visible: _v, ...barb } = newPlayer(barbarian, n, 'Plünderer', false);
+    d = {
+      ...d,
+      version: 4,
+      players: [...d.players, { ...barb, barbarian: true }],
+      units: d.units.map((u) => ({ ...u, hp: 100, xp: 0, promotions: [], acted: false })),
+      barbarian,
+      camps: [],
+    };
+  }
   return d;
 }
 
@@ -143,6 +164,8 @@ export function fromSaveData(raw: SaveData): GameState {
     cities: d.cities,
     nextCityId: d.nextCityId,
     jobs: d.jobs,
+    barbarian: d.barbarian,
+    camps: d.camps,
     tileOwner: new Int16Array(n).fill(-1),
     tileCity: new Int32Array(n).fill(-1),
     rng: Rng.fromState(d.rngState),

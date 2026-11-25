@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { availableItems, cityReport, playerContext, tradeNetwork } from './city';
-import { applyCommand, CommandError, createGame, currentResearch, endTurn, type GameState, HUMAN, Orders } from './game';
+import { addUnit, applyCommand, CommandError, createGame, currentResearch, endTurn, type GameState, HUMAN, Orders } from './game';
 import { neighborOf, tilesAround } from './hex';
 import { tileYields } from './map';
 import { generateWorld } from './mapgen';
@@ -22,9 +22,7 @@ function setup(): { s: GameState; cityId: number } {
 }
 
 function addWorker(s: GameState, tile: number) {
-  const u = { id: s.nextUnitId++, type: UnitTypeId.Worker, owner: HUMAN, tile, moves: 12, orders: Orders.None, path: null };
-  s.units.push(u);
-  return u;
+  return addUnit(s, HUMAN, UnitTypeId.Worker, tile);
 }
 
 describe('Technologiebaum', () => {

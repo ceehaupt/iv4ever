@@ -1,4 +1,4 @@
-# Spielregeln (Stand M4)
+# Spielregeln (Stand M5)
 
 Eigene Entwürfe. Alle Zahlen stehen als Konstanten bzw. Tabellen im Code und lassen sich dort anpassen:
 `src/sim/city.ts`, `src/sim/game.ts`, `src/sim/rules/*.ts`.
@@ -47,17 +47,58 @@ bzw. im Spiel über **T**.
 
 ## Einheiten
 
-| Einheit | Kosten | Bewegung | Stärke | Sicht | Besonderes |
-|---|---|---|---|---|---|
-| Siedler | 35 | 1 | 0 | 1 | gründet Städte; braucht Stadtgröße 2, kostet 1 Bürger |
-| Arbeiter | 25 | 1 | 0 | 1 | Geländeverbesserungen und Straßen |
-| Späher | 15 | 2 | 1 | 2 | |
-| Krieger | 12 | 1 | 2 | 1 | |
+| Einheit | Klasse | Technologie | Ressource | Kosten | Bew. | Stärke | Fernkampf | Besonderes |
+|---|---|---|---|---|---|---|---|---|
+| Siedler | Zivil | – | – | 35 | 1 | – | – | gründet Städte; braucht Stadtgröße 2, kostet 1 Bürger |
+| Arbeiter | Zivil | – | – | 25 | 1 | – | – | Verbesserungen und Straßen |
+| Späher | Aufklärung | – | – | 15 | 2 | 1 | – | Sicht 2 |
+| Krieger | Nahkampf | – | – | 12 | 1 | 2 | – | |
+| Bogenschütze | Fernkampf | Jagd | – | 22 | 1 | 2 | 3 (2 Felder) | +25 % in Städten |
+| Speerkämpfer | Nahkampf | Bronzeverarbeitung | Kupfer | 25 | 1 | 4 | – | +100 % gegen Berittene |
+| Reiter | Beritten | Tierzucht | Pferde | 30 | 2 | 4 | – | |
+| Schwertkämpfer | Nahkampf | Eisenverarbeitung | Eisen | 40 | 1 | 6 | – | +25 % gegen Städte |
+| Katapult | Belagerung | Mathematik | – | 45 | 1 | 2 | 6 (2 Felder) | +100 % gegen Städte |
+| Langbogenschütze | Fernkampf | Baukunst | – | 45 | 1 | 4 | 5 (2 Felder) | +50 % in Städten |
+| Pikenier | Nahkampf | Lehnswesen | Eisen | 50 | 1 | 7 | – | +100 % gegen Berittene |
+| Ritter | Beritten | Lehnswesen | Pferde + Eisen | 70 | 2 | 10 | – | |
+| Tribok | Belagerung | Burgenbau | – | 70 | 1 | 3 | 9 (2 Felder) | +100 % gegen Städte |
 
+- Strategische Ressourcen zählen, wenn sie verbessert, im eigenen Gebiet und an das Handelsnetz angebunden sind.
 - Bewegung intern in Zwölfteln (Straßen ⅓ bzw. ¼).
 - Mit der letzten Bewegung darf jedes betretbare Feld noch betreten werden (die Runde ist danach vorbei).
 - Stapel: unbegrenzt viele eigene Einheiten pro Feld; fremde Einheiten und Städte blockieren.
 - Sicht: +1 auf Hügeln; Wald/Dschungel, Hügel und Gebirge verdecken, was dahinter liegt.
+
+## Kampf
+
+- Jede Einheit hat **100 Lebenspunkte**; Verletzte kämpfen schwächer (Stärke × (50 % + 50 % × LP-Anteil)).
+- **Schaden** je Seite = 28 × (eigene / gegnerische Stärke)^1,3 × Zufall 0,8–1,2. **Nahkampf**: beide Seiten nehmen Schaden;
+  **Fernkampf** (Reichweite 2): nur der Verteidiger. Fallen beide, überlebt die Seite mit dem kleineren Defizit mit 1 LP.
+- **Verteidigung**: Hügel/Wald +25 %, Dschungel +15 %, Fluss zwischen den Feldern +25 % (nur Nahkampf), befestigt +25 %,
+  Stadt +25 % + Gebäude (Palisade 50, Burg 100) + Wunder, dazu Einheiten- und Beförderungsboni.
+- Gegen einen Stapel kämpft immer dessen **bester Verteidiger**. Fällt der letzte Kämpfer, rückt ein Nahkämpfer nach:
+  Zivilisten werden gefangen (Siedler werden zu Arbeitern), Städte erobert, Lager ausgehoben (+25 Gold).
+- **Eroberte Städte**: −1 Größe, Bauliste und Produktion verloren, der Palast zieht in die älteste verbleibende Stadt des Verlierers.
+  Wer keine Städte und Einheiten mehr hat, ist vernichtet.
+- Angreifen beendet den Zug der Einheit. Die Vorhersage (Maus über dem Ziel) zeigt Siegchance und Schadensspannen.
+- **Heilung** am Rundenbeginn, wenn die Einheit nicht gezogen hat oder angegriffen wurde: +10 im Feld, +15 im eigenen Gebiet,
+  +25 in eigener Stadt (+10 mit Feldscher auf dem Feld).
+- Bis zur Diplomatie (M7) herrscht mit allen Zivilisationen Krieg.
+
+### Erfahrung und Beförderungen
+
+- Sieg im Nahkampf +3, Fernkampftreffer +1 (+2 bei Tötung), Überleben als Verteidiger +2. Kaserne: neue Einheiten mit 5 EP.
+- Beförderung ab 5 / 12 / 22 / 35 / 52 / 75 / 100 EP; jede Beförderung heilt +25 LP.
+- Kampferprobt I–III (+15/+15/+20 %), Waldläufer (+30 % in Hügeln/Wald/Dschungel), Sturmtrupp I–II (+20/+30 % gegen Städte),
+  Stadtwache I–II (+20/+30 % in Städten), Flankenschutz (+50 % gegen Berittene), Gewaltmarsch (+1 Bewegung),
+  Feldscher (+10 Heilung auf dem Feld). Voraussetzungen siehe `src/sim/rules/units.ts`.
+
+## Plünderer
+
+- Neutrale Fraktion ab Runde 15. Alle 4 Runden kann ein Lager entstehen: auf freiem Land außerhalb jeder Grenze, unbeobachtet,
+  mindestens 5 Felder von Städten entfernt (höchstens 1 Lager je 160 Landfelder).
+- Lager bringen alle 7 Runden eine Einheit hervor (höchstens 3 je Lager); die Typen werden mit der Zeit stärker.
+- Plünderer greifen Ziele in 7 Feldern Umkreis an, wenn der Schadenstausch günstig ist; Zivilisten und leere Städte immer.
 
 ## Städte
 

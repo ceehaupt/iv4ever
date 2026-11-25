@@ -656,3 +656,54 @@ button.tech.locked {
   font-size: 12px;
   color: var(--muted);
 }
+
+/* --- M5: Kampf ------------------------------------------------------------- */
+
+.unit-actions.promote {
+  align-items: center;
+  padding: 6px;
+  border: 1px solid rgb(255 213 74 / 0.5);
+  border-radius: 6px;
+  background: rgb(255 213 74 / 0.08);
+}
+
+.unit-actions.promote small {
+  color: var(--accent);
+  margin-right: 4px;
+}
+
+.unit-stats .tag {
+  font-size: 11px;
+  padding: 0 5px;
+}
+
+#combat {
+  position: fixed;
+  z-index: 4;
+  pointer-events: none;
+  padding: 6px 10px;
+  font-size: 13px;
+  min-width: 190px;
+}
+
+#combat .odds {
+  font-size: 16px;
+  font-weight: 700;
+}
+
+#combat .good {
+  color: #3ddc6a;
+}
+
+#combat .mid {
+  color: #f2c230;
+}
+
+#combat .bad {
+  color: #ef6b5b;
+}
+
+#combat small {
+  display: block;
+  color: var(--muted);
+}

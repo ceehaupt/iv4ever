@@ -7,13 +7,15 @@ import type { GameMap } from './map';
 import type { GeneratedWorld, MapGenOptions } from './mapgen';
 import { findPath, landCost, roadStepCost, stepCost } from './path';
 import { Rng } from './rng';
-import { BUILDINGS } from './rules/buildings';
+import { BUILDINGS, BuildingId } from './rules/buildings';
 import { type JobKind, JOB_NAMES } from './rules/improvements';
 import { canResearch, nextStepTowards, TECHS, TechId, techCost } from './rules/techs';
 import { isWater, tileMoveCost } from './rules/terrain';
-import { maxMoves, START_UNITS, UNIT_TYPES } from './rules/units';
+import { MOVE_SCALE, promotionChoices, PROMOTIONS, START_UNITS, UNIT_TYPES, unitMaxMoves, xpForNext } from './rules/units';
 import { markVisible } from './vision';
 import { applyJob, jobBlocker, jobTurns } from './work';
+import { barbarianTurn, type Camp } from './barbarians';
+import { type CombatEvent, healUnits, performAttack } from './war';
 
 export const Orders = {
   None: 0,
@@ -38,6 +40,12 @@ export interface Unit {
   path: number[] | null;
   /** Laufender Arbeiterauftrag. */
   job?: JobKind | null;
+  /** Lebenspunkte 0–100. */
+  hp: number;
+  xp: number;
+  promotions: number[];
+  /** Hat sich in dieser Runde bewegt oder gekämpft (keine Heilung). */
+  acted: boolean;
 }
 
 export interface Player {
@@ -58,6 +66,8 @@ export interface Player {
   techs: Uint8Array;
   /** Forschungsziel (-1 = keins); erforscht wird jeweils der nächste Schritt dorthin. */
   goal: number;
+  /** Neutrale Plünderer-Fraktion. */
+  barbarian?: boolean;
 }
 
 /** Wirtschaftsbilanz eines Spielers pro Runde. */
@@ -86,6 +96,9 @@ export interface GameState {
   tileCity: Int32Array;
   /** Fortschritt laufender Arbeiteraufträge: Schlüssel "feld:auftrag" → Runden. */
   jobs: Record<string, number>;
+  /** Spieler-ID der Plünderer (letzter Eintrag in players). */
+  barbarian: number;
+  camps: Camp[];
   rng: Rng;
 }
 
@@ -101,7 +114,9 @@ export type Command =
   | { type: 'toggleTile'; city: number; tile: number }
   | { type: 'setRate'; rate: number }
   | { type: 'work'; unit: number; job: JobKind }
-  | { type: 'research'; tech: number };
+  | { type: 'research'; tech: number }
+  | { type: 'attack'; unit: number; target: number }
+  | { type: 'promote'; unit: number; promotion: number };
 
 export interface MoveEvent {
   unit: number;
@@ -119,26 +134,35 @@ export const DEFAULT_RATE = 60;
 /** Sichtweite einer Stadt (zusätzlich ist das eigene Gebiet sichtbar). */
 export const CITY_SIGHT = 2;
 
+export function newPlayer(id: number, n: number, name: string, human: boolean): Player {
+  return {
+    id,
+    name,
+    human,
+    alive: true,
+    explored: new Uint8Array(n),
+    visible: new Uint8Array(n),
+    gold: 0,
+    research: 0,
+    rate: DEFAULT_RATE,
+    techs: new Uint8Array(TECHS.length),
+    goal: -1,
+  };
+}
+
 export function createGame(world: GeneratedWorld, options: MapGenOptions): GameState {
   const n = world.map.width * world.map.height;
+  const players = world.starts.map((_, id) => newPlayer(id, n, id === HUMAN ? 'Du' : `Spieler ${id + 1}`, id === HUMAN));
+  const barbarian = players.length;
+  players.push({ ...newPlayer(barbarian, n, 'Plünderer', false), barbarian: true });
   const state: GameState = {
     turn: 1,
     map: world.map,
     options,
     starts: world.starts,
-    players: world.starts.map((_, id) => ({
-      id,
-      name: id === HUMAN ? 'Du' : `Spieler ${id + 1}`,
-      human: id === HUMAN,
-      alive: true,
-      explored: new Uint8Array(n),
-      visible: new Uint8Array(n),
-      gold: 0,
-      research: 0,
-      rate: DEFAULT_RATE,
-      techs: new Uint8Array(TECHS.length),
-      goal: -1,
-    })),
+    barbarian,
+    camps: [],
+    players,
     units: [],
     nextUnitId: 1,
     cities: [],
@@ -157,10 +181,19 @@ export function createGame(world: GeneratedWorld, options: MapGenOptions): GameS
   return state;
 }
 
-export function addUnit(state: GameState, owner: number, type: number, tile: number): Unit {
-  const u: Unit = { id: state.nextUnitId++, type, owner, tile, moves: maxMoves(type), orders: Orders.None, path: null };
+export function addUnit(state: GameState, owner: number, type: number, tile: number, xp = 0): Unit {
+  const u: Unit = {
+    id: state.nextUnitId++, type, owner, tile, moves: unitMaxMoves(type, []), orders: Orders.None, path: null,
+    hp: 100, xp, promotions: [], acted: false,
+  };
   state.units.push(u);
   return u;
+}
+
+/** Kann die Einheit eine Beförderung wählen? */
+export function canPromote(u: Unit): boolean {
+  return UNIT_TYPES[u.type].strength > 0 && u.xp >= xpForNext(u.promotions.length) &&
+    promotionChoices(u.type, u.promotions).length > 0;
 }
 
 export function findUnit(state: GameState, id: number): Unit | undefined {
@@ -217,7 +250,7 @@ function planPath(state: GameState, u: Unit, target: number, occ: Int16Array): n
     map: state.map,
     from: u.tile,
     to: target,
-    maxMoves: maxMoves(u.type),
+    maxMoves: unitMaxMoves(u.type, u.promotions),
     movesLeft: u.moves,
     cost: costFor(state, u.owner, occ),
   });
@@ -240,6 +273,7 @@ function continueMove(state: GameState, u: Unit): MoveEvent | null {
     const cost = stepCost(state.map, u.tile, next, roadCostFor(state, u.owner));
     occ[u.tile] = state.units.some((o) => o !== u && o.tile === u.tile) || cityAt(state, u.tile) ? u.owner : -1;
     u.tile = next;
+    u.acted = true;
     occ[next] = u.owner;
     u.moves = Math.max(0, u.moves - cost);
     u.path.shift();
@@ -257,6 +291,8 @@ export interface CommandResult {
   moves: MoveEvent[];
   /** Neu gegründete Stadt (für die Oberfläche: Stadtansicht öffnen). */
   foundedCity?: number;
+  combats?: CombatEvent[];
+  events?: TurnEvent[];
 }
 
 function ownCity(state: GameState, player: number, id: number): City {
@@ -326,6 +362,20 @@ function unitCommand(state: GameState, player: number, cmd: Extract<Command, { u
       for (const p of state.players) refreshVision(state, p.id);
       return { moves: [], foundedCity: c.id };
     }
+    case 'attack': {
+      const events: TurnEvent[] = [];
+      const combat = performAttack(state, u, cmd.target, events);
+      return { moves: [], combats: [combat], events };
+    }
+    case 'promote': {
+      if (!canPromote(u)) throw new CommandError('Noch keine Beförderung möglich');
+      if (!promotionChoices(u.type, u.promotions).includes(cmd.promotion)) throw new CommandError('Diese Beförderung ist nicht wählbar');
+      u.promotions.push(cmd.promotion);
+      // Eine Beförderung gibt Zuversicht: +25 LP.
+      u.hp = Math.min(100, u.hp + 25);
+      if (PROMOTIONS[cmd.promotion].moves) u.moves += (PROMOTIONS[cmd.promotion].moves ?? 0) * MOVE_SCALE;
+      return { moves: [] };
+    }
     case 'work': {
       if (!UNIT_TYPES[u.type].canWork) throw new CommandError('Nur Arbeiter können das');
       const blocker = jobBlocker(state.map, state.tileOwner, player, u.tile, cmd.job, knowsFn(state, player));
@@ -371,15 +421,18 @@ function unitCommand(state: GameState, player: number, cmd: Extract<Command, { u
  * Rundenende des Menschen: Gegner ziehen (KI folgt in M6), neue Runde beginnt,
  * Bewegung wird aufgefüllt, laufende Marschbefehle werden fortgesetzt.
  */
-export function endTurn(state: GameState): { moves: MoveEvent[]; events: TurnEvent[] } {
+export function endTurn(state: GameState): { moves: MoveEvent[]; events: TurnEvent[]; combats: CombatEvent[] } {
   const turnEvents: TurnEvent[] = [];
+  const combats: CombatEvent[] = [];
+  const events: MoveEvent[] = [];
   processJobs(state, turnEvents);
   processEconomy(state, turnEvents);
+  barbarianTurn(state, turnEvents, combats, events);
   state.turn++;
-  const events: MoveEvent[] = [];
+  healUnits(state);
   for (const u of state.units) {
     // Arbeitende Einheiten verbrauchen ihre Bewegung für den Auftrag.
-    u.moves = u.orders === Orders.Work ? 0 : maxMoves(u.type);
+    u.moves = u.orders === Orders.Work ? 0 : unitMaxMoves(u.type, u.promotions);
     if (u.orders === Orders.Skip) u.orders = Orders.None;
   }
   for (const u of state.units) {
@@ -389,7 +442,7 @@ export function endTurn(state: GameState): { moves: MoveEvent[]; events: TurnEve
     }
   }
   for (const p of state.players) refreshVision(state, p.id);
-  return { moves: events, events: turnEvents };
+  return { moves: events, events: turnEvents, combats };
 }
 
 /** Fortschritt der Arbeiteraufträge; fertige Aufträge verändern die Karte. */
@@ -467,7 +520,9 @@ function processEconomy(state: GameState, events: TurnEvent[]): void {
     inc.research += res.research;
     inc.gold += res.gold;
     income.set(c.owner, inc);
-    for (const type of res.newUnits) addUnit(state, c.owner, type, c.tile);
+    // Kaserne: neue Kampfeinheiten starten mit Erfahrung für eine Beförderung.
+    const xp = c.buildings.includes(BuildingId.Barracks) ? xpForNext(0) : 0;
+    for (const type of res.newUnits) addUnit(state, c.owner, type, c.tile, UNIT_TYPES[type].strength > 0 ? xp : 0);
     radiusChanged ||= res.radiusChanged;
     if (res.wonder !== undefined) {
       // Weltwunder: Auftrag bei allen anderen Städten entfernen.

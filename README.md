@@ -18,7 +18,7 @@ npm run dev        # http://localhost:5173
 | Mausrad, Trackpad-Pinch, `+` / `−` | Zoomen |
 | Klick | Einheit, Stadt bzw. Feld wählen (erneuter Klick wechselt im Stapel) |
 | Klick auf Feld bei offener Stadt | Feld fest bewirtschaften / freigeben |
-| Rechtsklick oder `M` + Klick | Ausgewählte Einheit zum Feld schicken (Vorschau zeigt Runden) |
+| Rechtsklick oder `M` + Klick | Ausgewählte Einheit zum Feld schicken bzw. Gegner angreifen (Vorschau zeigt Runden bzw. Siegchance) |
 | `Leertaste` | Einheit überspringt diese Runde |
 | `F` | Befestigen / Schlafen bzw. Aufwecken |
 | `B` | Stadt gründen (Siedler) |
@@ -31,6 +31,7 @@ npm run dev        # http://localhost:5173
 | `Strg/⌘ + S` | Schnellspeichern (Laden über „Laden ▾“) |
 | `Esc` | Auswahl aufheben |
 | `X` | Debug: Karte aufdecken |
+| `Shift + P` | Debug (nur Dev-Server): Plünderer neben die ausgewählte Einheit setzen |
 | Minimap klicken/ziehen | Springen |
 
 Gleicher Seed + gleiche Einstellungen = gleiche Karte. Die Welt ist ost-west umlaufend.

@@ -1,10 +1,10 @@
-import { BitmapText, Container, Sprite } from 'pixi.js';
+import { BitmapText, Container, Graphics, Sprite } from 'pixi.js';
 import type { UnitView } from '../protocol';
 import { Orders } from '../sim/game';
 import type { GameMap } from '../sim/map';
 import { UNIT_TYPES } from '../sim/rules/units';
 import { ICON_CELL, type UnitAtlas } from './icons';
-import { PLAYER_COLORS } from './palette';
+import { playerColor } from './palette';
 import { centerX, centerY, liftOf } from './projection';
 
 /** Durchmesser einer Einheiten-Plakette in Weltpixeln. */
@@ -163,7 +163,7 @@ export class UnitLayer {
     const disc = new Sprite(at.disc);
     disc.anchor.set(0.5);
     disc.scale.set(scale);
-    disc.tint = PLAYER_COLORS[u.owner % PLAYER_COLORS.length];
+    disc.tint = playerColor(u.owner);
     const icon = new Sprite(at.types[u.type]);
     icon.anchor.set(0.5);
     icon.scale.set(scale * 0.95);
@@ -184,6 +184,22 @@ export class UnitLayer {
       dot.position.set(-TOKEN_SIZE * 0.4, -TOKEN_SIZE * 0.38);
       dot.tint = u.moves <= 0 ? 0x6b7280 : u.moves >= u.maxMoves ? 0x3ddc6a : 0xf2c230;
       c.addChild(dot);
+    }
+    if (u.hp < 100) {
+      // Lebenspunkte als kleiner Balken unter der Plakette.
+      const w = TOKEN_SIZE * 0.8;
+      const bar = new Graphics();
+      const color = u.hp > 60 ? 0x3ddc6a : u.hp > 30 ? 0xf2c230 : 0xef5b4b;
+      bar.rect(-w / 2, TOKEN_SIZE * 0.52, w, 3.5).fill({ color: 0x0b0f18, alpha: 0.85 });
+      bar.rect(-w / 2, TOKEN_SIZE * 0.52, (w * Math.max(0, u.hp)) / 100, 3.5).fill(color);
+      c.addChild(bar);
+    }
+    if (u.promotable.length) {
+      // Beförderung möglich: kleiner goldener Stern.
+      const star = new BitmapText({ text: '★', style: { fontFamily: 'Arial', fontSize: 12, fill: 0xffd54a } });
+      star.anchor.set(0.5);
+      star.position.set(TOKEN_SIZE * 0.42, TOKEN_SIZE * 0.34);
+      c.addChild(star);
     }
     if (count > 1) {
       const bg = new Sprite(at.dot);

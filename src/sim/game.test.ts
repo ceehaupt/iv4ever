@@ -94,7 +94,8 @@ describe('Spielablauf', () => {
   it('jeder Spieler startet mit Siedler, Krieger, Späher auf seinem Startfeld', () => {
     const s = newGame();
     expect(s.units).toHaveLength(12);
-    for (const p of s.players) {
+    expect(s.players[s.barbarian].barbarian).toBe(true);
+    for (const p of s.players.filter((pl) => !pl.barbarian)) {
       const own = s.units.filter((u) => u.owner === p.id);
       expect(own.map((u) => u.type).sort()).toEqual([UnitTypeId.Settler, UnitTypeId.Scout, UnitTypeId.Warrior].sort());
       expect(new Set(own.map((u) => u.tile))).toEqual(new Set([s.starts[p.id]]));

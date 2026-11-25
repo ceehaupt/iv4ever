@@ -3,6 +3,7 @@ import type { Command, Economy, MoveEvent } from './sim/game';
 import type { GameMap } from './sim/map';
 import type { Climate, MapScript, SeaLevel } from './sim/mapgen';
 import type { JobKind } from './sim/rules/improvements';
+import type { CombatEvent } from './sim/war';
 import type { SaveMeta } from './sim/save';
 
 export interface NewGameOptions {
@@ -28,6 +29,13 @@ export interface UnitView {
   path: number[] | null;
   /** Arbeiterauftrag mit Fortschritt (nur eigene Einheiten). */
   job: { kind: JobKind; progress: number; turns: number } | null;
+  hp: number;
+  xp: number;
+  promotions: number[];
+  /** Erfahrung für die nächste Beförderung. */
+  xpNext: number;
+  /** Wählbare Beförderungen (leer = derzeit keine). */
+  promotable: number[];
 }
 
 export interface ResearchView {
@@ -50,6 +58,8 @@ export interface PlayerView {
   id: number;
   name: string;
   human: boolean;
+  barbarian: boolean;
+  alive: boolean;
 }
 
 /** Stadt aus Sicht des Menschen; Details nur für eigene Städte. */
@@ -60,6 +70,8 @@ export interface CityView {
   tile: number;
   size: number;
   capital: boolean;
+  /** Verteidigungsbonus der Stadt in % (Gebäude, Wunder) – für die Kampfvorhersage. */
+  defense: number;
   own?: {
     foodStored: number;
     prodStored: number;
@@ -99,6 +111,9 @@ export interface GameView {
   economy: EconomyView;
   research: ResearchView;
   layers: MapLayers;
+  /** Bekannte Plündererlager (Felder). */
+  camps: number[];
+  barbarian: number;
 }
 
 export type ViewReason = 'new' | 'load' | 'command' | 'turn';
@@ -110,11 +125,21 @@ export type ToWorker =
   | { type: 'endTurn' }
   | { type: 'save'; slot: string; label: string }
   | { type: 'load'; slot: string }
-  | { type: 'listSaves' };
+  | { type: 'listSaves' }
+  /** Nur Entwicklung: Plünderer neben ein Feld setzen. */
+  | { type: 'debugRaider'; tile: number };
 
 /** Nachrichten Simulations-Worker → Hauptthread. */
 export type FromWorker =
   | { type: 'mapReady'; map: GameMap; options: NewGameOptions; genMs: number }
-  | { type: 'view'; view: GameView; moves: MoveEvent[]; events: TurnEvent[]; reason: ViewReason; foundedCity?: number }
+  | {
+      type: 'view';
+      view: GameView;
+      moves: MoveEvent[];
+      events: TurnEvent[];
+      combats: CombatEvent[];
+      reason: ViewReason;
+      foundedCity?: number;
+    }
   | { type: 'saves'; saves: SaveMeta[] }
   | { type: 'notice'; text: string; level: 'info' | 'error' };

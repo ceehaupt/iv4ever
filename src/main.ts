@@ -2,6 +2,9 @@ import './style.css';
 import type { CityView, FromWorker, GameView, ToWorker, UnitView } from './protocol';
 import { GameRenderer, isTyping } from './render/renderer';
 import { foundingBlockerAt } from './sim/city';
+import { type Battlefield, bestDefender, type Fighter, predictCombat } from './sim/combat';
+import { tileDistance } from './sim/hex';
+import { setBarbarianId } from './render/palette';
 import { Orders } from './sim/game';
 import { UNIT_TYPES } from './sim/rules/units';
 import { CityPanel } from './ui/cityPanel';
@@ -70,16 +73,19 @@ const cityPanel = new CityPanel({
   },
 });
 const renderer = new GameRenderer(document.getElementById('game')!, {
-  onHover: (i) => {
-    hoverTile = i;
-    // Während der Stadtansicht belegt das Stadtpanel die linke Seite.
-    if (cityPanel.openCityId < 0) hud.hoverTile(map, fogForUi(), i);
-    updatePathPreview();
+  onHover: (i, x, y) => {
+    if (i !== hoverTile) {
+      hoverTile = i;
+      // Während der Stadtansicht belegt das Stadtpanel die linke Seite.
+      if (cityPanel.openCityId < 0) hud.hoverTile(map, fogForUi(), i);
+      updatePathPreview();
+    }
+    updateCombatTooltip(x, y);
   },
   onClick: handleClick,
   onRightClick: (tile) => {
     const u = selectedUnit();
-    if (u && isOwn(u)) moveTo(u, tile);
+    if (u && isOwn(u)) moveOrAttack(u, tile);
   },
   onFrame: () => {
     minimap.draw(renderer.viewRect());
@@ -223,7 +229,7 @@ function handleClick(tile: number): void {
   if (tile < 0 || !view || !map) return;
   const u = selectedUnit();
   if (moveMode && u && isOwn(u)) {
-    moveTo(u, tile);
+    moveOrAttack(u, tile);
     return;
   }
   // Stadtansicht offen: Klick auf eigenes Feld der Stadt legt die Bewirtschaftung fest.
@@ -280,6 +286,94 @@ function command(cmd: Parameters<typeof send>[0]): void {
   send(cmd);
 }
 
+// --- Kampf ------------------------------------------------------------------------------
+
+const combatEl = document.getElementById('combat')!;
+
+function fighter(u: UnitView): Fighter {
+  return { type: u.type, hp: u.hp, promotions: u.promotions, fortified: u.orders === Orders.Fortify };
+}
+
+/** Sichtbares feindliches Ziel auf dem Feld? (Einheiten, Stadt oder Lager) */
+function hasEnemyTarget(u: UnitView, tile: number): boolean {
+  if (!view || view.fog[tile] !== 2) return false;
+  if (view.units.some((x) => x.tile === tile && x.owner !== u.owner)) return true;
+  const c = cityAtTile(tile);
+  return (!!c && c.owner !== u.owner) || view.camps.includes(tile);
+}
+
+/** Gleiche Regeln wie attackBlocker im Worker, aus Sicht der Oberfläche. */
+function attackProblem(u: UnitView, tile: number): string | null {
+  if (!map) return 'Keine Karte';
+  const t = UNIT_TYPES[u.type];
+  if (t.strength <= 0 && t.ranged <= 0) return 'Diese Einheit kann nicht angreifen';
+  if (u.moves <= 0) return 'Keine Bewegung mehr übrig';
+  const dist = tileDistance(map, u.tile, tile);
+  if (t.ranged > 0) {
+    if (dist > t.range) return `Außer Reichweite (${t.range} Felder)`;
+    if (!view!.units.some((x) => x.tile === tile && x.owner !== u.owner && UNIT_TYPES[x.type].strength > 0)) {
+      return 'Kein Ziel für Fernkampf';
+    }
+    return null;
+  }
+  return dist === 1 ? null : 'Erst neben das Ziel ziehen';
+}
+
+function predictionFor(u: UnitView, tile: number) {
+  if (!map || !view) return null;
+  const t = UNIT_TYPES[u.type];
+  const ranged = t.ranged > 0;
+  const defenders = view.units.filter((x) => x.tile === tile && x.owner !== u.owner);
+  const city = cityAtTile(tile);
+  const bf: Battlefield = { map, attackerTile: u.tile, defenderTile: tile, cityDefense: city ? city.defense : null };
+  const att = fighter(u);
+  const k = bestDefender(defenders.map(fighter), att, bf, ranged);
+  if (k < 0) return { defender: null, prediction: null };
+  return { defender: defenders[k], prediction: predictCombat(att, fighter(defenders[k]), bf, ranged) };
+}
+
+function updateCombatTooltip(x: number, y: number): void {
+  const u = selectedUnit();
+  if (!u || !isOwn(u) || hoverTile < 0 || !hasEnemyTarget(u, hoverTile) || cityPanel.openCityId >= 0) {
+    combatEl.hidden = true;
+    return;
+  }
+  const problem = attackProblem(u, hoverTile);
+  const p = predictionFor(u, hoverTile);
+  let html: string;
+  if (p && p.prediction && p.defender) {
+    const pr = p.prediction;
+    const pct = Math.round(pr.win * 100);
+    const cls = pr.win >= 0.7 ? 'good' : pr.win >= 0.4 ? 'mid' : 'bad';
+    html = `<div class="odds ${cls}">${pct} % Sieg</div>
+      <small>${UNIT_TYPES[u.type].name} ${pr.attack.toFixed(1)} gegen ${UNIT_TYPES[p.defender.type].name} ${pr.defense.toFixed(1)}</small>
+      <small>Schaden: Gegner −${pr.dmgDef[0]}–${pr.dmgDef[1]}${pr.dmgAtt[1] ? ` · eigene −${pr.dmgAtt[0]}–${pr.dmgAtt[1]}` : ' · kein Gegenschaden'}</small>
+      ${pr.loss > 0 ? `<small>Risiko zu fallen: ${Math.round(pr.loss * 100)} %</small>` : ''}`;
+  } else {
+    html = `<div class="odds good">Kein Verteidiger</div><small>${cityAtTile(hoverTile) ? 'Stadt wird erobert' : view!.camps.includes(hoverTile) ? 'Lager wird ausgehoben' : 'Einheiten werden gefangen'}</small>`;
+  }
+  if (problem) html += `<small class="bad">${problem}</small>`;
+  combatEl.innerHTML = html;
+  combatEl.hidden = false;
+  combatEl.style.left = `${Math.min(window.innerWidth - 220, x + 16)}px`;
+  combatEl.style.top = `${Math.min(window.innerHeight - 120, y + 16)}px`;
+}
+
+function moveOrAttack(u: UnitView, tile: number): void {
+  if (hasEnemyTarget(u, tile)) {
+    moveMode = false;
+    const problem = attackProblem(u, tile);
+    if (problem) {
+      ui.toast(problem, 'error');
+      return;
+    }
+    combatEl.hidden = true;
+    command({ type: 'command', command: { type: 'attack', unit: u.id, target: tile } });
+    return;
+  }
+  moveTo(u, tile);
+}
+
 function moveTo(u: UnitView, tile: number): void {
   moveMode = false;
   if (tile === u.tile) return;
@@ -308,7 +402,9 @@ function runAction(action: UnitAction, unitId: number): void {
       if (window.confirm('Einheit wirklich auflösen?')) command({ type: 'command', command: { type: 'disband', unit: u.id } });
       break;
     default: {
-      if (action.startsWith('job:')) {
+      if (action.startsWith('promote:')) {
+        command({ type: 'command', command: { type: 'promote', unit: u.id, promotion: Number(action.slice(8)) } });
+      } else if (action.startsWith('job:')) {
         const job = action.slice(4) as Parameters<typeof jobTurns>[0];
         command({ type: 'command', command: { type: 'work', unit: u.id, job } });
       }
@@ -362,7 +458,22 @@ worker.onmessage = (e: MessageEvent<FromWorker>) => {
       renderer.refreshTiles(changedTiles);
       techPanel.update(view.research);
       ui.setResearch(TechPanel.summary(view.research), view.research.current < 0);
-      renderer.setCities(view.cities, view.tileOwner);
+      setBarbarianId(view.barbarian);
+      renderer.setCities(view.cities, view.tileOwner, view.camps);
+      // Eigene Angriffe: Ergebnis kurz einblenden.
+      for (const c of msg.combats) {
+        if (c.attackerOwner !== view.human || msg.reason !== 'command') continue;
+        const text = c.capturedCity
+          ? `${c.capturedCity} erobert!`
+          : c.destroyedCamp
+            ? 'Lager ausgehoben!'
+            : c.defenderDied
+              ? `Sieg! ${c.defenderType !== null ? UNIT_TYPES[c.defenderType].name : 'Gegner'} besiegt`
+              : c.attackerDied
+                ? `Niederlage – ${UNIT_TYPES[c.attackerType].name} gefallen`
+                : `Gegner −${c.dmgDef} LP${c.dmgAtt ? `, eigene −${c.dmgAtt} LP` : ''}`;
+        ui.toast(text, c.attackerDied ? 'error' : 'info');
+      }
       const animMs = renderer.setUnits(view.units, view.human, msg.moves);
       minimap.update(fogForUi(), view.units, view.tileOwner, view.cities);
       ui.setTurn(view.turn, readyUnits().length);
@@ -425,6 +536,10 @@ window.addEventListener('keydown', (e) => {
   }
   if (e.metaKey || e.ctrlKey || e.altKey) return;
   const u = selectedUnit();
+  if (import.meta.env.DEV && e.shiftKey && e.key.toLowerCase() === 'p' && u) {
+    send({ type: 'debugRaider', tile: u.tile });
+    return;
+  }
   const own = u && isOwn(u);
   switch (e.key) {
     case 'Enter':

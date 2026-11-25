@@ -19,6 +19,7 @@ Enzyklopädie-Texte, Grafiken, UI-Layout/-Look, Musik, Sounds, Szenarien. Histor
 - Flüsse liegen auf Kanten; Abfrage nur über `hasRiver`/`touchesRiver` (`src/sim/map.ts`).
 - `src/sim/city.ts` – Städte: Gründung, Feldbesitz, Bewirtschaftung, Wachstum, Produktion, Stimmung/Versorgung.
 - `src/sim/work.ts` – Arbeiteraufträge (Prüfung/Anwendung, auch von der UI genutzt); `rules/techs.ts`, `rules/improvements.ts`, `rules/buildings.ts` (Indizes nur hinten anhängen – stehen in Speicherständen).
+- `src/sim/combat.ts` – Kampfformel (rein, auch für die Vorhersage in der UI); `war.ts` – Angriff, Eroberung, Heilung; `barbarians.ts` – Plünderer.
 - `src/sim/game.ts` – Spielzustand, Befehle, Rundenwechsel, Wirtschaft, Forschung; `path.ts` (A*), `vision.ts` (Sichtlinie), `save.ts` (versioniertes Speicherformat – bei Änderungen `SAVE_VERSION` erhöhen).
 - `src/worker/` – Worker-Einstieg, hält den Spielzustand; `storage.ts` = IndexedDB.
 - Der Hauptthread bekommt nur `GameView` (Sicht des Menschen, Nebel!) – nie den vollen Zustand.

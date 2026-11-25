@@ -2,12 +2,13 @@ import type { EconomyView, UnitView } from '../protocol';
 import type { TurnEvent } from '../sim/city';
 import { type JobKind, JOB_ICONS, JOB_NAMES } from '../sim/rules/improvements';
 import { toCss } from '../render/color';
-import { PLAYER_COLORS } from '../render/palette';
+import { playerColor } from '../render/palette';
 import { Orders } from '../sim/game';
 import type { SaveMeta } from '../sim/save';
-import { MOVE_SCALE, UNIT_TYPES } from '../sim/rules/units';
+import { CLASS_NAMES, MOVE_SCALE, PROMOTIONS, UNIT_TYPES } from '../sim/rules/units';
 
-export type UnitAction = 'fortify' | 'skip' | 'wake' | 'disband' | 'found' | 'moveMode' | `job:${JobKind}`;
+export type UnitAction =
+  | 'fortify' | 'skip' | 'wake' | 'disband' | 'found' | 'moveMode' | `job:${JobKind}` | `promote:${number}`;
 
 /** Arbeiteraufträge, die der Spieler grundsätzlich kennt, mit Grund, falls hier nicht möglich. */
 export interface JobOption {
@@ -141,8 +142,7 @@ export class GameUi {
     this.endTurn.disabled = busy;
   }
 
-  /** Zeigt die ausgewählte Einheit und den Rest ihres Stapels. */
-  /** foundBlocker: null = Stadtgründung möglich, sonst Begründung. */
+  /** Zeigt die ausgewählte Einheit und den Rest ihres Stapels; foundBlocker: null = Stadtgründung möglich. */
   showUnits(
     stack: UnitView[], selected: UnitView | null, human: number, foundBlocker: string | null = 'unbekannt', jobs: JobOption[] = [],
   ): void {
@@ -154,7 +154,7 @@ export class GameUi {
     const own = selected.owner === human;
     const status =
       selected.orders === Orders.Fortify
-        ? t.combat ? 'befestigt' : 'schläft'
+        ? t.strength > 0 ? 'befestigt' : 'schläft'
         : selected.orders === Orders.Goto
           ? 'unterwegs'
           : selected.orders === Orders.Work && selected.job
@@ -171,7 +171,7 @@ export class GameUi {
       ? [
           btn('moveMode', 'Bewegen', 'M', selected.moves > 0, 'Danach Zielfeld anklicken (oder Rechtsklick auf das Ziel)'),
           selected.orders === Orders.None || selected.orders === Orders.Skip
-            ? btn('fortify', t.combat ? 'Befestigen' : 'Schlafen', 'F')
+            ? btn('fortify', t.strength > 0 ? 'Befestigen' : 'Schlafen', 'F')
             : btn('wake', 'Aufwecken', 'F'),
           btn('skip', 'Überspringen', 'Leer', selected.moves > 0),
           ...(t.canFound ? [btn('found', 'Stadt gründen', 'B', foundBlocker === null && selected.moves > 0, foundBlocker ?? (selected.moves > 0 ? '' : 'Keine Bewegung mehr übrig'))] : []),
@@ -195,7 +195,7 @@ export class GameUi {
         return `<button type="button" class="chip${ready ? ' ready' : ''}" data-unit="${u.id}" title="${ut.name}">${ut.icon}</button>`;
       })
       .join('');
-    const color = toCss(PLAYER_COLORS[selected.owner % PLAYER_COLORS.length]);
+    const color = toCss(playerColor(selected.owner));
     this.unitPanel.hidden = false;
     this.unitPanel.innerHTML = `
       <div class="unit-head">
@@ -205,10 +205,20 @@ export class GameUi {
           <div class="unit-stats">
             <span title="Bewegung">👣 ${formatMoves(selected.moves)}/${formatMoves(selected.maxMoves)}</span>
             <span title="Stärke">⚔️ ${t.strength}</span>
+            ${t.ranged ? `<span title="Fernkampf (Reichweite ${t.range})">🏹 ${t.ranged}</span>` : ''}
             <span title="Sichtweite">👁️ ${t.sight}</span>
+            <span title="Klasse">${CLASS_NAMES[t.cls]}</span>
           </div>
+          ${t.strength > 0 ? `<div class="unit-stats">
+            <span title="Lebenspunkte">❤️ ${selected.hp}/100</span>
+            <span title="Erfahrung bis zur nächsten Beförderung">⭐ ${selected.xp}/${selected.xpNext}</span>
+            ${selected.promotions.map((p) => `<span class="tag" title="${PROMOTIONS[p].description}">${PROMOTIONS[p].name}</span>`).join('')}
+          </div>` : ''}
         </div>
       </div>
+      ${own && selected.promotable.length ? `<div class="unit-actions promote"><small>Beförderung wählen:</small>${selected.promotable
+        .map((p) => `<button type="button" data-action="promote:${p}" data-unit-id="${id}" title="${PROMOTIONS[p].description}">★ ${PROMOTIONS[p].name}</button>`)
+        .join('')}</div>` : ''}
       ${actions ? `<div class="unit-actions">${actions}</div>` : ''}
       ${jobButtons ? `<div class="unit-actions jobs">${jobButtons}</div>` : ''}
       ${own && t.canWork && !jobs.length ? '<p class="hint">Noch keine Aufträge – erforsche z. B. Ackerbau, Bergbau oder Rad (T).</p>' : ''}

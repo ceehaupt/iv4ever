@@ -61,10 +61,18 @@ Grafik, Texte und Balancing sind eigene Entwürfe (siehe `CLAUDE.md`, Abschnitt 
 - Technologie-Übersicht (T), Arbeiteraufträge im Einheitenpanel, Ausbau in der Feldinfo
 - Speicherformat v3 mit Migration (Bewegung jetzt in Zwölfteln)
 
-### M5 – Militär & Kampf
-- Einheitenklassen (Nahkampf, Fernkampf, beritten, Belagerung, Schiffe)
-- Kampfformel mit Gelände-, Fluss-, Befestigungs- und Stadtboni; Kampfvorhersage vor dem Angriff
-- Erfahrung/Beförderungen (eigener Baum), Stadteroberung, Plünderer/Banditen als neutrale Fraktion
+### M5 – Militär & Kampf ✅
+- Einheitenklassen Nahkampf, Fernkampf, Beritten, Belagerung; 9 neue Einheiten, strategische Ressourcen als Voraussetzung
+- Kampf mit Lebenspunkten, Schadensformel, Gelände-/Fluss-/Befestigungs-/Stadtboni, Fernkampf ohne Gegenschaden
+- Kampfvorhersage beim Überfahren des Ziels, bester Verteidiger eines Stapels, Gefangennahme von Zivilisten
+- Erfahrung und eigener Beförderungsbaum (11 Beförderungen), Kaserne, Heilung
+- Stadteroberung inkl. Palastumzug, Vernichtung von Spielern
+- Plünderer als neutrale Fraktion mit Lagern, eigener einfacher KI und Gold für ausgehobene Lager
+- Speicherformat v4 mit Migration
+
+### M5b – Seefahrt (neu, aus M5 ausgelagert)
+- Schiffe (Küste/Ozean), Bewegung auf Wasser, Transport von Landeinheiten (Ein-/Ausladen), Seekampf, Hafenstädte
+- Voraussetzung für Archipel-Karten und Inselstarts
 
 ### M6 – KI
 - Utility-basierte KI im Worker: Siedelplätze, Bauaufträge, Forschungspfad, Arbeiter-Automatik, Verteidigung, Angriffsplanung

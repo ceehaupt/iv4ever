@@ -1,8 +1,13 @@
 import type { CityView, FromWorker, GameView, NewGameOptions, ToWorker, ViewReason } from '../protocol';
 import { availableItems, buildCost, type City, cityReport, cultureToNextRadius, foodToGrow, type TurnEvent, workableTiles } from '../sim/city';
 import {
-  applyCommand, CommandError, createGame, currentResearch, economy, endTurn, type GameState, HUMAN, type MoveEvent, refreshVision,
+  addUnit, applyCommand, canPromote, CommandError, createGame, currentResearch, economy, endTurn, type GameState, HUMAN, type MoveEvent,
+  refreshVision,
 } from '../sim/game';
+import { promotionChoices, UnitTypeId, xpForNext } from '../sim/rules/units';
+import { tilesAround } from '../sim/hex';
+import { isWater, Relief } from '../sim/rules/terrain';
+import { type CombatEvent, cityDefenseAt } from '../sim/war';
 import { jobTurns } from '../sim/work';
 import { BuildingId } from '../sim/rules/buildings';
 import { cloneMap, mapTransferables } from '../sim/map';
@@ -33,7 +38,10 @@ function sendMap(s: GameState, genMs: number): void {
 
 /** Sicht des menschlichen Spielers: eigene Einheiten immer, fremde nur auf sichtbaren Feldern. */
 function cityView(s: GameState, c: City, explored: Uint8Array): CityView | null {
-  const base = { id: c.id, owner: c.owner, name: c.name, tile: c.tile, size: c.size, capital: c.buildings.includes(BuildingId.Palace) };
+  const base = {
+    id: c.id, owner: c.owner, name: c.name, tile: c.tile, size: c.size, capital: c.buildings.includes(BuildingId.Palace),
+    defense: cityDefenseAt(s, c.tile) ?? 0,
+  };
   if (c.owner !== HUMAN) return explored[c.tile] ? base : null;
   const report = cityReport(s, c);
   const item = c.queue[0];
@@ -61,6 +69,7 @@ function cityView(s: GameState, c: City, explored: Uint8Array): CityView | null 
 
 function sendView(
   s: GameState, reason: ViewReason, moves: MoveEvent[] = [], events: TurnEvent[] = [], foundedCity?: number,
+  combats: CombatEvent[] = [],
 ): void {
   const p = s.players[HUMAN];
   const n = s.map.width * s.map.height;
@@ -92,7 +101,7 @@ function sendView(
     layers,
     human: HUMAN,
     fog,
-    players: s.players.map((pl) => ({ id: pl.id, name: pl.name, human: pl.human })),
+    players: s.players.map((pl) => ({ id: pl.id, name: pl.name, human: pl.human, barbarian: !!pl.barbarian, alive: pl.alive })),
     units: s.units
       .filter((u) => u.owner === HUMAN || p.visible[u.tile])
       .map((u) => ({
@@ -108,12 +117,20 @@ function sendView(
           u.owner === HUMAN && u.job
             ? { kind: u.job, progress: s.jobs[`${u.tile}:${u.job}`] ?? 0, turns: jobTurns(u.job) }
             : null,
+        hp: u.hp,
+        xp: u.xp,
+        promotions: u.promotions.slice(),
+        xpNext: xpForNext(u.promotions.length),
+        promotable: u.owner === HUMAN && canPromote(u) ? promotionChoices(u.type, u.promotions) : [],
       })),
+    camps: s.camps.filter((c) => p.explored[c.tile]).map((c) => c.tile),
+    barbarian: s.barbarian,
   };
   // Fremde Bewegungen nur zeigen, wenn sie im Sichtbereich liegen.
   const visibleMoves = moves.filter((m) => m.owner === HUMAN || m.steps.some((t) => p.visible[t]));
   const ownEvents = events.filter((e) => e.player === HUMAN);
-  post({ type: 'view', view, moves: visibleMoves, events: ownEvents, reason, foundedCity }, [
+  const visibleCombats = combats.filter((c) => c.attackerOwner === HUMAN || c.defenderOwner === HUMAN || p.visible[c.tile] || p.visible[c.from]);
+  post({ type: 'view', view, moves: visibleMoves, events: ownEvents, combats: visibleCombats, reason, foundedCity }, [
     fog.buffer, tileOwner.buffer, layers.improvement.buffer, layers.road.buffer, layers.feature.buffer,
   ]);
 }
@@ -142,7 +159,7 @@ async function handle(msg: ToWorker): Promise<void> {
       if (!state) return;
       try {
         const res = applyCommand(state, HUMAN, msg.command);
-        sendView(state, 'command', res.moves, [], res.foundedCity);
+        sendView(state, 'command', res.moves, res.events ?? [], res.foundedCity, res.combats ?? []);
       } catch (e) {
         if (e instanceof CommandError) notice(e.message, 'error');
         else throw e;
@@ -152,7 +169,7 @@ async function handle(msg: ToWorker): Promise<void> {
     case 'endTurn': {
       if (!state) return;
       const res = endTurn(state);
-      sendView(state, 'turn', res.moves, res.events);
+      sendView(state, 'turn', res.moves, res.events, undefined, res.combats);
       try {
         await putSave(saveMeta(state, 'auto', 'Autosave'), toSaveData(state));
       } catch {
@@ -183,6 +200,21 @@ async function handle(msg: ToWorker): Promise<void> {
       } catch (e) {
         notice(e instanceof SaveError ? e.message : 'Laden fehlgeschlagen', 'error');
       }
+      break;
+    }
+    case 'debugRaider': {
+      if (!state) return;
+      const s = state;
+      const free = tilesAround(s.map, msg.tile, 1).find(
+        (t) => t !== msg.tile && !isWater(s.map.terrain[t]) && s.map.relief[t] !== Relief.Mountain && !s.units.some((u) => u.tile === t),
+      );
+      if (free === undefined) {
+        notice('Kein freies Feld daneben', 'error');
+        return;
+      }
+      addUnit(s, s.barbarian, UnitTypeId.Warrior, free);
+      refreshVision(s, HUMAN);
+      sendView(s, 'command');
       break;
     }
     case 'listSaves':
