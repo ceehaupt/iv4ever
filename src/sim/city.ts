@@ -7,6 +7,7 @@ import { RESOURCES, ResourceKind } from './rules/resources';
 import { TechId } from './rules/techs';
 import { Feature, isWater, Relief, Terrain, type Yields } from './rules/terrain';
 import { UNIT_TYPES } from './rules/units';
+import { AI_BONUS } from './rules/leaders';
 
 /**
  * Städte. Regeln (eigene Entwürfe, siehe docs/REGELN.md):
@@ -78,6 +79,8 @@ export interface PlayerContext {
   connected: Set<number>;
   luxuries: number;
   all: { mood: number; supply: number; specialistTrade: number; coastalTrade: number };
+  /** Ertragsfaktor durch den Schwierigkeitsgrad (nur Computerspieler, sonst 1). */
+  bonus: number;
 }
 
 export const CITY_MIN_DISTANCE = 3;
@@ -323,7 +326,9 @@ export function playerContext(state: GameState, owner: number): PlayerContext {
       all.coastalTrade += a.coastalTrade ?? 0;
     }
   }
-  return { knows, strategic, rate: state.players[owner].rate, capital, connected, luxuries: lux.size, all };
+  const pl = state.players[owner];
+  const bonus = pl.human || pl.barbarian ? 1 : AI_BONUS[state.options.difficulty ?? 'normal'];
+  return { knows, strategic, rate: pl.rate, capital, connected, luxuries: lux.size, all, bonus };
 }
 
 function centerYields(state: GameState, c: City, knows: Knows): Yields {
@@ -457,11 +462,13 @@ export interface CityTurnResult {
 export function processCity(state: GameState, c: City, events: TurnEvent[], ctx: PlayerContext): CityTurnResult {
   assignTiles(state, c);
   const rep = cityReport(state, c, ctx);
-  const res: CityTurnResult = { research: rep.research, gold: rep.gold, newUnits: [], radiusChanged: false };
+  const res: CityTurnResult = {
+    research: Math.floor(rep.research * ctx.bonus), gold: rep.gold, newUnits: [], radiusChanged: false,
+  };
   const ev = (text: string) => events.push({ player: c.owner, text: `${c.name}: ${text}`, tile: c.tile, city: c.id });
 
-  // Nahrung
-  c.foodStored += rep.surplus;
+  // Nahrung (Schwierigkeitsbonus wirkt nur auf Überschuss)
+  c.foodStored += rep.surplus > 0 ? Math.floor(rep.surplus * ctx.bonus) : rep.surplus;
   if (c.foodStored >= rep.foodToGrow) {
     const keep = Math.max(0, ...c.buildings.map((b) => BUILDINGS[b].keepFood));
     c.foodStored = c.foodStored - rep.foodToGrow + Math.floor(rep.foodToGrow * keep);
@@ -476,7 +483,7 @@ export function processCity(state: GameState, c: City, events: TurnEvent[], ctx:
   }
 
   // Produktion (höchstens ein fertiges Objekt pro Runde)
-  c.prodStored += rep.yields.prod;
+  c.prodStored += Math.floor(rep.yields.prod * ctx.bonus);
   const item = c.queue[0];
   if (!item) {
     ev('braucht einen Bauauftrag');

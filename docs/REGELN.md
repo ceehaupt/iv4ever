@@ -101,6 +101,12 @@ bzw. im Spiel über **T**.
   Stadtwache I–II (+20/+30 % in Städten), Flankenschutz (+50 % gegen Berittene), Gewaltmarsch (+1 Bewegung),
   Feldscher (+10 Heilung auf dem Feld). Voraussetzungen siehe `src/sim/rules/units.ts`.
 
+## Computerspieler
+
+- Erfundene Völker und Herrscher (`src/sim/rules/leaders.ts`); die Persönlichkeit bestimmt Forschung, Expansion, Militär und Bauten.
+- Schwierigkeitsgrad: Die KI erhält einen Faktor auf Produktion, Forschung und Nahrungsüberschuss –
+  Leicht 0,8 · Normal 1,0 · Schwer 1,25 · Sehr schwer 1,5. Die KI sieht nur, was sie erkundet hat.
+
 ## Plünderer
 
 - Neutrale Fraktion ab Runde 15. Alle 4 Runden kann ein Lager entstehen: auf freiem Land außerhalb jeder Grenze, unbeobachtet,

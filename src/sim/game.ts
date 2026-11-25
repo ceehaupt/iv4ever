@@ -13,8 +13,10 @@ import { canResearch, nextStepTowards, TECHS, TechId, techCost } from './rules/t
 import { isWater, tileMoveCost } from './rules/terrain';
 import { MOVE_SCALE, promotionChoices, PROMOTIONS, START_UNITS, UNIT_TYPES, unitMaxMoves, xpForNext } from './rules/units';
 import { markVisible } from './vision';
+import { type Persona, personaFor } from './rules/leaders';
 import { applyJob, jobBlocker, jobTurns } from './work';
 import { sailable, unitCost } from './naval';
+import { aiTurn } from './ai';
 import { barbarianTurn, type Camp } from './barbarians';
 import { type CombatEvent, healUnits, performAttack } from './war';
 
@@ -49,6 +51,8 @@ export interface Unit {
   acted: boolean;
   /** An Bord dieses Schiffes (Einheiten-ID). */
   carriedBy?: number | null;
+  /** KI-Gedächtnis: Zielfeld bzw. Auftrag. */
+  aiTarget?: number;
 }
 
 export interface Player {
@@ -71,6 +75,8 @@ export interface Player {
   goal: number;
   /** Neutrale Plünderer-Fraktion. */
   barbarian?: boolean;
+  /** KI-Persönlichkeit (nur Computerspieler). */
+  persona?: Persona;
 }
 
 /** Wirtschaftsbilanz eines Spielers pro Runde. */
@@ -156,7 +162,11 @@ export function newPlayer(id: number, n: number, name: string, human: boolean): 
 
 export function createGame(world: GeneratedWorld, options: MapGenOptions): GameState {
   const n = world.map.width * world.map.height;
-  const players = world.starts.map((_, id) => newPlayer(id, n, id === HUMAN ? 'Du' : `Spieler ${id + 1}`, id === HUMAN));
+  const players = world.starts.map((_, id) => {
+    if (id === HUMAN) return newPlayer(id, n, 'Du', true);
+    const persona = personaFor(options.seed, id - 1);
+    return { ...newPlayer(id, n, persona.people, false), persona };
+  });
   const barbarian = players.length;
   players.push({ ...newPlayer(barbarian, n, 'Plünderer', false), barbarian: true });
   const state: GameState = {
@@ -480,6 +490,7 @@ export function endTurn(state: GameState): { moves: MoveEvent[]; events: TurnEve
   const turnEvents: TurnEvent[] = [];
   const combats: CombatEvent[] = [];
   const events: MoveEvent[] = [];
+  aiTurn(state, { events: turnEvents, combats, moves: events });
   processJobs(state, turnEvents);
   processEconomy(state, turnEvents);
   barbarianTurn(state, turnEvents, combats, events);

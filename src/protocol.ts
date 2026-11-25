@@ -3,6 +3,7 @@ import type { Command, Economy, MoveEvent } from './sim/game';
 import type { GameMap } from './sim/map';
 import type { Climate, MapScript, SeaLevel } from './sim/mapgen';
 import type { JobKind } from './sim/rules/improvements';
+import type { Difficulty } from './sim/rules/leaders';
 import type { CombatEvent } from './sim/war';
 import type { SaveMeta } from './sim/save';
 
@@ -14,6 +15,7 @@ export interface NewGameOptions {
   script: MapScript;
   seaLevel: SeaLevel;
   climate: Climate;
+  difficulty: Difficulty;
 }
 
 /** Einheit, wie der menschliche Spieler sie sieht. */
@@ -62,6 +64,8 @@ export interface PlayerView {
   human: boolean;
   barbarian: boolean;
   alive: boolean;
+  /** Herrscher (nur Computerspieler). */
+  leader?: string;
 }
 
 /** Stadt aus Sicht des Menschen; Details nur für eigene Städte. */

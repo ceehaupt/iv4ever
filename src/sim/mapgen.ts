@@ -5,6 +5,7 @@ import { forEachNeighbor } from './hex';
 import { createMap, type GameMap } from './map';
 import { WrapNoise } from './noise';
 import { hash2, Rng } from './rng';
+import type { Difficulty } from './rules/leaders';
 import { Feature, Relief, Terrain } from './rules/terrain';
 
 export type MapScript = 'continents' | 'pangaea' | 'archipelago';
@@ -19,6 +20,8 @@ export interface MapGenOptions {
   script?: MapScript;
   seaLevel?: SeaLevel;
   climate?: Climate;
+  /** Schwierigkeitsgrad (wirkt nur auf die KI, nicht auf die Karte). */
+  difficulty?: Difficulty;
 }
 
 export interface GeneratedWorld {

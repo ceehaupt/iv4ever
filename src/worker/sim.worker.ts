@@ -101,7 +101,9 @@ function sendView(
     layers,
     human: HUMAN,
     fog,
-    players: s.players.map((pl) => ({ id: pl.id, name: pl.name, human: pl.human, barbarian: !!pl.barbarian, alive: pl.alive })),
+    players: s.players.map((pl) => ({
+      id: pl.id, name: pl.name, human: pl.human, barbarian: !!pl.barbarian, alive: pl.alive, leader: pl.persona?.leader,
+    })),
     units: s.units
       .filter((u) => u.owner === HUMAN || p.visible[u.tile])
       .map((u) => ({

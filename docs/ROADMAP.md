@@ -75,9 +75,14 @@ Grafik, Texte und Balancing sind eigene Entwürfe (siehe `CLAUDE.md`, Abschnitt 
 - Transport: Einsteigen auf See oder Einladen in der Stadt, Landung beendet den Zug; Wegvorschau berücksichtigt Schiffe
 - Seekampf nur zwischen Schiffen, versenkte Schiffe nehmen die Ladung mit
 
-### M6 – KI
-- Utility-basierte KI im Worker: Siedelplätze, Bauaufträge, Forschungspfad, Arbeiter-Automatik, Verteidigung, Angriffsplanung
-- Persönlichkeiten als Parameter (eigene, fiktive Herrscher), Schwierigkeitsgrade über Boni statt Schummel-Sicht
+### M6 – KI ✅
+- Computerspieler im Worker über dieselbe Befehlsschnittstelle wie der Mensch (alle Regeln geprüft), ohne Schummelsicht
+- 10 erfundene Herrscher mit Persönlichkeit (Aggression, Expansion, Wissenschaft, Bauen)
+- Forschung nach Persönlichkeit, Bauaufträge nach Bedarf (Verteidigung, Siedler, Arbeiter, Armee, Gebäude/Wunder), Steuersatz
+- Siedler suchen Standorte, Arbeiter verbessern Ressourcen/Felder und bauen Verbindungsstraßen, Späher erkunden
+- Garnisonen, Abwehr von Bedrohungen und Lagern, kriegerische Herrscher greifen später fremde Städte an; Beförderungen
+- Schwierigkeitsgrade Leicht/Normal/Schwer/Sehr schwer als Ertragsfaktor (0,8–1,5) der KI
+- Deterministisch (Test), ~3 ms pro KI-Runde bei 6 Spielern
 
 ### M7 – Diplomatie & Sieg
 - Kontakt, Krieg/Frieden, offene Grenzen, Tausch von Ressourcen/Gold/Technologien, Beziehungsgedächtnis

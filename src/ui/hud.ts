@@ -4,6 +4,7 @@ import { IMPROVEMENTS, RESOURCE_IMPROVEMENT } from '../sim/rules/improvements';
 import { TECHS, TechId } from '../sim/rules/techs';
 import { isWater } from '../sim/rules/terrain';
 import type { Climate, MapScript, SeaLevel } from '../sim/mapgen';
+import { type Difficulty, DIFFICULTY_NAMES } from '../sim/rules/leaders';
 import { RESOURCE_KIND_NAME, RESOURCES } from '../sim/rules/resources';
 import { RIVER_DEFENSE, tileDefense, tileMoveCost, tileName } from '../sim/rules/terrain';
 
@@ -65,6 +66,7 @@ export class Hud {
   private readonly script = $<HTMLSelectElement>('script');
   private readonly sea = $<HTMLSelectElement>('sea');
   private readonly climate = $<HTMLSelectElement>('climate');
+  private readonly difficulty = $<HTMLSelectElement>('difficulty');
   private readonly seed = $<HTMLInputElement>('seed');
   private readonly stats = $('stats');
   private readonly info = $('info');
@@ -81,6 +83,7 @@ export class Hud {
     fill(this.script, SCRIPTS, 'continents');
     fill(this.sea, SEA_LEVELS, 'normal');
     fill(this.climate, CLIMATES, 'temperate');
+    fill(this.difficulty, Object.entries(DIFFICULTY_NAMES) as [Difficulty, string][], 'normal');
     $('newmap').addEventListener('click', () => this.requestNewMap(true));
     this.seed.addEventListener('keydown', (e) => {
       if (e.key === 'Enter') this.requestNewMap(false);
@@ -105,6 +108,7 @@ export class Hud {
       script: this.script.value as MapScript,
       seaLevel: this.sea.value as SeaLevel,
       climate: this.climate.value as Climate,
+      difficulty: this.difficulty.value as Difficulty,
     });
   }
 
@@ -115,6 +119,7 @@ export class Hud {
     this.script.value = o.script;
     this.sea.value = o.seaLevel;
     this.climate.value = o.climate;
+    this.difficulty.value = o.difficulty ?? 'normal';
     this.seed.value = String(o.seed);
   }
 

@@ -2,6 +2,7 @@ import { assignTiles, type City, recomputeOwnership } from './city';
 import type { Camp } from './barbarians';
 import { DEFAULT_RATE, type GameState, newPlayer, type Unit } from './game';
 import { TECHS } from './rules/techs';
+import { type Persona, personaFor } from './rules/leaders';
 import type { GameMap } from './map';
 import type { MapGenOptions } from './mapgen';
 import { Rng } from './rng';
@@ -30,6 +31,7 @@ interface SavedPlayer {
   techs: Uint8Array;
   goal: number;
   barbarian?: boolean;
+  persona?: Persona;
 }
 
 export interface SaveData {
@@ -88,6 +90,7 @@ export function toSaveData(s: GameState): SaveData {
       techs: p.techs.slice(),
       goal: p.goal,
       ...(p.barbarian ? { barbarian: true } : {}),
+      ...(p.persona ? { persona: { ...p.persona } } : {}),
     })),
     units: s.units.map((u) => ({ ...u, path: u.path ? u.path.slice() : null, promotions: u.promotions.slice() })),
     nextUnitId: s.nextUnitId,
@@ -170,6 +173,10 @@ export function fromSaveData(raw: SaveData): GameState {
     tileCity: new Int32Array(n).fill(-1),
     rng: Rng.fromState(d.rngState),
   };
+  // Ältere Stände ohne KI-Persönlichkeit nachrüsten.
+  for (const p of state.players) {
+    if (!p.human && !p.barbarian && !p.persona) p.persona = personaFor(d.options.seed, p.id - 1);
+  }
   recomputeOwnership(state);
   for (const c of state.cities) assignTiles(state, c);
   return state;
