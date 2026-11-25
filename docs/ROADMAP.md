@@ -70,9 +70,10 @@ Grafik, Texte und Balancing sind eigene Entwürfe (siehe `CLAUDE.md`, Abschnitt 
 - Plünderer als neutrale Fraktion mit Lagern, eigener einfacher KI und Gold für ausgehobene Lager
 - Speicherformat v4 mit Migration
 
-### M5b – Seefahrt (neu, aus M5 ausgelagert)
-- Schiffe (Küste/Ozean), Bewegung auf Wasser, Transport von Landeinheiten (Ein-/Ausladen), Seekampf, Hafenstädte
-- Voraussetzung für Archipel-Karten und Inselstarts
+### M5b – Seefahrt ✅
+- Galeere, Kriegsgaleere, Karavelle; Küsten- bzw. Hochseefahrt, Bau nur in Küstenstädten
+- Transport: Einsteigen auf See oder Einladen in der Stadt, Landung beendet den Zug; Wegvorschau berücksichtigt Schiffe
+- Seekampf nur zwischen Schiffen, versenkte Schiffe nehmen die Ladung mit
 
 ### M6 – KI
 - Utility-basierte KI im Worker: Siedelplätze, Bauaufträge, Forschungspfad, Arbeiter-Automatik, Verteidigung, Angriffsplanung

@@ -8,7 +8,7 @@ import type { SaveMeta } from '../sim/save';
 import { CLASS_NAMES, MOVE_SCALE, PROMOTIONS, UNIT_TYPES } from '../sim/rules/units';
 
 export type UnitAction =
-  | 'fortify' | 'skip' | 'wake' | 'disband' | 'found' | 'moveMode' | `job:${JobKind}` | `promote:${number}`;
+  | 'fortify' | 'skip' | 'wake' | 'disband' | 'found' | 'moveMode' | 'load' | `job:${JobKind}` | `promote:${number}`;
 
 /** Arbeiteraufträge, die der Spieler grundsätzlich kennt, mit Grund, falls hier nicht möglich. */
 export interface JobOption {
@@ -152,8 +152,10 @@ export class GameUi {
     }
     const t = UNIT_TYPES[selected.type];
     const own = selected.owner === human;
-    const status =
-      selected.orders === Orders.Fortify
+    const cargo = stack.filter((x) => x.carriedBy === selected.id);
+    const status = selected.carriedBy
+      ? 'an Bord'
+      : selected.orders === Orders.Fortify
         ? t.strength > 0 ? 'befestigt' : 'schläft'
         : selected.orders === Orders.Goto
           ? 'unterwegs'
@@ -174,6 +176,9 @@ export class GameUi {
             ? btn('fortify', t.strength > 0 ? 'Befestigen' : 'Schlafen', 'F')
             : btn('wake', 'Aufwecken', 'F'),
           btn('skip', 'Überspringen', 'Leer', selected.moves > 0),
+          ...(t.cargo ? [btn('load', `Einladen (${cargo.length}/${t.cargo})`, 'L',
+            stack.some((x) => x.owner === human && !UNIT_TYPES[x.type].naval && !x.carriedBy) && cargo.length < t.cargo,
+            'Landeinheiten auf diesem Feld an Bord nehmen')] : []),
           ...(t.canFound ? [btn('found', 'Stadt gründen', 'B', foundBlocker === null && selected.moves > 0, foundBlocker ?? (selected.moves > 0 ? '' : 'Keine Bewegung mehr übrig'))] : []),
           btn('disband', 'Auflösen', 'Entf'),
         ].join('')

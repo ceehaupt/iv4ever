@@ -36,6 +36,8 @@ export interface UnitView {
   xpNext: number;
   /** Wählbare Beförderungen (leer = derzeit keine). */
   promotable: number[];
+  /** An Bord dieses Schiffes. */
+  carriedBy: number | null;
 }
 
 export interface ResearchView {

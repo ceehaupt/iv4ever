@@ -122,6 +122,7 @@ function sendView(
         promotions: u.promotions.slice(),
         xpNext: xpForNext(u.promotions.length),
         promotable: u.owner === HUMAN && canPromote(u) ? promotionChoices(u.type, u.promotions) : [],
+        carriedBy: u.carriedBy ?? null,
       })),
     camps: s.camps.filter((c) => p.explored[c.tile]).map((c) => c.tile),
     barbarian: s.barbarian,

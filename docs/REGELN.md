@@ -63,6 +63,14 @@ bzw. im Spiel über **T**.
 | Ritter | Beritten | Lehnswesen | Pferde + Eisen | 70 | 2 | 10 | – | |
 | Tribok | Belagerung | Burgenbau | – | 70 | 1 | 3 | 9 (2 Felder) | +100 % gegen Städte |
 
+| Galeere | Schiff | Segeln | – | 35 | 3 | 1 | – | Küste; transportiert 2 Landeinheiten |
+| Kriegsgaleere | Schiff | Seefahrt | – | 40 | 3 | 3 | – | Küste; Seekampf |
+| Karavelle | Schiff | Astronomie | – | 55 | 4 | 2 | – | auch Ozean; transportiert 3 |
+
+- **Seefahrt:** Schiffe entstehen in Küstenstädten und fahren auf Küstengewässern (Karavelle auch auf dem Ozean), nie auf Binnenseen.
+  Landeinheiten gehen an Bord, indem sie auf das Wasserfeld eines eigenen Transportschiffs mit freiem Platz ziehen
+  oder in einer Stadt eingeladen werden (L). Sie gehen an Land, indem sie auf ein Landfeld ziehen – die Landung beendet den Zug.
+  Schiffe kämpfen nur gegen Schiffe; ein versenktes Schiff reißt seine Ladung mit. Schiffe in einer eroberten Stadt werden versenkt.
 - Strategische Ressourcen zählen, wenn sie verbessert, im eigenen Gebiet und an das Handelsnetz angebunden sind.
 - Bewegung intern in Zwölfteln (Straßen ⅓ bzw. ¼).
 - Mit der letzten Bewegung darf jedes betretbare Feld noch betreten werden (die Runde ist danach vorbei).

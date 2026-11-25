@@ -22,13 +22,17 @@ export const UnitTypeId = {
   Pikeman: 10,
   Knight: 11,
   Trebuchet: 12,
+  Galley: 13,
+  WarGalley: 14,
+  Caravel: 15,
 } as const;
 
 /** Einheitenklassen – bestimmen Boni und Konter. */
-export type UnitClass = 'civil' | 'recon' | 'melee' | 'ranged' | 'mounted' | 'siege';
+export type UnitClass = 'civil' | 'recon' | 'melee' | 'ranged' | 'mounted' | 'siege' | 'naval';
 
 export const CLASS_NAMES: Record<UnitClass, string> = {
   civil: 'Zivil', recon: 'Aufklärung', melee: 'Nahkampf', ranged: 'Fernkampf', mounted: 'Beritten', siege: 'Belagerung',
+  naval: 'Schiff',
 };
 
 export interface UnitType {
@@ -59,6 +63,12 @@ export interface UnitType {
   vsCity?: number;
   /** Verteidigungsbonus in Städten. */
   cityDefense?: number;
+  /** Schiff: fährt auf Wasser. */
+  naval?: boolean;
+  /** Schiff darf auch auf den Ozean (sonst nur Küstengewässer). */
+  ocean?: boolean;
+  /** Transportplätze für Landeinheiten. */
+  cargo?: number;
 }
 
 const U = (u: Omit<UnitType, 'ranged' | 'range' | 'canFound' | 'canWork' | 'popCost' | 'tech' | 'resources'> &
@@ -98,7 +108,17 @@ export const UNIT_TYPES: readonly UnitType[] = [
     tech: T.Feudalism, resources: ['horses', 'iron'] }),
   U({ key: 'trebuchet', name: 'Tribok', icon: '🏗️', cls: 'siege', moves: 1, strength: 3, ranged: 9, range: 2, sight: 1, cost: 70,
     tech: T.Fortification, vsCity: 100 }),
+  U({ key: 'galley', name: 'Galeere', icon: '🛶', cls: 'naval', moves: 3, strength: 1, sight: 2, cost: 35,
+    tech: T.Sailing, naval: true, cargo: 2 }),
+  U({ key: 'war_galley', name: 'Kriegsgaleere', icon: '⛵', cls: 'naval', moves: 3, strength: 3, sight: 2, cost: 40,
+    tech: T.Seafaring, naval: true }),
+  U({ key: 'caravel', name: 'Karavelle', icon: '🚢', cls: 'naval', moves: 4, strength: 2, sight: 2, cost: 55,
+    tech: T.Astronomy, naval: true, ocean: true, cargo: 3 }),
 ];
+
+export function isNaval(type: number): boolean {
+  return UNIT_TYPES[type].naval === true;
+}
 
 /** Einheiten, mit denen jede Zivilisation beginnt. */
 export const START_UNITS: readonly number[] = [UnitTypeId.Settler, UnitTypeId.Warrior, UnitTypeId.Scout];

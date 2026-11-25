@@ -22,6 +22,7 @@ npm run dev        # http://localhost:5173
 | `Leertaste` | Einheit überspringt diese Runde |
 | `F` | Befestigen / Schlafen bzw. Aufwecken |
 | `B` | Stadt gründen (Siedler) |
+| `L` | Landeinheiten auf das ausgewählte Schiff laden |
 | `Tab` | Nächste Einheit, die einen Befehl braucht |
 | `T` | Technologien (Forschungsziel wählen) |
 | `Enter` | Runde beenden |

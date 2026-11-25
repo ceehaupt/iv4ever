@@ -143,8 +143,10 @@ export function builtWonders(state: GameState): Set<number> {
 export function availableItems(state: GameState, c: City, ctx: PlayerContext = playerContext(state, c.owner)): BuildItem[] {
   const knows = ctx.knows;
   const items: BuildItem[] = [];
+  const coastalCity = isCoastal(state.map, c.tile);
   UNIT_TYPES.forEach((u, id) => {
     if (u.tech !== null && !knows(u.tech)) return;
+    if (u.naval && !coastalCity) return;
     if (u.resources.some((r) => !ctx.strategic.has(r))) return;
     items.push({ kind: 'unit', id });
   });

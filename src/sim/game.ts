@@ -5,7 +5,7 @@ import {
 import { tilesAround } from './hex';
 import type { GameMap } from './map';
 import type { GeneratedWorld, MapGenOptions } from './mapgen';
-import { findPath, landCost, roadStepCost, stepCost } from './path';
+import { findPath, roadStepCost, stepCost } from './path';
 import { Rng } from './rng';
 import { BUILDINGS, BuildingId } from './rules/buildings';
 import { type JobKind, JOB_NAMES } from './rules/improvements';
@@ -14,6 +14,7 @@ import { isWater, tileMoveCost } from './rules/terrain';
 import { MOVE_SCALE, promotionChoices, PROMOTIONS, START_UNITS, UNIT_TYPES, unitMaxMoves, xpForNext } from './rules/units';
 import { markVisible } from './vision';
 import { applyJob, jobBlocker, jobTurns } from './work';
+import { sailable, unitCost } from './naval';
 import { barbarianTurn, type Camp } from './barbarians';
 import { type CombatEvent, healUnits, performAttack } from './war';
 
@@ -46,6 +47,8 @@ export interface Unit {
   promotions: number[];
   /** Hat sich in dieser Runde bewegt oder gekämpft (keine Heilung). */
   acted: boolean;
+  /** An Bord dieses Schiffes (Einheiten-ID). */
+  carriedBy?: number | null;
 }
 
 export interface Player {
@@ -116,7 +119,8 @@ export type Command =
   | { type: 'work'; unit: number; job: JobKind }
   | { type: 'research'; tech: number }
   | { type: 'attack'; unit: number; target: number }
-  | { type: 'promote'; unit: number; promotion: number };
+  | { type: 'promote'; unit: number; promotion: number }
+  | { type: 'load'; unit: number };
 
 export interface MoveEvent {
   unit: number;
@@ -226,23 +230,46 @@ export function roadCostFor(state: GameState, owner: number): number {
   return roadStepCost(state.players[owner].techs[TechId.Engineering] === 1);
 }
 
+export function ownCityTiles(state: GameState, owner: number): Set<number> {
+  return new Set(state.cities.filter((c) => c.owner === owner).map((c) => c.tile));
+}
+
+export function cargoOf(state: GameState, ship: Unit): Unit[] {
+  return state.units.filter((x) => x.carriedBy === ship.id);
+}
+
+/** Freie Transportschiffe eines Spielers auf Wasserfeldern: Feld → Schiff. */
+export function transportsOf(state: GameState, owner: number): Map<number, Unit> {
+  const out = new Map<number, Unit>();
+  for (const s of state.units) {
+    const cap = UNIT_TYPES[s.type].cargo ?? 0;
+    if (s.owner !== owner || !cap || !isWater(state.map.terrain[s.tile])) continue;
+    if (cargoOf(state, s).length < cap && !out.has(s.tile)) out.set(s.tile, s);
+  }
+  return out;
+}
+
 /** Kostenfunktion aus Sicht eines Spielers: eigenes Wissen, sichtbare fremde Einheiten blockieren. */
-function costFor(state: GameState, owner: number, occ: Int16Array) {
-  const p = state.players[owner];
-  return landCost(
-    state.map,
-    (i) => p.explored[i] === 1,
-    (i) => occ[i] >= 0 && occ[i] !== owner && p.visible[i] === 1,
-    roadCostFor(state, owner),
-  );
+function costFor(state: GameState, u: Unit, occ: Int16Array) {
+  const p = state.players[u.owner];
+  return unitCost({
+    map: state.map,
+    type: u.type,
+    isKnown: (i) => p.explored[i] === 1,
+    isBlocked: (i) => occ[i] >= 0 && occ[i] !== u.owner && p.visible[i] === 1,
+    ownCities: ownCityTiles(state, u.owner),
+    transports: new Set(transportsOf(state, u.owner).keys()),
+    roadCost: roadCostFor(state, u.owner),
+  });
 }
 
 /** Kann die Einheit das Feld tatsächlich betreten (wahres Gelände, alle fremden Einheiten)? */
 function canEnter(state: GameState, u: Unit, tile: number, occ: Int16Array): boolean {
   const m = state.map;
-  if (isWater(m.terrain[tile])) return false;
-  if (!Number.isFinite(tileMoveCost(m.terrain[tile], m.relief[tile], m.feature[tile]))) return false;
-  return occ[tile] < 0 || occ[tile] === u.owner;
+  if (occ[tile] >= 0 && occ[tile] !== u.owner) return false;
+  if (UNIT_TYPES[u.type].naval) return sailable(m, u.type, tile, ownCityTiles(state, u.owner));
+  if (isWater(m.terrain[tile])) return transportsOf(state, u.owner).has(tile);
+  return Number.isFinite(tileMoveCost(m.terrain[tile], m.relief[tile], m.feature[tile]));
 }
 
 function planPath(state: GameState, u: Unit, target: number, occ: Int16Array): number[] | null {
@@ -252,7 +279,7 @@ function planPath(state: GameState, u: Unit, target: number, occ: Int16Array): n
     to: target,
     maxMoves: unitMaxMoves(u.type, u.promotions),
     movesLeft: u.moves,
-    cost: costFor(state, u.owner, occ),
+    cost: costFor(state, u, occ),
   });
   return res ? res.tiles : null;
 }
@@ -270,12 +297,23 @@ function continueMove(state: GameState, u: Unit): MoveEvent | null {
       if (!u.path) break;
       continue;
     }
-    const cost = stepCost(state.map, u.tile, next, roadCostFor(state, u.owner));
+    const naval = UNIT_TYPES[u.type].naval === true;
+    const toWater = isWater(state.map.terrain[next]);
+    const cost = naval || toWater ? MOVE_SCALE : stepCost(state.map, u.tile, next, roadCostFor(state, u.owner));
+    const ship = !naval && toWater ? transportsOf(state, u.owner).get(next) : undefined;
     occ[u.tile] = state.units.some((o) => o !== u && o.tile === u.tile) || cityAt(state, u.tile) ? u.owner : -1;
     u.tile = next;
     u.acted = true;
     occ[next] = u.owner;
     u.moves = Math.max(0, u.moves - cost);
+    if (naval) {
+      for (const c of cargoOf(state, u)) c.tile = next;
+    } else if (ship) {
+      u.carriedBy = ship.id; // an Bord gehen
+    } else if (u.carriedBy) {
+      u.carriedBy = null; // Landung beendet den Zug
+      u.moves = 0;
+    }
     u.path.shift();
     steps.push(next);
     refreshVision(state, u.owner);
@@ -410,10 +448,27 @@ function unitCommand(state: GameState, player: number, cmd: Extract<Command, { u
       u.path = null;
       u.job = null;
       return { moves: [] };
-    case 'disband':
-      state.units = state.units.filter((o) => o !== u);
+    case 'disband': {
+      // Mit einem Schiff auf See geht auch die Ladung unter.
+      const lost = isWater(state.map.terrain[u.tile]) ? cargoOf(state, u) : [];
+      for (const c of cargoOf(state, u)) c.carriedBy = null;
+      state.units = state.units.filter((o) => o !== u && !lost.includes(o));
       refreshVision(state, player);
       return { moves: [] };
+    }
+    case 'load': {
+      const cap = UNIT_TYPES[u.type].cargo ?? 0;
+      if (!cap) throw new CommandError('Dieses Schiff kann nichts transportieren');
+      const free = cap - cargoOf(state, u).length;
+      const waiting = state.units.filter((x) => x.owner === player && x.tile === u.tile && !UNIT_TYPES[x.type].naval && !x.carriedBy);
+      if (!waiting.length) throw new CommandError('Keine Landeinheiten zum Einladen hier');
+      for (const x of waiting.slice(0, free)) {
+        x.carriedBy = u.id;
+        x.orders = Orders.Fortify; // schläft an Bord, bis sie bewegt wird
+        x.path = null;
+      }
+      return { moves: [] };
+    }
   }
 }
 

@@ -9,7 +9,9 @@ import { Orders } from './sim/game';
 import { UNIT_TYPES } from './sim/rules/units';
 import { CityPanel } from './ui/cityPanel';
 import type { GameMap } from './sim/map';
-import { findPath, landCost, roadStepCost } from './sim/path';
+import { findPath, roadStepCost } from './sim/path';
+import { unitCost } from './sim/naval';
+import { isWater } from './sim/rules/terrain';
 import { TechId } from './sim/rules/techs';
 import { ALL_JOBS, jobBlocker, jobTech, jobTurns } from './sim/work';
 import { TechPanel } from './ui/techPanel';
@@ -265,13 +267,29 @@ function updatePathPreview(): void {
   }
   const fog = view.fog;
   const foreign = new Set(view.units.filter((x) => x.owner !== view!.human).map((x) => x.tile));
+  for (const c of view.cities) if (c.owner !== view.human) foreign.add(c.tile);
+  // Eigene Transportschiffe auf Wasser mit freiem Platz (zum Einsteigen).
+  const transports = new Set<number>();
+  for (const s of view.units) {
+    const cap = UNIT_TYPES[s.type].cargo ?? 0;
+    if (s.owner !== view.human || !cap || !isWater(map.terrain[s.tile])) continue;
+    if (view.units.filter((x) => x.carriedBy === s.id).length < cap) transports.add(s.tile);
+  }
   const res = findPath({
     map,
     from: u.tile,
     to: hoverTile,
     maxMoves: u.maxMoves,
     movesLeft: u.moves,
-    cost: landCost(map, (i) => fog[i] > 0, (i) => foreign.has(i), roadStepCost(knows(TechId.Engineering))),
+    cost: unitCost({
+      map,
+      type: u.type,
+      isKnown: (i) => fog[i] > 0,
+      isBlocked: (i) => foreign.has(i),
+      ownCities: new Set(view.cities.filter((c) => c.owner === view!.human).map((c) => c.tile)),
+      transports,
+      roadCost: roadStepCost(knows(TechId.Engineering)),
+    }),
     limit: 6000,
   });
   renderer.setPath(u.tile, res?.tiles ?? null, res?.turns ?? null);
@@ -308,6 +326,10 @@ function attackProblem(u: UnitView, tile: number): string | null {
   const t = UNIT_TYPES[u.type];
   if (t.strength <= 0 && t.ranged <= 0) return 'Diese Einheit kann nicht angreifen';
   if (u.moves <= 0) return 'Keine Bewegung mehr übrig';
+  if (u.carriedBy) return 'Von Bord aus kann nicht angegriffen werden';
+  const water = isWater(map.terrain[tile]);
+  if (t.naval && !water) return 'Schiffe greifen nur Schiffe auf See an';
+  if (!t.naval && water) return 'Schiffe auf See können nur Schiffe angreifen';
   const dist = tileDistance(map, u.tile, tile);
   if (t.ranged > 0) {
     if (dist > t.range) return `Außer Reichweite (${t.range} Felder)`;
@@ -323,7 +345,9 @@ function predictionFor(u: UnitView, tile: number) {
   if (!map || !view) return null;
   const t = UNIT_TYPES[u.type];
   const ranged = t.ranged > 0;
-  const defenders = view.units.filter((x) => x.tile === tile && x.owner !== u.owner);
+  const defenders = view.units.filter(
+    (x) => x.tile === tile && x.owner !== u.owner && !!UNIT_TYPES[x.type].naval === !!t.naval && !x.carriedBy,
+  );
   const city = cityAtTile(tile);
   const bf: Battlefield = { map, attackerTile: u.tile, defenderTile: tile, cityDefense: city ? city.defense : null };
   const att = fighter(u);
@@ -410,6 +434,9 @@ function runAction(action: UnitAction, unitId: number): void {
       }
       break;
     }
+    case 'load':
+      command({ type: 'command', command: { type: 'load', unit: u.id } });
+      break;
     case 'found': {
       const blocker = foundBlocker(u);
       if (blocker) ui.toast(blocker, 'error');
@@ -579,6 +606,9 @@ window.addEventListener('keydown', (e) => {
       break;
     case 'b':
       if (own) runAction('found', u.id);
+      break;
+    case 'l':
+      if (own && UNIT_TYPES[u.type].cargo) runAction('load', u.id);
       break;
     case 'h': {
       const target = u ?? view?.units.find(isOwn);

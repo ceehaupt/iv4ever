@@ -2,6 +2,7 @@ import { assignTiles, type City, cityAt, recomputeOwnership, type TurnEvent } fr
 import { type Battlefield, bestDefender, type Fighter, resolveCombat } from './combat';
 import { CommandError, type GameState, Orders, refreshVision, type Unit } from './game';
 import { tileDistance } from './hex';
+import { isWater } from './rules/terrain';
 import { BUILDINGS, BuildingId } from './rules/buildings';
 import { PROMOTIONS, UNIT_TYPES, UnitTypeId } from './rules/units';
 
@@ -63,8 +64,12 @@ export function attackBlocker(state: GameState, u: Unit, target: number): string
   if (t.strength <= 0 && t.ranged <= 0) return 'Diese Einheit kann nicht angreifen';
   if (u.moves <= 0) return 'Keine Bewegung mehr übrig';
   if (!state.players[u.owner].visible[target]) return 'Ziel ist nicht sichtbar';
+  if (u.carriedBy) return 'Von Bord aus kann nicht angegriffen werden';
   const dist = tileDistance(state.map, u.tile, target);
-  const enemies = state.units.filter((o) => o.tile === target && o.owner !== u.owner);
+  const water = isWater(state.map.terrain[target]);
+  if (t.naval && !water) return 'Schiffe greifen nur Schiffe auf See an';
+  if (!t.naval && water) return 'Schiffe auf See können nur Schiffe angreifen';
+  const enemies = state.units.filter((o) => o.tile === target && o.owner !== u.owner && !!UNIT_TYPES[o.type].naval === !!t.naval);
   const city = cityAt(state, target);
   const enemyCity = city && city.owner !== u.owner ? city : null;
   const camp = state.camps.some((c) => c.tile === target);
@@ -85,7 +90,9 @@ export function performAttack(state: GameState, u: Unit, target: number, events:
   const t = UNIT_TYPES[u.type];
   const ranged = t.ranged > 0;
   const bf: Battlefield = { map: state.map, attackerTile: u.tile, defenderTile: target, cityDefense: cityDefenseAt(state, target) };
-  const enemies = state.units.filter((o) => o.tile === target && o.owner !== u.owner);
+  const enemies = state.units.filter(
+    (o) => o.tile === target && o.owner !== u.owner && !!UNIT_TYPES[o.type].naval === !!t.naval && !o.carriedBy,
+  );
   const att = fighterOf(u);
   const k = bestDefender(enemies.map(fighterOf), att, bf, ranged);
   const city = cityAt(state, target);
@@ -126,14 +133,15 @@ export function performAttack(state: GameState, u: Unit, target: number, events:
     const an = UNIT_TYPES[u.type].name;
     const dn = UNIT_TYPES[d.type].name;
     if (o.defenderDies) {
-      state.units = state.units.filter((x) => x !== d);
+      // Ein versenktes Schiff reißt seine Ladung mit.
+      state.units = state.units.filter((x) => x !== d && x.carriedBy !== d.id);
       u.xp += ranged ? XP_RANGED + 1 : XP_WIN;
     } else {
       d.xp += XP_SURVIVE;
       if (ranged) u.xp += XP_RANGED;
     }
     if (o.attackerDies) {
-      state.units = state.units.filter((x) => x !== u);
+      state.units = state.units.filter((x) => x !== u && x.carriedBy !== u.id);
       d.xp += XP_WIN;
     }
     const verdict = o.defenderDies ? `${dn} besiegt` : o.attackerDies ? `${an} gefallen` : `${dn} −${o.dmgDef} LP`;
@@ -156,7 +164,8 @@ function occupyTile(state: GameState, u: Unit, target: number, ev: CombatEvent, 
   const barb = state.players[u.owner].barbarian;
   const civilians = state.units.filter((x) => x.tile === target && x.owner !== u.owner);
   for (const c of civilians) {
-    if (barb) {
+    if (barb || UNIT_TYPES[c.type].naval) {
+      // Plünderer machen keine Gefangenen; Schiffe in einer eroberten Stadt werden versenkt.
       state.units = state.units.filter((x) => x !== c);
     } else {
       c.owner = u.owner;
