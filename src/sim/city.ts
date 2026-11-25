@@ -8,6 +8,7 @@ import { TechId } from './rules/techs';
 import { Feature, isWater, Relief, Terrain, type Yields } from './rules/terrain';
 import { UNIT_TYPES } from './rules/units';
 import { AI_BONUS } from './rules/leaders';
+import { type DoctrineEffects, sumEffects } from './rules/doctrines';
 
 /**
  * Städte. Regeln (eigene Entwürfe, siehe docs/REGELN.md):
@@ -81,6 +82,14 @@ export interface PlayerContext {
   all: { mood: number; supply: number; specialistTrade: number; coastalTrade: number };
   /** Ertragsfaktor durch den Schwierigkeitsgrad (nur Computerspieler, sonst 1). */
   bonus: number;
+  /** Summe der Leitbild-Effekte. */
+  doctrine: Required<DoctrineEffects>;
+  /** Mit irgendeinem Volk im Krieg (für Kriegsmüdigkeit). */
+  atWar: boolean;
+  /** Umbruch nach Leitbildwechsel: keine Forschung, kein Gold. */
+  upheaval: boolean;
+  /** Handel aus Handelsrouten je Stadt-ID. */
+  routeTrade: Map<number, number>;
 }
 
 export const CITY_MIN_DISTANCE = 3;
@@ -161,6 +170,8 @@ export function availableItems(state: GameState, c: City, ctx: PlayerContext = p
     if (b.requires !== undefined && !c.buildings.includes(b.requires)) return;
     if (b.coastal && !coastal) return;
     if (b.wonder && wonders.has(id)) return;
+    // Großprojekt-Teile je Spieler nur einmal.
+    if (b.project && state.cities.some((o) => o.owner === c.owner && (o.buildings.includes(id) || o.queue.some((q) => q.kind === 'building' && q.id === id)))) return;
     items.push({ kind: 'building', id });
   });
   return items;
@@ -328,7 +339,25 @@ export function playerContext(state: GameState, owner: number): PlayerContext {
   }
   const pl = state.players[owner];
   const bonus = pl.human || pl.barbarian ? 1 : AI_BONUS[state.options.difficulty ?? 'normal'];
-  return { knows, strategic, rate: pl.rate, capital, connected, luxuries: lux.size, all, bonus };
+  const doctrine = sumEffects(pl.doctrines ?? []);
+  const atWar = Object.entries(state.diplomacy?.relations ?? {}).some(([k, r]) => r.war && k.split(':').map(Number).includes(owner));
+  // Handelsrouten: Grundwert 2 + 1 je 8 Felder Entfernung, +1 ins Ausland; Zielstadt erhält 1.
+  const routeTrade = new Map<number, number>();
+  for (const r of state.routes ?? []) {
+    const from = state.cities.find((c) => c.id === r.from);
+    const to = state.cities.find((c) => c.id === r.to);
+    if (!from || !to) continue;
+    if (from.owner === owner) {
+      const v = 2 + Math.floor(tileDistance(state.map, from.tile, to.tile) / 8) + (to.owner !== owner ? 1 : 0) + doctrine.routeTrade +
+        (knows(TechId.Globalization) ? 1 : 0);
+      routeTrade.set(from.id, (routeTrade.get(from.id) ?? 0) + v);
+    }
+    if (to.owner === owner) routeTrade.set(to.id, (routeTrade.get(to.id) ?? 0) + 1);
+  }
+  return {
+    knows, strategic, rate: pl.rate, capital, connected, luxuries: lux.size, all, bonus, doctrine, atWar,
+    upheaval: (pl.upheaval ?? 0) > 0, routeTrade,
+  };
 }
 
 function centerYields(state: GameState, c: City, knows: Knows): Yields {
@@ -398,13 +427,15 @@ export function cityReport(state: GameState, c: City, ctx: PlayerContext = playe
   const coastal = isCoastal(m, c.tile);
   if (connected && c.id !== ctx.capital) y.trade += CONNECTION_TRADE;
   if (coastal) y.trade += ctx.all.coastalTrade;
+  y.trade += ctx.routeTrade.get(c.id) ?? 0;
 
   let culture = BASE_CULTURE;
-  let mood = BASE_MOOD + ctx.luxuries + ctx.all.mood;
-  let supply = BASE_SUPPLY + (hasFreshWater(m, c.tile) ? FRESH_WATER_SUPPLY : 0) + ctx.all.supply;
-  let researchPct = 0;
-  let goldPct = 0;
-  let prodPct = 0;
+  const d = ctx.doctrine;
+  let mood = BASE_MOOD + ctx.luxuries + ctx.all.mood + d.mood + (ctx.atWar ? d.warMood : 0);
+  let supply = BASE_SUPPLY + (hasFreshWater(m, c.tile) ? FRESH_WATER_SUPPLY : 0) + ctx.all.supply + d.supply;
+  let researchPct = d.researchPct;
+  let goldPct = d.goldPct;
+  let prodPct = d.prodPct;
   let flatResearch = 0;
   for (const id of c.buildings) {
     const b = BUILDINGS[id];
@@ -425,8 +456,9 @@ export function cityReport(state: GameState, c: City, ctx: PlayerContext = playe
   const trade = Math.floor(y.trade * efficiency);
   const prod = Math.floor(Math.floor(y.prod * efficiency) * (1 + prodPct / 100));
   const baseResearch = Math.floor((trade * ctx.rate) / 100);
-  const research = unrest ? 0 : Math.floor(baseResearch * (1 + researchPct / 100)) + flatResearch;
-  const gold = Math.floor((trade - baseResearch) * (1 + goldPct / 100));
+  const research = unrest || ctx.upheaval ? 0 : Math.floor(baseResearch * (1 + researchPct / 100)) + flatResearch;
+  const gold = ctx.upheaval ? 0 : Math.floor((trade - baseResearch) * (1 + goldPct / 100));
+  culture = Math.floor(culture * (1 + d.culturePct / 100));
   return {
     yields: { food: y.food, prod, trade },
     research,

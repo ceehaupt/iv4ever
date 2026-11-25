@@ -590,7 +590,7 @@ button.research.pulse {
 
 .tiers {
   display: grid;
-  grid-template-columns: repeat(7, minmax(160px, 1fr));
+  grid-template-columns: repeat(15, minmax(160px, 1fr));
   gap: 10px;
 }
 
@@ -647,7 +647,7 @@ button.tech.locked {
 
 @media (max-width: 900px) {
   .tiers {
-    grid-template-columns: repeat(7, 170px);
+    grid-template-columns: repeat(15, 170px);
   }
 }
 
@@ -835,4 +835,12 @@ button.danger {
 
 .victory-box ol {
   text-align: left;
+}
+
+.tiers.doctrines {
+  grid-template-columns: repeat(3, minmax(200px, 1fr));
+}
+
+.doctrine-box {
+  width: min(900px, 100%);
 }

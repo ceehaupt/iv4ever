@@ -25,6 +25,18 @@ export const UnitTypeId = {
   Galley: 13,
   WarGalley: 14,
   Caravel: 15,
+  Merchant: 16,
+  Musketeer: 17,
+  Cannon: 18,
+  Cavalry: 19,
+  Frigate: 20,
+  Rifleman: 21,
+  Artillery: 22,
+  Ironclad: 23,
+  Infantry: 24,
+  Tank: 25,
+  Destroyer: 26,
+  Transport: 27,
 } as const;
 
 /** Einheitenklassen – bestimmen Boni und Konter. */
@@ -69,6 +81,8 @@ export interface UnitType {
   ocean?: boolean;
   /** Transportplätze für Landeinheiten. */
   cargo?: number;
+  /** Kann Handelsrouten errichten. */
+  trade?: boolean;
 }
 
 const U = (u: Omit<UnitType, 'ranged' | 'range' | 'canFound' | 'canWork' | 'popCost' | 'tech' | 'resources'> &
@@ -114,6 +128,31 @@ export const UNIT_TYPES: readonly UnitType[] = [
     tech: T.Seafaring, naval: true }),
   U({ key: 'caravel', name: 'Karavelle', icon: '🚢', cls: 'naval', moves: 4, strength: 2, sight: 2, cost: 55,
     tech: T.Astronomy, naval: true, ocean: true, cargo: 3 }),
+  // --- Neuzeit und Moderne (M8) ---
+  U({ key: 'merchant', name: 'Händler', icon: '🐪', cls: 'civil', moves: 2, strength: 0, sight: 1, cost: 40,
+    tech: T.Currency, trade: true }),
+  U({ key: 'musketeer', name: 'Musketier', icon: '💂', cls: 'melee', moves: 1, strength: 9, sight: 1, cost: 60,
+    tech: T.Gunpowder }),
+  U({ key: 'cannon', name: 'Kanone', icon: '💣', cls: 'siege', moves: 1, strength: 4, ranged: 12, range: 2, sight: 1, cost: 80,
+    tech: T.Metallurgy, vsCity: 75 }),
+  U({ key: 'cavalry', name: 'Kavallerie', icon: '🐴', cls: 'mounted', moves: 3, strength: 13, sight: 1, cost: 85,
+    tech: T.MilitaryTradition, resources: ['horses'] }),
+  U({ key: 'frigate', name: 'Fregatte', icon: '⛴️', cls: 'naval', moves: 5, strength: 7, sight: 2, cost: 75,
+    tech: T.Navigation, naval: true, ocean: true, cargo: 2 }),
+  U({ key: 'rifleman', name: 'Schützen', icon: '🎖️', cls: 'melee', moves: 1, strength: 16, sight: 1, cost: 100,
+    tech: T.Rifling }),
+  U({ key: 'artillery', name: 'Artillerie', icon: '🎇', cls: 'siege', moves: 1, strength: 6, ranged: 22, range: 2, sight: 1, cost: 120,
+    tech: T.Electricity, vsCity: 50 }),
+  U({ key: 'ironclad', name: 'Panzerschiff', icon: '🛳️', cls: 'naval', moves: 4, strength: 14, sight: 2, cost: 110,
+    tech: T.SteamPower, naval: true, ocean: true, resources: ['iron'] }),
+  U({ key: 'infantry', name: 'Infanterie', icon: '🪖', cls: 'melee', moves: 1, strength: 24, sight: 1, cost: 140,
+    tech: T.Motorization }),
+  U({ key: 'tank', name: 'Panzer', icon: '🛡', cls: 'mounted', moves: 3, strength: 32, sight: 1, cost: 180,
+    tech: T.Motorization, resources: ['iron'] }),
+  U({ key: 'destroyer', name: 'Zerstörer', icon: '🚤', cls: 'naval', moves: 7, strength: 24, sight: 3, cost: 140,
+    tech: T.Combustion, naval: true, ocean: true }),
+  U({ key: 'transport', name: 'Transporter', icon: '🚛', cls: 'naval', moves: 6, strength: 6, sight: 2, cost: 110,
+    tech: T.Combustion, naval: true, ocean: true, cargo: 4 }),
 ];
 
 export function isNaval(type: number): boolean {

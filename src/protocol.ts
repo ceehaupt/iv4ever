@@ -95,6 +95,8 @@ export interface CityView {
     turnsToGrow: number | null;
     /** Runden bis zur Fertigstellung des aktuellen Auftrags (null = kein Auftrag / keine Produktion). */
     turnsToBuild: number | null;
+    /** Handelsrouten dieser Stadt (Beschreibung). */
+    routes: string[];
   };
 }
 
@@ -123,6 +125,7 @@ export interface GameView {
   barbarian: number;
   diplomacy: DiplomacyView;
   victory: VictoryView;
+  doctrines: { active: number[]; upheaval: number };
 }
 
 export interface CivRelationView {

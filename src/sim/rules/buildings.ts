@@ -31,6 +31,19 @@ export const BuildingId = {
   TradersHarbor: 22,
   AncestorsWall: 23,
   SagesAcademy: 24,
+  PrintingHouse: 25,
+  Laboratory: 26,
+  Factory: 27,
+  PowerPlant: 28,
+  Hospital: 29,
+  StockExchange: 30,
+  Stadium: 31,
+  RadioTower: 32,
+  LaunchPad: 33,
+  StarDrive: 34,
+  HabitatModule: 35,
+  WorldFair: 36,
+  BeaconOfKnowledge: 37,
 } as const;
 
 export interface BuildingType {
@@ -67,6 +80,8 @@ export interface BuildingType {
   waterFood?: number;
   /** Stadt zählt nicht für den Städte-Unterhalt. */
   noUpkeep?: boolean;
+  /** Teil des Großprojekts (je Spieler einmal; alle Teile = Projektsieg). */
+  project?: boolean;
   /** Wirkt in allen eigenen Städten (Wunder). */
   all?: { mood?: number; supply?: number; specialistTrade?: number; coastalTrade?: number; defense?: number };
   description: string;
@@ -137,4 +152,31 @@ export const BUILDINGS: readonly BuildingType[] = [
     description: 'Weltwunder: +50 % Verteidigung in allen eigenen Städten (wirkt mit dem Kampfsystem).' }),
   B({ key: 'sages_academy', name: 'Akademie der Weisen', icon: '🦉', cost: 180, tech: T.Philosophy, wonder: true, culture: 3, all: { specialistTrade: 1 },
     description: 'Weltwunder: Spezialisten in allen eigenen Städten +1 Handel, +3 Kultur.' }),
+  // --- Neuzeit und Moderne (M8) ---
+  B({ key: 'printing_house', name: 'Druckerei', icon: '🖨️', cost: 110, tech: T.Printing, culture: 2, researchPct: 15,
+    description: '+2 Kultur, +15 % Forschung.' }),
+  B({ key: 'laboratory', name: 'Labor', icon: '🧪', cost: 220, tech: T.Computers, requires: 14, researchPct: 50,
+    description: '+50 % Forschung (braucht Universität).' }),
+  B({ key: 'factory', name: 'Fabrik', icon: '🏭', cost: 200, tech: T.Industrialization, requires: 10, prodPct: 50, supply: -1,
+    description: '+50 % Produktion, −1 Versorgung (braucht Schmiede).' }),
+  B({ key: 'power_plant', name: 'Kraftwerk', icon: '⚡', cost: 220, tech: T.Electricity, requires: 27, prodPct: 25,
+    description: '+25 % Produktion (braucht Fabrik).' }),
+  B({ key: 'hospital', name: 'Krankenhaus', icon: '🏥', cost: 160, tech: T.Medicine, supply: 4, keepFood: 0.25,
+    description: '+4 Versorgung, 25 % Nahrung bleibt nach dem Wachstum.' }),
+  B({ key: 'stock_exchange', name: 'Börse', icon: '📈', cost: 200, tech: T.Economics, requires: 17, goldPct: 50,
+    description: '+50 % Gold (braucht Bank).' }),
+  B({ key: 'stadium', name: 'Stadion', icon: '🏟', cost: 180, tech: T.Ideologies, mood: 4,
+    description: '+4 Stimmung.' }),
+  B({ key: 'radio_tower', name: 'Sendeturm', icon: '📡', cost: 160, tech: T.Radio, culture: 4, mood: 1,
+    description: '+4 Kultur, +1 Stimmung.' }),
+  B({ key: 'launch_pad', name: 'Startrampe', icon: '🚀', cost: 450, tech: T.Rocketry, project: true,
+    description: 'Großprojekt „Aufbruch“, Teil 1 von 3. Alle drei Teile = Projektsieg.' }),
+  B({ key: 'star_drive', name: 'Sternenantrieb', icon: '☄️', cost: 600, tech: T.Computers, project: true,
+    description: 'Großprojekt „Aufbruch“, Teil 2 von 3.' }),
+  B({ key: 'habitat', name: 'Habitatmodul', icon: '🛰️', cost: 700, tech: T.Spaceflight, project: true,
+    description: 'Großprojekt „Aufbruch“, Teil 3 von 3.' }),
+  B({ key: 'world_fair', name: 'Weltausstellung', icon: '🎡', cost: 380, tech: T.Industrialization, wonder: true, culture: 6, all: { mood: 1 },
+    description: 'Weltwunder: +6 Kultur, +1 Stimmung in allen eigenen Städten.' }),
+  B({ key: 'beacon', name: 'Leuchtfeuer des Wissens', icon: '💡', cost: 420, tech: T.Education, wonder: true, culture: 4, researchPct: 100,
+    description: 'Weltwunder: +100 % Forschung in dieser Stadt, +4 Kultur.' }),
 ];

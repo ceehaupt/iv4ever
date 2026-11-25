@@ -34,12 +34,37 @@ export const TechId = {
   Fortification: 27,
   Feudalism: 28,
   Banking: 29,
+  // --- Neuzeit und Moderne (M8) ---
+  Printing: 30,
+  Gunpowder: 31,
+  Navigation: 32,
+  Economics: 33,
+  Constitution: 34,
+  Physics: 35,
+  Metallurgy: 36,
+  MilitaryTradition: 37,
+  Education: 38,
+  SteamPower: 39,
+  Chemistry: 40,
+  Railroad: 41,
+  Industrialization: 42,
+  Electricity: 43,
+  Rifling: 44,
+  Medicine: 45,
+  Combustion: 46,
+  Ideologies: 47,
+  Radio: 48,
+  Motorization: 49,
+  Rocketry: 50,
+  Computers: 51,
+  Spaceflight: 52,
+  Globalization: 53,
 } as const;
 
 export interface TechType {
   key: string;
   name: string;
-  /** Stufe 1–7 (Spalte im Baum, bestimmt die Kosten). */
+  /** Stufe 1–15 (Spalte im Baum, bestimmt die Kosten). */
   tier: number;
   prereqs: readonly number[];
   /** Sondereffekte, die nicht über `tech`-Felder anderer Tabellen laufen. */
@@ -79,9 +104,33 @@ export const TECHS: readonly TechType[] = [
   { key: 'fortification', name: 'Burgenbau', tier: 6, prereqs: [T.IronWorking, T.Engineering] },
   { key: 'feudalism', name: 'Lehnswesen', tier: 7, prereqs: [T.Law, T.Fortification], effect: '+1 freie Einheit je Stadt' },
   { key: 'banking', name: 'Bankwesen', tier: 7, prereqs: [T.Law, T.Scholarship] },
+  { key: 'printing', name: 'Buchdruck', tier: 7, prereqs: [T.Scholarship, T.Theology] },
+  { key: 'gunpowder', name: 'Schießpulver', tier: 7, prereqs: [T.IronWorking, T.Fortification] },
+  { key: 'navigation', name: 'Navigation', tier: 6, prereqs: [T.Seafaring, T.Astronomy], effect: 'Alle Schiffe dürfen auf den Ozean' },
+  { key: 'economics', name: 'Ökonomie', tier: 8, prereqs: [T.Banking, T.Printing] },
+  { key: 'constitution', name: 'Verfassung', tier: 8, prereqs: [T.Law, T.Printing] },
+  { key: 'physics', name: 'Physik', tier: 8, prereqs: [T.Astronomy, T.Printing] },
+  { key: 'metallurgy', name: 'Metallurgie', tier: 8, prereqs: [T.Gunpowder] },
+  { key: 'military_tradition', name: 'Militärtradition', tier: 8, prereqs: [T.Gunpowder, T.Feudalism] },
+  { key: 'education', name: 'Bildungswesen', tier: 9, prereqs: [T.Constitution, T.Physics] },
+  { key: 'steam', name: 'Dampfkraft', tier: 9, prereqs: [T.Physics, T.Metallurgy] },
+  { key: 'chemistry', name: 'Chemie', tier: 9, prereqs: [T.Metallurgy, T.Physics] },
+  { key: 'railroad', name: 'Eisenbahn', tier: 10, prereqs: [T.SteamPower], effect: 'Straßen kosten nur noch ⅙ Bewegung' },
+  { key: 'industrialization', name: 'Industrialisierung', tier: 10, prereqs: [T.SteamPower, T.Economics] },
+  { key: 'electricity', name: 'Elektrizität', tier: 11, prereqs: [T.Industrialization, T.Chemistry] },
+  { key: 'rifling', name: 'Präzisionswaffen', tier: 10, prereqs: [T.Chemistry, T.MilitaryTradition] },
+  { key: 'medicine', name: 'Medizin', tier: 10, prereqs: [T.Chemistry, T.Education] },
+  { key: 'combustion', name: 'Verbrennungsmotor', tier: 12, prereqs: [T.Electricity, T.Railroad] },
+  { key: 'ideologies', name: 'Ideologien', tier: 11, prereqs: [T.Industrialization, T.Constitution] },
+  { key: 'radio', name: 'Funktechnik', tier: 12, prereqs: [T.Electricity] },
+  { key: 'motorization', name: 'Motorisierung', tier: 13, prereqs: [T.Combustion, T.Rifling] },
+  { key: 'rocketry', name: 'Raketentechnik', tier: 13, prereqs: [T.Combustion, T.Radio] },
+  { key: 'computers', name: 'Computer', tier: 14, prereqs: [T.Radio, T.Rocketry] },
+  { key: 'spaceflight', name: 'Raumfahrt', tier: 15, prereqs: [T.Rocketry, T.Computers] },
+  { key: 'globalization', name: 'Globalisierung', tier: 15, prereqs: [T.Computers, T.Ideologies], effect: '+1 Handel je Handelsroute' },
 ];
 
-const TIER_COST = [0, 24, 42, 70, 110, 165, 240, 330];
+const TIER_COST = [0, 24, 42, 70, 110, 165, 240, 330, 430, 540, 660, 800, 950, 1120, 1300, 1500];
 
 export function techCost(id: number): number {
   return TIER_COST[TECHS[id].tier];

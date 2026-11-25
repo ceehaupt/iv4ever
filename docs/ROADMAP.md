@@ -93,8 +93,15 @@ Grafik, Texte und Balancing sind eigene Entwürfe (siehe `CLAUDE.md`, Abschnitt 
 - Siegbedingungen: Eroberung, Vorherrschaft (45 % Land + 50 % Bevölkerung), Kultur (3 Städte à 1500), Punkte bei Rundenlimit
 - Diplomatie-Übersicht (D) mit Siegfortschritt und Rangliste, Sieg-/Niederlagenbildschirm; Speicherformat v5
 
-### M8 – Spätere Zeitalter & Systeme
-- Renaissance bis Moderne, eigenes Glaubens-/Ideologiesystem, Handelsrouten, Ereignisse, Weltraum- oder Projekt-Sieg
+### M8 – Spätere Zeitalter & Systeme ✅
+- 24 weitere Technologien (Buchdruck bis Raumfahrt/Globalisierung), 15 Stufen insgesamt
+- 12 neue Einheiten (Händler, Musketier, Kanone, Kavallerie, Fregatte, Schützen, Artillerie, Panzerschiff, Infanterie, Panzer, Zerstörer, Transporter)
+- 13 neue Gebäude/Wunder inkl. Fabrik, Kraftwerk, Krankenhaus, Börse, Labor
+- Leitbilder als eigenes Politiksystem (Herrschaft/Wirtschaft/Gesellschaft, 15 Optionen, Umbruch beim Wechsel, KI wählt mit)
+- Handelsrouten über Händler (Entfernung, Ausland, Leitbilder, Globalisierung)
+- Zufallsereignisse (Ernte, Goldader, Seuche, Erfinder, Waldbrand, Flüchtlinge)
+- Eisenbahn (Straßen ⅙), Navigation (alle Schiffe hochseetauglich)
+- Projektsieg über das Großprojekt „Aufbruch“ (Startrampe, Sternenantrieb, Habitatmodul); Speicherformat v6
 
 ### M9 – Präsentation
 - Eigene Grafik (Sprite-Atlas, Animationen), Wasser-/Licht-Effekte, Sound/Musik (eigene oder lizenzfreie)

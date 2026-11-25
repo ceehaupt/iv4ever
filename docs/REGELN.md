@@ -101,6 +101,23 @@ bzw. im Spiel über **T**.
   Stadtwache I–II (+20/+30 % in Städten), Flankenschutz (+50 % gegen Berittene), Gewaltmarsch (+1 Bewegung),
   Feldscher (+10 Heilung auf dem Feld). Voraussetzungen siehe `src/sim/rules/units.ts`.
 
+## Leitbilder (ab M8)
+
+Je Bereich gilt ein Leitbild; ein Wechsel kostet eine Runde **Umbruch** (keine Forschung, kein Gold). Details: `src/sim/rules/doctrines.ts` bzw. im Spiel über **P**.
+
+| Bereich | Leitbilder |
+|---|---|
+| Herrschaft | Stammesrat · Erbmonarchie (Mystik) · Bürgerrepublik (Gesetzgebung) · Volksherrschaft (Verfassung) · Machtstaat (Ideologien) |
+| Wirtschaft | Tauschwirtschaft · Zunftwesen (Währung) · Handelsherrschaft (Bankwesen) · Freier Markt (Ökonomie) · Planwirtschaft (Industrialisierung) |
+| Gesellschaft | Ahnenverehrung · Tempelpflicht (Theologie) · Bildungsideal (Bildungswesen) · Freiheitsrechte (Verfassung) · Fürsorgestaat (Medizin) |
+
+## Handelsrouten und Ereignisse
+
+- Ein **Händler** in einer mindestens 6 Felder entfernten Stadt errichtet eine Route von der nächsten eigenen Stadt dorthin
+  (je Stadt höchstens 2). Ertrag: 2 + 1 je 8 Felder + 1 ins Ausland (+ Leitbild/Globalisierung); die Zielstadt erhält +1.
+- **Zufallsereignisse**: 4 % je Runde und Volk (ab Runde 10) – gute Ernte, Goldader, Seuche (Aquädukt/Krankenhaus schützen),
+  Erfinder, Waldbrand, Flüchtlinge.
+
 ## Diplomatie
 
 - Völker lernen sich kennen, sobald sie Einheiten, Städte oder Gebiet der anderen sehen. Grundzustand ist **Frieden**.
@@ -119,6 +136,7 @@ bzw. im Spiel über **T**.
 - **Eroberung**: alle anderen Völker vernichtet.
 - **Vorherrschaft**: mindestens 45 % des Landes und 50 % der Weltbevölkerung.
 - **Kultur**: drei eigene Städte mit je mindestens 1500 Kultur.
+- **Projekt**: alle drei Teile des Großprojekts „Aufbruch“ (Startrampe, Sternenantrieb, Habitatmodul) in eigenen Städten.
 - **Punkte**: Beim Rundenlimit (Standard 300) gewinnt die höchste Punktzahl
   (Bevölkerung ×3, Land ÷3, Technologien ×6, Wunder ×20, Kultur ÷50).
 

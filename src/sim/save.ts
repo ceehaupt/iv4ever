@@ -2,7 +2,8 @@ import { assignTiles, type City, recomputeOwnership } from './city';
 import type { Camp } from './barbarians';
 import { createDiplomacy, type Diplomacy } from './diplomacy';
 import type { Victory } from './victory';
-import { DEFAULT_RATE, type GameState, newPlayer, type Unit } from './game';
+import { DEFAULT_RATE, type GameState, newPlayer, type TradeRoute, type Unit } from './game';
+import { DEFAULT_DOCTRINES } from './rules/doctrines';
 import { TECHS } from './rules/techs';
 import { type Persona, personaFor } from './rules/leaders';
 import type { GameMap } from './map';
@@ -19,8 +20,9 @@ import { Rng } from './rng';
  * 3 – M4: Technologien, Forschungsziel, Verbesserungen/Straßen, Arbeiteraufträge; Bewegung ×2 (MOVE_SCALE 12)
  * 4 – M5: Lebenspunkte/Erfahrung/Beförderungen, Plünderer (eigener Spieler) und Lager
  * 5 – M7: Diplomatie (Beziehungen, Gedächtnis, Angebote), Gewinner
+ * 6 – M8: Leitbilder und Umbruch je Spieler, Handelsrouten
  */
-export const SAVE_VERSION = 5;
+export const SAVE_VERSION = 6;
 
 interface SavedPlayer {
   id: number;
@@ -35,6 +37,8 @@ interface SavedPlayer {
   goal: number;
   barbarian?: boolean;
   persona?: Persona;
+  doctrines: number[];
+  upheaval: number;
 }
 
 export interface SaveData {
@@ -53,6 +57,7 @@ export interface SaveData {
   camps: Camp[];
   diplomacy: Diplomacy;
   winner: Victory | null;
+  routes: TradeRoute[];
   rngState: number;
 }
 
@@ -96,6 +101,8 @@ export function toSaveData(s: GameState): SaveData {
       goal: p.goal,
       ...(p.barbarian ? { barbarian: true } : {}),
       ...(p.persona ? { persona: { ...p.persona } } : {}),
+      doctrines: p.doctrines.slice(),
+      upheaval: p.upheaval,
     })),
     units: s.units.map((u) => ({ ...u, path: u.path ? u.path.slice() : null, promotions: u.promotions.slice() })),
     nextUnitId: s.nextUnitId,
@@ -106,6 +113,7 @@ export function toSaveData(s: GameState): SaveData {
     camps: s.camps.map((c) => ({ ...c })),
     diplomacy: structuredClone(s.diplomacy),
     winner: s.winner ? { ...s.winner } : null,
+    routes: s.routes.map((r) => ({ ...r })),
     rngState: s.rng.getState(),
   };
 }
@@ -153,6 +161,14 @@ function migrate(d: SaveData): SaveData {
   if (d.version === 4) {
     d = { ...d, version: 5, diplomacy: createDiplomacy(), winner: null };
   }
+  if (d.version === 5) {
+    d = {
+      ...d,
+      version: 6,
+      routes: [],
+      players: d.players.map((p) => ({ ...p, doctrines: [DEFAULT_DOCTRINES.gov, DEFAULT_DOCTRINES.econ, DEFAULT_DOCTRINES.society], upheaval: 0 })),
+    };
+  }
   return d;
 }
 
@@ -181,6 +197,7 @@ export function fromSaveData(raw: SaveData): GameState {
     camps: d.camps,
     diplomacy: d.diplomacy,
     winner: d.winner,
+    routes: d.routes,
     tileOwner: new Int16Array(n).fill(-1),
     tileCity: new Int32Array(n).fill(-1),
     rng: Rng.fromState(d.rngState),

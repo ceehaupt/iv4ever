@@ -9,10 +9,10 @@ import { MOVE_SCALE, UNIT_TYPES } from './rules/units';
  * auf dessen Wasserfeld ziehen, und gehen an Land, indem sie auf ein Landfeld ziehen (Landung beendet den Zug).
  */
 
-export function sailable(map: GameMap, type: number, tile: number, ownCities: ReadonlySet<number>): boolean {
+export function sailable(map: GameMap, type: number, tile: number, ownCities: ReadonlySet<number>, navigation = false): boolean {
   const t = map.terrain[tile];
   if (t === Terrain.Coast) return true;
-  if (t === Terrain.Ocean) return UNIT_TYPES[type].ocean === true;
+  if (t === Terrain.Ocean) return navigation || UNIT_TYPES[type].ocean === true;
   return ownCities.has(tile);
 }
 
@@ -27,6 +27,8 @@ export interface MoveContext {
   /** Wasserfelder mit eigenem Transportschiff, das noch Platz hat. */
   transports: ReadonlySet<number>;
   roadCost: number;
+  /** Navigation erforscht: alle Schiffe dürfen auf den Ozean. */
+  navigation?: boolean;
 }
 
 /** Schrittkosten für eine Einheit – Land- oder Seeeinheit, inklusive Ein- und Aussteigen. */
@@ -36,7 +38,7 @@ export function unitCost(ctx: MoveContext): StepCost {
     return (_from, to) => {
       if (ctx.isBlocked(to)) return Infinity;
       if (!ctx.isKnown(to)) return MOVE_SCALE;
-      return sailable(map, type, to, ctx.ownCities) ? MOVE_SCALE : Infinity;
+      return sailable(map, type, to, ctx.ownCities, ctx.navigation) ? MOVE_SCALE : Infinity;
     };
   }
   return (from, to) => {

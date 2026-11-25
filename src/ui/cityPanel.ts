@@ -129,6 +129,7 @@ export class CityPanel {
         <span>🎭 Kultur</span><span>${o.culture} (+${r.culture}/Runde) · Radius ${r.radius}${o.cultureToNext !== null ? ` · nächster Ring in ${o.cultureToNext}` : ''}</span>
       </section>
       <section><h3>Gebäude</h3><div class="tags">${buildings}</div></section>
+      ${o.routes.length ? `<section><h3>Handelsrouten</h3><div class="tags">${o.routes.map((r) => `<span class="tag">${r}</span>`).join('')}</div></section>` : ''}
       ${units ? `<section><h3>Einheiten in der Stadt</h3>${units}</section>` : ''}
       <p class="hint">Felder auf der Karte anklicken: fest bewirtschaften bzw. wieder freigeben.</p>`;
   }

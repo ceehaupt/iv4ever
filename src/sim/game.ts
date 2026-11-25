@@ -13,6 +13,9 @@ import { canResearch, nextStepTowards, TECHS, TechId, techCost } from './rules/t
 import { isWater, tileMoveCost } from './rules/terrain';
 import { MOVE_SCALE, promotionChoices, PROMOTIONS, START_UNITS, UNIT_TYPES, unitMaxMoves, xpForNext } from './rules/units';
 import { markVisible } from './vision';
+import { DEFAULT_DOCTRINES, DOCTRINES } from './rules/doctrines';
+import { tileDistance } from './hex';
+import { randomEvents } from './events';
 import { type Persona, personaFor } from './rules/leaders';
 import { applyJob, jobBlocker, jobTurns } from './work';
 import { sailable, unitCost } from './naval';
@@ -82,6 +85,10 @@ export interface Player {
   barbarian?: boolean;
   /** KI-Persönlichkeit (nur Computerspieler). */
   persona?: Persona;
+  /** Aktive Leitbilder [Herrschaft, Wirtschaft, Gesellschaft]. */
+  doctrines: number[];
+  /** Verbleibende Runden Umbruch nach einem Leitbildwechsel. */
+  upheaval: number;
 }
 
 /** Wirtschaftsbilanz eines Spielers pro Runde. */
@@ -116,8 +123,19 @@ export interface GameState {
   diplomacy: Diplomacy;
   /** Gewinner (sobald eine Siegbedingung erfüllt ist). */
   winner: Victory | null;
+  /** Handelsrouten zwischen Städten. */
+  routes: TradeRoute[];
   rng: Rng;
 }
+
+export interface TradeRoute {
+  from: number;
+  to: number;
+}
+
+/** Mindestentfernung für eine Handelsroute; Höchstzahl je Heimatstadt. */
+export const ROUTE_MIN_DISTANCE = 6;
+export const ROUTES_PER_CITY = 2;
 
 export type Command =
   | { type: 'move'; unit: number; target: number }
@@ -137,7 +155,9 @@ export type Command =
   | { type: 'load'; unit: number }
   | { type: 'declareWar'; target: number }
   | { type: 'propose'; target: number; proposal: Proposal }
-  | { type: 'respond'; proposal: number; accept: boolean };
+  | { type: 'respond'; proposal: number; accept: boolean }
+  | { type: 'setDoctrine'; doctrine: number }
+  | { type: 'establishRoute'; unit: number };
 
 export interface MoveEvent {
   unit: number;
@@ -168,6 +188,8 @@ export function newPlayer(id: number, n: number, name: string, human: boolean): 
     rate: DEFAULT_RATE,
     techs: new Uint8Array(TECHS.length),
     goal: -1,
+    doctrines: [DEFAULT_DOCTRINES.gov, DEFAULT_DOCTRINES.econ, DEFAULT_DOCTRINES.society],
+    upheaval: 0,
   };
 }
 
@@ -189,6 +211,7 @@ export function createGame(world: GeneratedWorld, options: MapGenOptions): GameS
     camps: [],
     diplomacy: createDiplomacy(),
     winner: null,
+    routes: [],
     players,
     units: [],
     nextUnitId: 1,
@@ -250,7 +273,8 @@ function occupancy(state: GameState): Int16Array {
 }
 
 export function roadCostFor(state: GameState, owner: number): number {
-  return roadStepCost(state.players[owner].techs[TechId.Engineering] === 1);
+  const t = state.players[owner].techs;
+  return roadStepCost(t[TechId.Engineering] === 1, t[TechId.Railroad] === 1);
 }
 
 export function ownCityTiles(state: GameState, owner: number): Set<number> {
@@ -285,6 +309,7 @@ function costFor(state: GameState, u: Unit, occ: Int16Array) {
     ownCities: ownCityTiles(state, u.owner),
     transports: new Set(transportsOf(state, u.owner).keys()),
     roadCost: roadCostFor(state, u.owner),
+    navigation: p.techs[TechId.Navigation] === 1,
   });
 }
 
@@ -293,7 +318,9 @@ function canEnter(state: GameState, u: Unit, tile: number, occ: Int16Array): boo
   const m = state.map;
   if (occ[tile] >= 0 && occ[tile] !== u.owner) return false;
   if (!mayEnterTerritory(state, u.owner, state.tileOwner[tile])) return false;
-  if (UNIT_TYPES[u.type].naval) return sailable(m, u.type, tile, ownCityTiles(state, u.owner));
+  if (UNIT_TYPES[u.type].naval) {
+    return sailable(m, u.type, tile, ownCityTiles(state, u.owner), state.players[u.owner].techs[TechId.Navigation] === 1);
+  }
   if (isWater(m.terrain[tile])) return transportsOf(state, u.owner).has(tile);
   return Number.isFinite(tileMoveCost(m.terrain[tile], m.relief[tile], m.feature[tile]));
 }
@@ -424,6 +451,17 @@ export function applyCommand(state: GameState, player: number, cmd: Command): Co
       if (cmd.accept) execute(state, prop.from, prop.to, prop.proposal, events);
       return { moves: [], events };
     }
+    case 'setDoctrine': {
+      const d = DOCTRINES[cmd.doctrine];
+      const p = state.players[player];
+      if (!d) throw new CommandError('Unbekanntes Leitbild');
+      if (d.tech !== null && !p.techs[d.tech]) throw new CommandError(`Benötigt ${TECHS[d.tech].name}`);
+      const slot = (['gov', 'econ', 'society'] as const).indexOf(d.category);
+      if (p.doctrines[slot] === cmd.doctrine) return { moves: [] };
+      p.doctrines[slot] = cmd.doctrine;
+      p.upheaval = 1;
+      return { moves: [], events: [{ player, text: `Neues Leitbild: ${d.name} – eine Runde Umbruch`, tile: -1 }] };
+    }
     case 'setRate': {
       state.players[player].rate = Math.max(0, Math.min(100, Math.round(cmd.rate / 10) * 10));
       return { moves: [] };
@@ -510,6 +548,23 @@ function unitCommand(state: GameState, player: number, cmd: Extract<Command, { u
       refreshVision(state, player);
       return { moves: [] };
     }
+    case 'establishRoute': {
+      if (!UNIT_TYPES[u.type].trade) throw new CommandError('Nur Händler errichten Handelsrouten');
+      const target = cityAt(state, u.tile);
+      if (!target) throw new CommandError('Händler muss in einer Stadt stehen');
+      const home = state.cities
+        .filter((c) => c.owner === player && c.id !== target.id)
+        .sort((a, b) => tileDistance(state.map, a.tile, target.tile) - tileDistance(state.map, b.tile, target.tile))[0];
+      if (!home) throw new CommandError('Keine Heimatstadt für die Route');
+      if (tileDistance(state.map, home.tile, target.tile) < ROUTE_MIN_DISTANCE) {
+        throw new CommandError(`Zu nah an ${home.name} (mindestens ${ROUTE_MIN_DISTANCE} Felder)`);
+      }
+      if (state.routes.filter((r) => r.from === home.id).length >= ROUTES_PER_CITY) throw new CommandError(`${home.name} hat schon ${ROUTES_PER_CITY} Routen`);
+      if (state.routes.some((r) => r.from === home.id && r.to === target.id)) throw new CommandError('Diese Route gibt es schon');
+      state.routes.push({ from: home.id, to: target.id });
+      state.units = state.units.filter((o) => o !== u);
+      return { moves: [], events: [{ player, text: `Handelsroute ${home.name} → ${target.name} errichtet`, tile: target.tile }] };
+    }
     case 'load': {
       const cap = UNIT_TYPES[u.type].cargo ?? 0;
       if (!cap) throw new CommandError('Dieses Schiff kann nichts transportieren');
@@ -539,6 +594,13 @@ export function endTurn(state: GameState): { moves: MoveEvent[]; events: TurnEve
   processJobs(state, turnEvents);
   processEconomy(state, turnEvents);
   barbarianTurn(state, turnEvents, combats, events);
+  randomEvents(state, turnEvents);
+  for (const p of state.players) if (p.upheaval > 0) p.upheaval--;
+  // Routen zu verlorenen oder zerstörten Städten verfallen.
+  state.routes = state.routes.filter((r) => {
+    const from = state.cities.find((c) => c.id === r.from);
+    return from && state.cities.some((c) => c.id === r.to);
+  });
   state.turn++;
   healUnits(state);
   for (const u of state.units) {
@@ -613,7 +675,8 @@ export function economy(state: GameState, player: number, income?: { research: n
       trade += r.yields.trade;
     }
   }
-  const freeUnits = 3 + 2 * cities.length + (p.techs[TechId.Feudalism] ? cities.length : 0);
+  const doctrineFree = p.doctrines.reduce((s, d) => s + (DOCTRINES[d].effects.freeUnits ?? 0), 0);
+  const freeUnits = 3 + 2 * cities.length + (p.techs[TechId.Feudalism] ? cities.length : 0) + doctrineFree * cities.length;
   const paying = cities.filter((c) => !c.buildings.some((b) => BUILDINGS[b].noUpkeep)).length;
   const cityUpkeep = Math.max(0, paying - 3);
   const unitUpkeep = Math.max(0, units - freeUnits);
@@ -638,7 +701,8 @@ function processEconomy(state: GameState, events: TurnEvent[]): void {
     inc.gold += res.gold;
     income.set(c.owner, inc);
     // Kaserne: neue Kampfeinheiten starten mit Erfahrung für eine Beförderung.
-    const xp = c.buildings.includes(BuildingId.Barracks) ? xpForNext(0) : 0;
+    const doctrineXp = state.players[c.owner].doctrines.reduce((s, d) => s + (DOCTRINES[d].effects.xp ?? 0), 0);
+    const xp = (c.buildings.includes(BuildingId.Barracks) ? xpForNext(0) : 0) + doctrineXp;
     for (const type of res.newUnits) addUnit(state, c.owner, type, c.tile, UNIT_TYPES[type].strength > 0 ? xp : 0);
     radiusChanged ||= res.radiusChanged;
     if (res.wonder !== undefined) {

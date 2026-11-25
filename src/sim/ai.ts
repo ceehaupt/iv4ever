@@ -19,6 +19,7 @@ import { ALL_JOBS, jobBlocker } from './work';
 import { isHostile, mayEnterTerritory } from './diplomacy';
 import { RESOURCES } from './rules/resources';
 import { RESOURCE_IMPROVEMENT, improvementForJob } from './rules/improvements';
+import { DOCTRINES } from './rules/doctrines';
 
 /**
  * Computerspieler. Nutzt dieselbe Befehlsschnittstelle wie der Mensch (alle Regeln werden geprüft)
@@ -144,6 +145,7 @@ function buildingValue(id: number, c: City, persona: Persona, ctx: PlayerContext
   v += b.defense * 0.04 * (1 + persona.aggression);
   if (b.wonder) v = v * 0.6 + persona.builder * 10 + (state.rng.next() < 0.3 ? 4 : 0);
   if (b.noUpkeep) v += ctx.connected.size > 3 ? 5 : 1;
+  if (b.project) v += 40 * (0.5 + persona.science);
   return v / Math.max(20, b.cost) * 40;
 }
 
@@ -422,6 +424,27 @@ function militaryTurn(state: GameState, p: Player, sit: Situation, out: Out): vo
   }
 }
 
+/** Leitbilder alle 10 Runden prüfen und das jeweils beste wählen (höchstens ein Wechsel). */
+function chooseDoctrines(state: GameState, p: Player, out: Out): void {
+  if (state.turn % 10 !== 0 || p.upheaval > 0) return;
+  const persona = p.persona!;
+  const score = (id: number) => {
+    const e = DOCTRINES[id].effects;
+    return (e.prodPct ?? 0) * 0.6 + (e.researchPct ?? 0) * (0.4 + persona.science) + (e.goldPct ?? 0) * 0.5 +
+      (e.culturePct ?? 0) * 0.3 * (0.5 + persona.builder) + (e.mood ?? 0) * 4 + (e.supply ?? 0) * 2 +
+      (e.freeUnits ?? 0) * 3 * (0.5 + persona.aggression) + (e.xp ?? 0) * persona.aggression +
+      (e.warMood ?? 0) * 3 * (0.5 + persona.aggression) + (e.routeTrade ?? 0);
+  };
+  for (const [slot, cat] of (['gov', 'econ', 'society'] as const).entries()) {
+    const options = DOCTRINES.map((d, id) => ({ d, id })).filter(({ d }) => d.category === cat && (d.tech === null || p.techs[d.tech]));
+    const best = options.sort((a, b) => score(b.id) - score(a.id))[0];
+    if (best && best.id !== p.doctrines[slot] && score(best.id) > score(p.doctrines[slot]) + 5) {
+      run(state, p.id, { type: 'setDoctrine', doctrine: best.id }, out);
+      return;
+    }
+  }
+}
+
 function promote(state: GameState, p: Player, out: Out): void {
   for (const u of state.units) {
     if (u.owner !== p.id) continue;
@@ -437,6 +460,7 @@ export function aiTurn(state: GameState, out: Out): void {
   for (const p of state.players) {
     if (p.human || p.barbarian || !p.alive || !p.persona) continue;
     chooseResearch(state, p, out);
+    chooseDoctrines(state, p, out);
     const sit = situation(state, p.id);
     manageCities(state, p, sit, out);
     promote(state, p, out);

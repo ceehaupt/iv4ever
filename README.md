@@ -26,6 +26,8 @@ npm run dev        # http://localhost:5173
 | `Tab` | Nächste Einheit, die einen Befehl braucht |
 | `T` | Technologien (Forschungsziel wählen) |
 | `D` | Diplomatie, Handel und Siegfortschritt |
+| `P` | Leitbilder (Politik) |
+| `R` (Händler) | Handelsroute errichten |
 | `Enter` | Runde beenden |
 | `Entf` | Einheit auflösen |
 | `H` | Zur ausgewählten Einheit |

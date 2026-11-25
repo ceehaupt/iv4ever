@@ -16,6 +16,7 @@ import { TechId } from './sim/rules/techs';
 import { ALL_JOBS, jobBlocker, jobTech, jobTurns } from './sim/work';
 import { TechPanel } from './ui/techPanel';
 import { DiploPanel } from './ui/diploPanel';
+import { DoctrinePanel } from './ui/doctrinePanel';
 import { VICTORY_NAMES } from './sim/victory';
 import { GameUi, type JobOption, type UnitAction } from './ui/gameUi';
 import { Hud } from './ui/hud';
@@ -67,6 +68,7 @@ const diploPanel = new DiploPanel({
   onPropose: (civ, proposal) => command({ type: 'command', command: { type: 'propose', target: civ, proposal } }),
   onRespond: (id, accept) => command({ type: 'command', command: { type: 'respond', proposal: id, accept } }),
 });
+const doctrinePanel = new DoctrinePanel((doctrine) => command({ type: 'command', command: { type: 'setDoctrine', doctrine } }));
 let victoryShown = false;
 const victoryEl = document.getElementById('victory')!;
 victoryEl.addEventListener('click', (e) => {
@@ -324,7 +326,8 @@ function updatePathPreview(): void {
       isBlocked: (i) => foreign.has(i) || closedBorders.has(view!.tileOwner[i]),
       ownCities: new Set(view.cities.filter((c) => c.owner === view!.human).map((c) => c.tile)),
       transports,
-      roadCost: roadStepCost(knows(TechId.Engineering)),
+      roadCost: roadStepCost(knows(TechId.Engineering), knows(TechId.Railroad)),
+      navigation: knows(TechId.Navigation),
     }),
     limit: 6000,
   });
@@ -493,6 +496,9 @@ function runAction(action: UnitAction, unitId: number): void {
     case 'load':
       command({ type: 'command', command: { type: 'load', unit: u.id } });
       break;
+    case 'route':
+      command({ type: 'command', command: { type: 'establishRoute', unit: u.id } });
+      break;
     case 'found': {
       const blocker = foundBlocker(u);
       if (blocker) ui.toast(blocker, 'error');
@@ -542,6 +548,7 @@ worker.onmessage = (e: MessageEvent<FromWorker>) => {
       renderer.refreshTiles(changedTiles);
       techPanel.update(view.research);
       diploPanel.update(view.diplomacy, view.victory);
+      doctrinePanel.update(view.doctrines.active, view.doctrines.upheaval, view.research.known);
       ui.setDiplomacy(view.diplomacy.pending.length);
       showVictory(view.victory);
       if (msg.reason === 'command' && msg.events.length) ui.toast(msg.events[msg.events.length - 1].text);
@@ -648,7 +655,8 @@ window.addEventListener('keydown', (e) => {
       if (own) runAction('disband', u.id);
       return;
     case 'Escape':
-      if (diploPanel.open) diploPanel.hide();
+      if (doctrinePanel.open) doctrinePanel.hide();
+      else if (diploPanel.open) diploPanel.hide();
       else if (techPanel.open) techPanel.hide();
       else if (cityPanel.openCityId >= 0) closeCity();
       else if (moveMode) moveMode = false;
@@ -686,8 +694,12 @@ window.addEventListener('keydown', (e) => {
     case 'd':
       diploPanel.toggle();
       break;
+    case 'p':
+      if (!e.shiftKey) doctrinePanel.toggle();
+      break;
     case 'r':
-      renderer.toggleResources();
+      if (own && UNIT_TYPES[u.type].trade) runAction('route', u.id);
+      else renderer.toggleResources();
       break;
     case 'n':
       hud.requestNewMap(true);

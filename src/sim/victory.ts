@@ -78,6 +78,11 @@ export function checkVictory(state: GameState): Victory | null {
   const civs = state.players.filter((p) => !p.barbarian && p.alive);
   const win = (player: number, type: VictoryType): Victory => (state.winner = { player, type, turn: state.turn });
   if (civs.length === 1) return win(civs[0].id, 'conquest');
+  const projectParts = BUILDINGS.map((b, id) => (b.project ? id : -1)).filter((id) => id >= 0);
+  for (const p of civs) {
+    const own = state.cities.filter((c) => c.owner === p.id);
+    if (projectParts.every((id) => own.some((c) => c.buildings.includes(id)))) return win(p.id, 'project');
+  }
   for (const p of civs) {
     const pr = progress(state, p.id);
     if (pr.landShare >= DOMINATION_LAND && pr.popShare >= DOMINATION_POP) return win(p.id, 'domination');

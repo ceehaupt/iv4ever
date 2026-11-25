@@ -26,9 +26,9 @@ export interface PathResult {
   turns: number[];
 }
 
-/** Kosten eines Straßenschritts: ⅓ Bewegung, mit Ingenieurwesen ¼. */
-export function roadStepCost(engineering: boolean): number {
-  return engineering ? MOVE_SCALE / 4 : MOVE_SCALE / 3;
+/** Kosten eines Straßenschritts: ⅓ Bewegung, mit Ingenieurwesen ¼, mit Eisenbahn ⅙. */
+export function roadStepCost(engineering: boolean, railroad = false): number {
+  return railroad ? MOVE_SCALE / 6 : engineering ? MOVE_SCALE / 4 : MOVE_SCALE / 3;
 }
 
 /** Schrittkosten nach Spielregeln (ohne Wissens-/Blockadeprüfung). */

@@ -66,6 +66,12 @@ function cityView(s: GameState, c: City, explored: Uint8Array): CityView | null 
         report.surplus > 0 ? Math.max(1, Math.ceil((foodToGrow(c.size) - c.foodStored) / report.surplus)) : null,
       turnsToBuild:
         item && report.yields.prod > 0 ? Math.max(1, Math.ceil((buildCost(item) - c.prodStored) / report.yields.prod)) : null,
+      routes: s.routes
+        .filter((r) => r.from === c.id || r.to === c.id)
+        .map((r) => {
+          const other = s.cities.find((x) => x.id === (r.from === c.id ? r.to : r.from));
+          return `${r.from === c.id ? '→' : '←'} ${other?.name ?? '?'}`;
+        }),
     },
   };
 }
@@ -131,6 +137,7 @@ function sendView(
       })),
     camps: s.camps.filter((c) => p.explored[c.tile]).map((c) => c.tile),
     barbarian: s.barbarian,
+    doctrines: { active: pl.doctrines.slice(), upheaval: pl.upheaval },
     diplomacy: {
       civs: s.players
         .filter((o) => o.id !== HUMAN && !o.barbarian && o.alive && relation(s, HUMAN, o.id).met)
