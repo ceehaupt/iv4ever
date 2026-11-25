@@ -42,12 +42,16 @@ Grafik, Texte und Balancing sind eigene Entwürfe (siehe `CLAUDE.md`, Abschnitt 
 - Befehle: Bewegen (Rechtsklick / M), Befestigen/Schlafen, Überspringen, Aufwecken, Auflösen; automatische Auswahl der nächsten Einheit
 - Speichern/Laden in IndexedDB (versioniertes Format, Schnellspeicherung + Autosave je Runde)
 
-### M3 – Städte
-- Gründung, Stadtradius, automatische + manuelle Feldbewirtschaftung
-- Nahrung → Wachstum, Produktion → Bauliste, Handel → Forschung/Gold (Regler)
-- Eigene Mechaniken für Zufriedenheit und Versorgung (statt 1:1-Kopien)
-- Kulturgrenzen wachsen über Kulturpunkte; Feldbesitz
-- Stadtansicht (Overlay) mit Feldern, Bauliste, Gebäuden
+### M3 – Städte ✅
+- Gründung (Abstand ≥ 3, nicht in fremdem Gebiet), Palast in der ersten Stadt, erfundene Städtenamen
+- Bewirtschaftung automatisch (Nahrung zuerst) + manuell festlegbare Felder, Spezialisten
+- Wachstum/Hunger, Bauliste (Einheiten, 5 Gebäude), Siedler kosten einen Bürger
+- Handel → Forschung/Gold per Regler, Unterhalt für Städte und Einheiten
+- Eigene Mechaniken: Stimmung (Unzufriedenheit kostet Effizienz, Unruhe stoppt die Stadt) und Versorgung (Mehrverbrauch an Nahrung)
+- Kulturgrenzen (Radius 1 → 2 → 3), Feldbesitz, Grenzlinien und Minimap-Färbung, eigenes Gebiet ist sichtbar
+- Stadtansicht mit Erträgen auf der Karte, Ereignisprotokoll pro Runde
+- Speicherformat v2 mit Migration von v1
+- Regeln dokumentiert in `docs/REGELN.md`
 
 ### M4 – Forschung & Ausbau
 - Eigener Technologiebaum Antike–Mittelalter (~30 Technologien), Daten als JSON-artige Tabellen

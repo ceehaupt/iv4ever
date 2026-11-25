@@ -1,6 +1,7 @@
 import { Application, BitmapText, Container, Graphics, type Texture } from 'pixi.js';
-import type { UnitView } from '../protocol';
+import type { CityView, UnitView } from '../protocol';
 import type { GameMap } from '../sim/map';
+import { CityLayer } from './cityLayer';
 import { createResourceAtlas, createUnitAtlas } from './icons';
 import { buildMapView, changedRows, destroyMapView, type Fog, type MapView, rebuildRow } from './mapView';
 import { BACKGROUND } from './palette';
@@ -45,6 +46,7 @@ export class GameRenderer {
   private readonly overlay = new Graphics();
   private readonly pathLabels = new Container();
   private units!: UnitLayer;
+  private readonly cities = new CityLayer();
   private view: MapView | null = null;
   private map: GameMap | null = null;
   private fog: Fog = null;
@@ -89,7 +91,8 @@ export class GameRenderer {
     this.icons = createResourceAtlas();
     this.units = new UnitLayer(createUnitAtlas());
     this.app.stage.addChild(this.world);
-    this.world.addChild(this.units.root, this.overlay, this.pathLabels);
+    // Reihenfolge: (Karte) · Grenzen/Häuser · Einheiten · Stadtnamen · Stadtfelder · Markierungen
+    this.world.addChild(this.cities.ground, this.units.root, this.cities.labels, this.cities.work, this.overlay, this.pathLabels);
     this.host.appendChild(this.app.canvas);
     this.bindInput();
     window.addEventListener('resize', () => {
@@ -109,6 +112,7 @@ export class GameRenderer {
     this.view = buildMapView(map);
     this.world.addChildAt(this.view.root, 0);
     this.units.setMap(map, this.view.offsets);
+    this.cities.setMap(map, this.view.offsets);
     this.hover = -1;
     this.selectedTile = -1;
     this.selectedUnitTile = -1;
@@ -144,6 +148,17 @@ export class GameRenderer {
     const ms = this.units.setUnits(units, human, moves, performance.now());
     this.dirty = true;
     return ms;
+  }
+
+  setCities(cities: CityView[], tileOwner: Int16Array): void {
+    this.cities.update(cities, tileOwner);
+    this.dirty = true;
+  }
+
+  /** Stadtansicht: Erträge und bewirtschaftete Felder auf der Karte zeigen (null = aus). */
+  setCityFocus(city: CityView | null): void {
+    this.cities.setFocus(city);
+    this.dirty = true;
   }
 
   setSelectedUnit(unitId: number, tile: number): void {

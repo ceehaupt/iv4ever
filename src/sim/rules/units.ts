@@ -24,13 +24,17 @@ export interface UnitType {
   combat: boolean;
   canFound: boolean;
   canWork: boolean;
+  /** Produktionskosten. */
+  cost: number;
+  /** Bevölkerung, die beim Bau abgezogen wird (Siedler). */
+  popCost: number;
 }
 
 export const UNIT_TYPES: readonly UnitType[] = [
-  { key: 'settler', name: 'Siedler', icon: '⛺', moves: 1, strength: 0, sight: 1, combat: false, canFound: true, canWork: false },
-  { key: 'worker', name: 'Arbeiter', icon: '⛏️', moves: 1, strength: 0, sight: 1, combat: false, canFound: false, canWork: true },
-  { key: 'scout', name: 'Späher', icon: '🧭', moves: 2, strength: 1, sight: 2, combat: true, canFound: false, canWork: false },
-  { key: 'warrior', name: 'Krieger', icon: '🪓', moves: 1, strength: 2, sight: 1, combat: true, canFound: false, canWork: false },
+  { key: 'settler', name: 'Siedler', icon: '⛺', moves: 1, strength: 0, sight: 1, combat: false, canFound: true, canWork: false, cost: 35, popCost: 1 },
+  { key: 'worker', name: 'Arbeiter', icon: '⛏️', moves: 1, strength: 0, sight: 1, combat: false, canFound: false, canWork: true, cost: 25, popCost: 0 },
+  { key: 'scout', name: 'Späher', icon: '🧭', moves: 2, strength: 1, sight: 2, combat: true, canFound: false, canWork: false, cost: 15, popCost: 0 },
+  { key: 'warrior', name: 'Krieger', icon: '🪓', moves: 1, strength: 2, sight: 1, combat: true, canFound: false, canWork: false, cost: 12, popCost: 0 },
 ];
 
 /** Einheiten, mit denen jede Zivilisation beginnt. */

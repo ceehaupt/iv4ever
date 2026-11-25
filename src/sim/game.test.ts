@@ -112,7 +112,7 @@ describe('Spielablauf', () => {
         findPath({ map: s.map, from: scout.tile, to: t, maxMoves: 2 * MOVE_SCALE, movesLeft: 2 * MOVE_SCALE, cost: landCost(s.map, () => true, () => false) }),
     )!;
     expect(target).toBeDefined();
-    const ev = applyCommand(s, HUMAN, { type: 'move', unit: scout.id, target });
+    const ev = applyCommand(s, HUMAN, { type: 'move', unit: scout.id, target }).moves;
     expect(ev[0].steps[0]).not.toBe(scout.tile);
     expect(scout.moves).toBe(0);
     expect(scout.orders).toBe(Orders.Goto);

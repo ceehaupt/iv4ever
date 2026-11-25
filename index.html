@@ -30,8 +30,16 @@
 
     <section id="turnpanel" class="panel">
       <div><strong id="turn">Runde –</strong> <small id="ready"></small></div>
+      <div id="economy"></div>
+      <label class="rate" title="Anteil des Handels für Forschung, der Rest wird Gold">
+        🔬 <input id="rate" type="range" min="0" max="100" step="10" value="60" /> <span id="rateval">60 %</span>
+      </label>
       <button id="endturn" type="button">Runde beenden <kbd>⏎</kbd></button>
     </section>
+
+    <aside id="citypanel" class="panel" hidden></aside>
+
+    <aside id="log" class="panel" hidden></aside>
 
     <canvas id="minimap" class="panel"></canvas>
 
@@ -39,7 +47,7 @@
 
     <footer id="help" class="panel">
       Ziehen / WASD: Karte · Rad: Zoom · Klick: wählen · Rechtsklick oder M: bewegen · Leertaste: überspringen ·
-      F: befestigen · Tab: nächste Einheit · Enter: Runde beenden · H: zur Einheit · G/R: Gitter/Ressourcen
+      F: befestigen · B: Stadt gründen · Tab: nächste Einheit · Enter: Runde beenden · H: zur Einheit · G/R: Gitter/Ressourcen
     </footer>
 
     <script type="module" src="/src/main.ts"></script>

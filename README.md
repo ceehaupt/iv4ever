@@ -16,10 +16,12 @@ npm run dev        # http://localhost:5173
 |---|---|
 | Ziehen, WASD, Pfeiltasten | Karte bewegen |
 | Mausrad, Trackpad-Pinch, `+` / `−` | Zoomen |
-| Klick | Einheit bzw. Feld wählen (erneuter Klick wechselt im Stapel) |
+| Klick | Einheit, Stadt bzw. Feld wählen (erneuter Klick wechselt im Stapel) |
+| Klick auf Feld bei offener Stadt | Feld fest bewirtschaften / freigeben |
 | Rechtsklick oder `M` + Klick | Ausgewählte Einheit zum Feld schicken (Vorschau zeigt Runden) |
 | `Leertaste` | Einheit überspringt diese Runde |
 | `F` | Befestigen / Schlafen bzw. Aufwecken |
+| `B` | Stadt gründen (Siedler) |
 | `Tab` | Nächste Einheit, die einen Befehl braucht |
 | `Enter` | Runde beenden |
 | `Entf` | Einheit auflösen |
@@ -35,4 +37,4 @@ Speicherstände liegen in IndexedDB des Browsers (Schnellspeicherung + Autosave 
 
 ## Stand und Planung
 
-Siehe [`docs/ROADMAP.md`](docs/ROADMAP.md).
+Siehe [`docs/ROADMAP.md`](docs/ROADMAP.md), Spielregeln in [`docs/REGELN.md`](docs/REGELN.md).

@@ -1,4 +1,5 @@
-import type { UnitView } from '../protocol';
+import type { EconomyView, UnitView } from '../protocol';
+import type { TurnEvent } from '../sim/city';
 import { toCss } from '../render/color';
 import { PLAYER_COLORS } from '../render/palette';
 import { Orders } from '../sim/game';
@@ -14,6 +15,8 @@ export interface GameUiHandlers {
   onSave(): void;
   onOpenLoad(): void;
   onLoad(slot: string): void;
+  onRate(rate: number): void;
+  onEventClick(tile: number): void;
 }
 
 function $<T extends HTMLElement = HTMLElement>(id: string): T {
@@ -45,10 +48,21 @@ export class GameUi {
   private readonly endTurn = $<HTMLButtonElement>('endturn');
   private readonly savesPanel = $('saves');
   private readonly toastEl = $('toast');
+  private readonly econEl = $('economy');
+  private readonly rateEl = $<HTMLInputElement>('rate');
+  private readonly rateVal = $('rateval');
+  private readonly logEl = $('log');
   private toastTimer = 0;
 
   constructor(h: GameUiHandlers) {
     this.endTurn.addEventListener('click', () => h.onEndTurn());
+    this.rateEl.addEventListener('input', () => (this.rateVal.textContent = `${this.rateEl.value} %`));
+    this.rateEl.addEventListener('change', () => h.onRate(Number(this.rateEl.value)));
+    this.logEl.addEventListener('click', (e) => {
+      const el = (e.target as HTMLElement).closest<HTMLElement>('[data-tile]');
+      if (el) h.onEventClick(Number(el.dataset.tile));
+      else if ((e.target as HTMLElement).closest('[data-close]')) this.logEl.hidden = true;
+    });
     $('save').addEventListener('click', () => h.onSave());
     $('load').addEventListener('click', () => {
       if (this.savesPanel.hidden) h.onOpenLoad();
@@ -76,12 +90,43 @@ export class GameUi {
     this.endTurn.classList.toggle('pulse', ready === 0);
   }
 
+  setEconomy(e: EconomyView): void {
+    const sign = (n: number) => (n >= 0 ? `+${n}` : String(n));
+    const upkeep = e.cityUpkeep + e.unitUpkeep;
+    this.econEl.innerHTML = `
+      <span title="Gold (Einnahmen − Unterhalt pro Runde)">💰 ${e.gold} <small>(${sign(e.net)})</small></span>
+      <span title="Forschung pro Runde (angesammelt)">🔬 +${e.research} <small>(${e.researchTotal})</small></span>
+      ${upkeep ? `<small title="Unterhalt: Städte ${e.cityUpkeep}, Einheiten ${e.unitUpkeep} (frei: ${e.freeUnits})">Unterhalt ${upkeep}</small>` : ''}`;
+    if (document.activeElement !== this.rateEl) {
+      this.rateEl.value = String(e.rate);
+      this.rateVal.textContent = `${e.rate} %`;
+    }
+  }
+
+  hideEvents(): void {
+    this.logEl.hidden = true;
+  }
+
+  showEvents(events: TurnEvent[]): void {
+    if (!events.length) {
+      this.logEl.hidden = true;
+      return;
+    }
+    this.logEl.innerHTML =
+      `<header><strong>Diese Runde</strong><button type="button" class="x" data-close>✕</button></header>` +
+      events
+        .map((e) => `<button type="button" class="event" ${e.tile >= 0 ? `data-tile="${e.tile}"` : ''}>${escapeHtml(e.text)}</button>`)
+        .join('');
+    this.logEl.hidden = false;
+  }
+
   setBusy(busy: boolean): void {
     this.endTurn.disabled = busy;
   }
 
   /** Zeigt die ausgewählte Einheit und den Rest ihres Stapels. */
-  showUnits(stack: UnitView[], selected: UnitView | null, human: number): void {
+  /** foundBlocker: null = Stadtgründung möglich, sonst Begründung. */
+  showUnits(stack: UnitView[], selected: UnitView | null, human: number, foundBlocker: string | null = 'unbekannt'): void {
     if (!selected) {
       this.unitPanel.hidden = true;
       return;
@@ -108,7 +153,7 @@ export class GameUi {
             ? btn('fortify', t.combat ? 'Befestigen' : 'Schlafen', 'F')
             : btn('wake', 'Aufwecken', 'F'),
           btn('skip', 'Überspringen', 'Leer', selected.moves > 0),
-          ...(t.canFound ? [btn('found', 'Stadt gründen', 'B', false, 'Städte kommen mit Meilenstein 3')] : []),
+          ...(t.canFound ? [btn('found', 'Stadt gründen', 'B', foundBlocker === null && selected.moves > 0, foundBlocker ?? (selected.moves > 0 ? '' : 'Keine Bewegung mehr übrig'))] : []),
           btn('disband', 'Auflösen', 'Entf'),
         ].join('')
       : '';

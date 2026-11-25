@@ -1,5 +1,7 @@
-import type { FromWorker, GameView, NewGameOptions, ToWorker, ViewReason } from '../protocol';
-import { applyCommand, CommandError, createGame, endTurn, type GameState, HUMAN, type MoveEvent, refreshVision } from '../sim/game';
+import type { CityView, FromWorker, GameView, NewGameOptions, ToWorker, ViewReason } from '../protocol';
+import { availableItems, buildCost, type City, cityReport, cultureToNextRadius, foodToGrow, type TurnEvent, workableTiles } from '../sim/city';
+import { applyCommand, CommandError, createGame, economy, endTurn, type GameState, HUMAN, type MoveEvent, refreshVision } from '../sim/game';
+import { BuildingId } from '../sim/rules/buildings';
 import { cloneMap, mapTransferables } from '../sim/map';
 import { generateWorld } from '../sim/mapgen';
 import { fromSaveData, SaveError, type SaveMeta, toSaveData } from '../sim/save';
@@ -27,13 +29,48 @@ function sendMap(s: GameState, genMs: number): void {
 }
 
 /** Sicht des menschlichen Spielers: eigene Einheiten immer, fremde nur auf sichtbaren Feldern. */
-function sendView(s: GameState, reason: ViewReason, moves: MoveEvent[] = []): void {
+function cityView(s: GameState, c: City, explored: Uint8Array): CityView | null {
+  const base = { id: c.id, owner: c.owner, name: c.name, tile: c.tile, size: c.size, capital: c.buildings.includes(BuildingId.Palace) };
+  if (c.owner !== HUMAN) return explored[c.tile] ? base : null;
+  const report = cityReport(s, c);
+  const item = c.queue[0];
+  return {
+    ...base,
+    own: {
+      foodStored: c.foodStored,
+      prodStored: c.prodStored,
+      culture: c.culture,
+      cultureToNext: cultureToNextRadius(c),
+      queue: c.queue.map((q) => ({ ...q })),
+      buildings: c.buildings.slice(),
+      worked: c.worked.slice(),
+      locked: c.locked.slice(),
+      workable: workableTiles(s, c),
+      available: availableItems(c),
+      report,
+      turnsToGrow:
+        report.surplus > 0 ? Math.max(1, Math.ceil((foodToGrow(c.size) - c.foodStored) / report.surplus)) : null,
+      turnsToBuild:
+        item && report.yields.prod > 0 ? Math.max(1, Math.ceil((buildCost(item) - c.prodStored) / report.yields.prod)) : null,
+    },
+  };
+}
+
+function sendView(
+  s: GameState, reason: ViewReason, moves: MoveEvent[] = [], events: TurnEvent[] = [], foundedCity?: number,
+): void {
   const p = s.players[HUMAN];
   const n = s.map.width * s.map.height;
   const fog = new Uint8Array(n);
   for (let i = 0; i < n; i++) fog[i] = p.visible[i] ? 2 : p.explored[i] ? 1 : 0;
+  const tileOwner = new Int16Array(n);
+  for (let i = 0; i < n; i++) tileOwner[i] = p.explored[i] ? s.tileOwner[i] : -1;
+  const pl = s.players[HUMAN];
   const view: GameView = {
     turn: s.turn,
+    tileOwner,
+    cities: s.cities.map((c) => cityView(s, c, p.explored)).filter((c): c is CityView => c !== null),
+    economy: { ...economy(s, HUMAN), gold: pl.gold, researchTotal: pl.research, rate: pl.rate },
     human: HUMAN,
     fog,
     players: s.players.map((pl) => ({ id: pl.id, name: pl.name, human: pl.human })),
@@ -52,7 +89,8 @@ function sendView(s: GameState, reason: ViewReason, moves: MoveEvent[] = []): vo
   };
   // Fremde Bewegungen nur zeigen, wenn sie im Sichtbereich liegen.
   const visibleMoves = moves.filter((m) => m.owner === HUMAN || m.steps.some((t) => p.visible[t]));
-  post({ type: 'view', view, moves: visibleMoves, reason }, [fog.buffer]);
+  const ownEvents = events.filter((e) => e.player === HUMAN);
+  post({ type: 'view', view, moves: visibleMoves, events: ownEvents, reason, foundedCity }, [fog.buffer, tileOwner.buffer]);
 }
 
 function saveMeta(s: GameState, slot: string, label: string): SaveMeta {
@@ -78,7 +116,8 @@ async function handle(msg: ToWorker): Promise<void> {
     case 'command': {
       if (!state) return;
       try {
-        sendView(state, 'command', applyCommand(state, HUMAN, msg.command));
+        const res = applyCommand(state, HUMAN, msg.command);
+        sendView(state, 'command', res.moves, [], res.foundedCity);
       } catch (e) {
         if (e instanceof CommandError) notice(e.message, 'error');
         else throw e;
@@ -87,8 +126,8 @@ async function handle(msg: ToWorker): Promise<void> {
     }
     case 'endTurn': {
       if (!state) return;
-      const moves = endTurn(state);
-      sendView(state, 'turn', moves);
+      const res = endTurn(state);
+      sendView(state, 'turn', res.moves, res.events);
       try {
         await putSave(saveMeta(state, 'auto', 'Autosave'), toSaveData(state));
       } catch {

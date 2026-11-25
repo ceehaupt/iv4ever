@@ -1,3 +1,7 @@
+import {
+  assignTiles, availableItems, type BuildItem, type City, cityAt, cityReport, foundCity, foundingBlocker, processCity,
+  recomputeOwnership, sameItem, type TurnEvent, workableTiles,
+} from './city';
 import { tilesAround } from './hex';
 import type { GameMap } from './map';
 import type { GeneratedWorld, MapGenOptions } from './mapgen';
@@ -37,6 +41,22 @@ export interface Player {
   explored: Uint8Array;
   /** 1 = Feld ist aktuell sichtbar (abgeleitet, wird nicht gespeichert). */
   visible: Uint8Array;
+  gold: number;
+  /** Angesammelte Forschung (wird ab M4 für Technologien ausgegeben). */
+  research: number;
+  /** Anteil des Handels für Forschung in Prozent (Rest = Gold), Schritte zu 10. */
+  rate: number;
+}
+
+/** Wirtschaftsbilanz eines Spielers pro Runde. */
+export interface Economy {
+  trade: number;
+  research: number;
+  goldIncome: number;
+  cityUpkeep: number;
+  unitUpkeep: number;
+  freeUnits: number;
+  net: number;
 }
 
 export interface GameState {
@@ -47,6 +67,11 @@ export interface GameState {
   players: Player[];
   units: Unit[];
   nextUnitId: number;
+  cities: City[];
+  nextCityId: number;
+  /** Abgeleitet (recomputeOwnership): Besitzer bzw. Stadt je Feld, -1 = niemand. */
+  tileOwner: Int16Array;
+  tileCity: Int32Array;
   rng: Rng;
 }
 
@@ -55,7 +80,12 @@ export type Command =
   | { type: 'fortify'; unit: number }
   | { type: 'skip'; unit: number }
   | { type: 'wake'; unit: number }
-  | { type: 'disband'; unit: number };
+  | { type: 'disband'; unit: number }
+  | { type: 'found'; unit: number }
+  | { type: 'build'; city: number; item: BuildItem; append: boolean }
+  | { type: 'unqueue'; city: number; index: number }
+  | { type: 'toggleTile'; city: number; tile: number }
+  | { type: 'setRate'; rate: number };
 
 export interface MoveEvent {
   unit: number;
@@ -69,6 +99,9 @@ export class CommandError extends Error {}
 export const HUMAN = 0;
 /** Radius um das Startfeld, der zu Spielbeginn bekannt ist. */
 export const START_KNOWN_RADIUS = 3;
+export const DEFAULT_RATE = 60;
+/** Sichtweite einer Stadt (zusätzlich ist das eigene Gebiet sichtbar). */
+export const CITY_SIGHT = 2;
 
 export function createGame(world: GeneratedWorld, options: MapGenOptions): GameState {
   const n = world.map.width * world.map.height;
@@ -84,9 +117,16 @@ export function createGame(world: GeneratedWorld, options: MapGenOptions): GameS
       alive: true,
       explored: new Uint8Array(n),
       visible: new Uint8Array(n),
+      gold: 0,
+      research: 0,
+      rate: DEFAULT_RATE,
     })),
     units: [],
     nextUnitId: 1,
+    cities: [],
+    nextCityId: 1,
+    tileOwner: new Int16Array(n).fill(-1),
+    tileCity: new Int32Array(n).fill(-1),
     rng: new Rng(options.seed ^ 0x5eed),
   };
   world.starts.forEach((tile, owner) => {
@@ -115,12 +155,17 @@ export function refreshVision(state: GameState, playerId: number): void {
   for (const u of state.units) {
     if (u.owner === playerId) markVisible(state.map, u.tile, UNIT_TYPES[u.type].sight, p.visible);
   }
+  for (const c of state.cities) {
+    if (c.owner === playerId) markVisible(state.map, c.tile, CITY_SIGHT, p.visible);
+  }
+  for (let i = 0; i < p.visible.length; i++) if (state.tileOwner[i] === playerId) p.visible[i] = 1;
   for (let i = 0; i < p.visible.length; i++) if (p.visible[i]) p.explored[i] = 1;
 }
 
 /** Feld → Besitzer der dort stehenden Einheiten (-1 = leer). Stapel sind nur einfarbig möglich. */
 function occupancy(state: GameState): Int16Array {
   const occ = new Int16Array(state.map.width * state.map.height).fill(-1);
+  for (const c of state.cities) occ[c.tile] = c.owner;
   for (const u of state.units) occ[u.tile] = u.owner;
   return occ;
 }
@@ -170,7 +215,7 @@ function continueMove(state: GameState, u: Unit): MoveEvent | null {
     }
     const m = state.map;
     const cost = tileMoveCost(m.terrain[next], m.relief[next], m.feature[next]) * MOVE_SCALE;
-    occ[u.tile] = state.units.some((o) => o !== u && o.tile === u.tile) ? u.owner : -1;
+    occ[u.tile] = state.units.some((o) => o !== u && o.tile === u.tile) || cityAt(state, u.tile) ? u.owner : -1;
     u.tile = next;
     occ[next] = u.owner;
     u.moves = Math.max(0, u.moves - cost);
@@ -185,35 +230,97 @@ function continueMove(state: GameState, u: Unit): MoveEvent | null {
   return steps.length > 1 ? { unit: u.id, owner: u.owner, steps } : null;
 }
 
-export function applyCommand(state: GameState, player: number, cmd: Command): MoveEvent[] {
+export interface CommandResult {
+  moves: MoveEvent[];
+  /** Neu gegründete Stadt (für die Oberfläche: Stadtansicht öffnen). */
+  foundedCity?: number;
+}
+
+function ownCity(state: GameState, player: number, id: number): City {
+  const c = state.cities.find((x) => x.id === id);
+  if (!c || c.owner !== player) throw new CommandError('Stadt nicht gefunden');
+  return c;
+}
+
+export function applyCommand(state: GameState, player: number, cmd: Command): CommandResult {
+  switch (cmd.type) {
+    case 'build': {
+      const c = ownCity(state, player, cmd.city);
+      if (!availableItems(c).some((i) => sameItem(i, cmd.item))) {
+        throw new CommandError('Kann hier nicht gebaut werden');
+      }
+      if (cmd.append) c.queue.push(cmd.item);
+      else if (c.queue.length) c.queue[0] = cmd.item;
+      else c.queue.push(cmd.item);
+      return { moves: [] };
+    }
+    case 'unqueue': {
+      const c = ownCity(state, player, cmd.city);
+      c.queue.splice(cmd.index, 1);
+      return { moves: [] };
+    }
+    case 'toggleTile': {
+      const c = ownCity(state, player, cmd.city);
+      if (!workableTiles(state, c).includes(cmd.tile)) throw new CommandError('Feld gehört nicht zu dieser Stadt');
+      if (c.locked.includes(cmd.tile)) {
+        // Festes Feld lösen → Bürger wird frei (Spezialist), Automatik verteilt nicht neu darauf.
+        c.locked = c.locked.filter((t) => t !== cmd.tile);
+        c.worked = c.worked.filter((t) => t !== cmd.tile);
+      } else {
+        if (c.locked.length >= c.size) c.locked.shift();
+        c.locked.push(cmd.tile);
+      }
+      assignTiles(state, c);
+      return { moves: [] };
+    }
+    case 'setRate': {
+      state.players[player].rate = Math.max(0, Math.min(100, Math.round(cmd.rate / 10) * 10));
+      return { moves: [] };
+    }
+    default:
+      return unitCommand(state, player, cmd);
+  }
+}
+
+function unitCommand(state: GameState, player: number, cmd: Extract<Command, { unit: number }>): CommandResult {
   const u = findUnit(state, cmd.unit);
   if (!u || u.owner !== player) throw new CommandError('Einheit nicht gefunden');
   switch (cmd.type) {
+    case 'found': {
+      if (!UNIT_TYPES[u.type].canFound) throw new CommandError('Diese Einheit kann keine Stadt gründen');
+      const blocker = foundingBlocker(state, player, u.tile);
+      if (blocker) throw new CommandError(blocker);
+      state.units = state.units.filter((o) => o !== u);
+      const c = foundCity(state, player, u.tile);
+      for (const city of state.cities) assignTiles(state, city);
+      for (const p of state.players) refreshVision(state, p.id);
+      return { moves: [], foundedCity: c.id };
+    }
     case 'move': {
-      if (cmd.target === u.tile) return [];
+      if (cmd.target === u.tile) return { moves: [] };
       if (u.moves <= 0) throw new CommandError('Keine Bewegung mehr übrig');
       const path = planPath(state, u, cmd.target, occupancy(state));
       if (!path) throw new CommandError('Ziel ist nicht erreichbar');
       u.path = path;
       u.orders = Orders.Goto;
       const ev = continueMove(state, u);
-      return ev ? [ev] : [];
+      return { moves: ev ? [ev] : [] };
     }
     case 'fortify':
       u.orders = Orders.Fortify;
       u.path = null;
-      return [];
+      return { moves: [] };
     case 'skip':
       u.orders = Orders.Skip;
-      return [];
+      return { moves: [] };
     case 'wake':
       u.orders = Orders.None;
       u.path = null;
-      return [];
+      return { moves: [] };
     case 'disband':
       state.units = state.units.filter((o) => o !== u);
       refreshVision(state, player);
-      return [];
+      return { moves: [] };
   }
 }
 
@@ -221,7 +328,9 @@ export function applyCommand(state: GameState, player: number, cmd: Command): Mo
  * Rundenende des Menschen: Gegner ziehen (KI folgt in M6), neue Runde beginnt,
  * Bewegung wird aufgefüllt, laufende Marschbefehle werden fortgesetzt.
  */
-export function endTurn(state: GameState): MoveEvent[] {
+export function endTurn(state: GameState): { moves: MoveEvent[]; events: TurnEvent[] } {
+  const turnEvents: TurnEvent[] = [];
+  processEconomy(state, turnEvents);
   state.turn++;
   const events: MoveEvent[] = [];
   for (const u of state.units) {
@@ -235,7 +344,56 @@ export function endTurn(state: GameState): MoveEvent[] {
     }
   }
   for (const p of state.players) refreshVision(state, p.id);
-  return events;
+  return { moves: events, events: turnEvents };
+}
+
+/** Unterhalt: Städte ab der vierten je 1 Gold, Einheiten über dem Freikontingent je 1 Gold. */
+export function economy(state: GameState, player: number, trade?: number): Economy {
+  const p = state.players[player];
+  const cities = state.cities.filter((c) => c.owner === player);
+  const units = state.units.filter((u) => u.owner === player).length;
+  const t = trade ?? cities.reduce((sum, c) => sum + cityTrade(state, c), 0);
+  const research = Math.floor((t * p.rate) / 100);
+  const goldIncome = t - research;
+  const freeUnits = 3 + 2 * cities.length;
+  const cityUpkeep = Math.max(0, cities.length - 3);
+  const unitUpkeep = Math.max(0, units - freeUnits);
+  return { trade: t, research, goldIncome, cityUpkeep, unitUpkeep, freeUnits, net: goldIncome - cityUpkeep - unitUpkeep };
+}
+
+function cityTrade(state: GameState, c: City): number {
+  return cityReport(state, c).yields.trade;
+}
+
+/** Städte aller Spieler abrechnen, neue Einheiten aufstellen, Forschung und Gold verbuchen. */
+function processEconomy(state: GameState, events: TurnEvent[]): void {
+  let radiusChanged = false;
+  const tradeBy = new Map<number, number>();
+  for (const c of [...state.cities].sort((a, b) => a.id - b.id)) {
+    const res = processCity(state, c, events);
+    tradeBy.set(c.owner, (tradeBy.get(c.owner) ?? 0) + res.trade);
+    for (const type of res.newUnits) addUnit(state, c.owner, type, c.tile);
+    radiusChanged ||= res.radiusChanged;
+  }
+  if (radiusChanged) {
+    recomputeOwnership(state);
+    for (const c of state.cities) assignTiles(state, c);
+  }
+  for (const p of state.players) {
+    const e = economy(state, p.id, tradeBy.get(p.id) ?? 0);
+    p.research += e.research;
+    p.gold += e.net;
+    if (p.gold < 0) {
+      // Fehlbetrag wird aus der Forschung dieser Runde gedeckt.
+      const cover = Math.min(-p.gold, e.research);
+      p.research -= cover;
+      p.gold += cover;
+      if (p.gold < 0) {
+        p.gold = 0;
+        events.push({ player: p.id, text: 'Die Staatskasse ist leer – Unterhalt kann nicht bezahlt werden', tile: -1 });
+      }
+    }
+  }
 }
 
 /** Eigene Einheiten, die noch einen Befehl brauchen. */

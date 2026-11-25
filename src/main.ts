@@ -1,7 +1,10 @@
 import './style.css';
-import type { FromWorker, GameView, ToWorker, UnitView } from './protocol';
+import type { CityView, FromWorker, GameView, ToWorker, UnitView } from './protocol';
 import { GameRenderer, isTyping } from './render/renderer';
+import { foundingBlockerAt } from './sim/city';
 import { Orders } from './sim/game';
+import { UNIT_TYPES } from './sim/rules/units';
+import { CityPanel } from './ui/cityPanel';
 import type { GameMap } from './sim/map';
 import { findPath, landCost } from './sim/path';
 import { GameUi, type UnitAction } from './ui/gameUi';
@@ -35,11 +38,33 @@ const ui = new GameUi({
   onLoad: (slot) => {
     if (confirmDiscard()) send({ type: 'load', slot });
   },
+  onRate: (rate) => send({ type: 'command', command: { type: 'setRate', rate } }),
+  onEventClick: (tile) => {
+    renderer.centerOnTile(tile);
+    const c = cityAtTile(tile);
+    if (c?.own) openCity(c.id);
+  },
+});
+const cityPanel = new CityPanel({
+  onClose: closeCity,
+  onBuild: (item, append) => {
+    const id = cityPanel.openCityId;
+    if (id >= 0) command({ type: 'command', command: { type: 'build', city: id, item, append } });
+  },
+  onUnqueue: (index) => {
+    const id = cityPanel.openCityId;
+    if (id >= 0) command({ type: 'command', command: { type: 'unqueue', city: id, index } });
+  },
+  onSelectUnit: (unitId) => {
+    closeCity();
+    selectUnit(unitId, false);
+  },
 });
 const renderer = new GameRenderer(document.getElementById('game')!, {
   onHover: (i) => {
     hoverTile = i;
-    hud.hoverTile(map, fogForUi(), i);
+    // Während der Stadtansicht belegt das Stadtpanel die linke Seite.
+    if (cityPanel.openCityId < 0) hud.hoverTile(map, fogForUi(), i);
     updatePathPreview();
   },
   onClick: handleClick,
@@ -80,6 +105,45 @@ function stackAt(tile: number): UnitView[] {
   return (view?.units ?? []).filter((u) => u.tile === tile);
 }
 
+function cityAtTile(tile: number): CityView | undefined {
+  return view?.cities.find((c) => c.tile === tile);
+}
+
+/** null = Stadtgründung möglich, sonst Begründung (dieselbe Prüfung wie im Worker). */
+function foundBlocker(u: UnitView): string | null {
+  if (!map || !view || !UNIT_TYPES[u.type].canFound) return 'Diese Einheit kann keine Stadt gründen';
+  return foundingBlockerAt(map, view.cities.map((c) => c.tile), view.tileOwner, u.owner, u.tile);
+}
+
+// --- Stadtansicht ------------------------------------------------------------------
+
+function openCity(id: number): void {
+  const c = view?.cities.find((x) => x.id === id);
+  if (!c?.own) return;
+  selectUnit(-1, false);
+  renderer.setSelectedTile(-1);
+  hud.unpin();
+  ui.hideEvents();
+  cityPanel.show(c, stackAt(c.tile).filter(isOwn));
+  renderer.setCityFocus(c);
+  if (!renderer.isTileOnScreen(c.tile, 200)) renderer.centerOnTile(c.tile);
+}
+
+function closeCity(): void {
+  cityPanel.hide();
+  renderer.setCityFocus(null);
+}
+
+function refreshCityPanel(): void {
+  const id = cityPanel.openCityId;
+  if (id < 0) return;
+  const c = view?.cities.find((x) => x.id === id);
+  if (c?.own) {
+    cityPanel.show(c, stackAt(c.tile).filter(isOwn));
+    renderer.setCityFocus(c);
+  } else closeCity();
+}
+
 function confirmDiscard(): boolean {
   return !view || view.turn <= 1 || window.confirm('Das laufende Spiel wird verworfen. Fortfahren?');
 }
@@ -97,10 +161,11 @@ function selectUnit(id: number, center: boolean): void {
     updatePathPreview();
     return;
   }
+  if (cityPanel.openCityId >= 0) closeCity();
   renderer.setSelectedUnit(u.id, u.tile);
   renderer.setSelectedTile(-1);
   hud.unpin();
-  ui.showUnits(stackAt(u.tile), u, view!.human);
+  ui.showUnits(stackAt(u.tile), u, view!.human, foundBlocker(u));
   if (center && !renderer.isTileOnScreen(u.tile)) renderer.centerOnTile(u.tile);
   updatePathPreview();
 }
@@ -123,6 +188,18 @@ function handleClick(tile: number): void {
     moveTo(u, tile);
     return;
   }
+  // Stadtansicht offen: Klick auf eigenes Feld der Stadt legt die Bewirtschaftung fest.
+  const open = view.cities.find((c) => c.id === cityPanel.openCityId);
+  if (open?.own && open.own.workable.includes(tile)) {
+    command({ type: 'command', command: { type: 'toggleTile', city: open.id, tile } });
+    return;
+  }
+  const city = cityAtTile(tile);
+  if (city?.own && (!u || u.tile !== tile)) {
+    openCity(city.id);
+    return;
+  }
+  if (cityPanel.openCityId >= 0) closeCity();
   const visibleStack = (revealAll || view.fog[tile] === 2) ? stackAt(tile) : [];
   if (visibleStack.length) {
     // Erneuter Klick auf denselben Stapel wechselt durch die Einheiten.
@@ -192,15 +269,19 @@ function runAction(action: UnitAction, unitId: number): void {
     case 'disband':
       if (window.confirm('Einheit wirklich auflösen?')) command({ type: 'command', command: { type: 'disband', unit: u.id } });
       break;
-    case 'found':
-      ui.toast('Städte kommen mit Meilenstein 3');
+    case 'found': {
+      const blocker = foundBlocker(u);
+      if (blocker) ui.toast(blocker, 'error');
+      else command({ type: 'command', command: { type: 'found', unit: u.id } });
       break;
+    }
   }
 }
 
 function endTurn(): void {
   if (!view) return;
   selectUnit(-1, false);
+  closeCity();
   command({ type: 'endTurn' });
 }
 
@@ -217,6 +298,7 @@ worker.onmessage = (e: MessageEvent<FromWorker>) => {
       map = msg.map;
       view = null;
       selected = -1;
+      closeCity();
       const t0 = performance.now();
       renderer.setMap(map);
       minimap.setMap(map);
@@ -230,9 +312,20 @@ worker.onmessage = (e: MessageEvent<FromWorker>) => {
       busy = false;
       ui.setBusy(false);
       renderer.setFog(view.fog);
+      renderer.setCities(view.cities, view.tileOwner);
       const animMs = renderer.setUnits(view.units, view.human, msg.moves);
-      minimap.update(fogForUi(), view.units);
+      minimap.update(fogForUi(), view.units, view.tileOwner, view.cities);
       ui.setTurn(view.turn, readyUnits().length);
+      ui.setEconomy(view.economy);
+      if (msg.reason === 'turn' || msg.reason === 'new' || msg.reason === 'load') ui.showEvents(msg.events);
+      if (msg.foundedCity !== undefined) {
+        openCity(msg.foundedCity);
+        break;
+      }
+      if (cityPanel.openCityId >= 0) {
+        refreshCityPanel();
+        break;
+      }
 
       if (msg.reason === 'new' || msg.reason === 'load') {
         const first = readyUnits()[0] ?? view.units.find(isOwn);
@@ -302,7 +395,8 @@ window.addEventListener('keydown', (e) => {
       if (own) runAction('disband', u.id);
       return;
     case 'Escape':
-      if (moveMode) moveMode = false;
+      if (cityPanel.openCityId >= 0) closeCity();
+      else if (moveMode) moveMode = false;
       else if (selected >= 0) selectUnit(-1, false);
       else {
         renderer.setSelectedTile(-1);
@@ -336,7 +430,7 @@ window.addEventListener('keydown', (e) => {
       break;
     case 'x':
       revealAll = renderer.toggleRevealAll();
-      if (view) minimap.update(fogForUi(), view.units);
+      if (view) minimap.update(fogForUi(), view.units, view.tileOwner, view.cities);
       ui.toast(revealAll ? 'Debug: Karte aufgedeckt' : 'Debug: Nebel wieder an');
       break;
   }

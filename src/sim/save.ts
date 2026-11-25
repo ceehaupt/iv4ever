@@ -1,13 +1,29 @@
-import type { GameState, Unit } from './game';
+import { assignTiles, type City, recomputeOwnership } from './city';
+import { DEFAULT_RATE, type GameState, type Unit } from './game';
 import type { GameMap } from './map';
 import type { MapGenOptions } from './mapgen';
 import { Rng } from './rng';
 
 /**
- * Speicherformat. Bei inkompatiblen Änderungen SAVE_VERSION erhöhen und eine Migration ergänzen.
- * Abgeleitete Daten (aktuelle Sicht) werden nicht gespeichert, sondern beim Laden neu berechnet.
+ * Speicherformat. Bei inkompatiblen Änderungen SAVE_VERSION erhöhen und in migrate() nachrüsten.
+ * Abgeleitete Daten (Sicht, Feldbesitz) werden nicht gespeichert, sondern beim Laden neu berechnet.
+ *
+ * Versionen:
+ * 1 – M2: Karte, Spieler (Erkundung), Einheiten
+ * 2 – M3: Städte, Gold/Forschung/Steuersatz je Spieler
  */
-export const SAVE_VERSION = 1;
+export const SAVE_VERSION = 2;
+
+interface SavedPlayer {
+  id: number;
+  name: string;
+  human: boolean;
+  alive: boolean;
+  explored: Uint8Array;
+  gold: number;
+  research: number;
+  rate: number;
+}
 
 export interface SaveData {
   version: number;
@@ -15,9 +31,11 @@ export interface SaveData {
   options: MapGenOptions;
   starts: number[];
   map: GameMap;
-  players: { id: number; name: string; human: boolean; alive: boolean; explored: Uint8Array }[];
+  players: SavedPlayer[];
   units: Unit[];
   nextUnitId: number;
+  cities: City[];
+  nextCityId: number;
   rngState: number;
 }
 
@@ -46,25 +64,51 @@ export function toSaveData(s: GameState): SaveData {
       resource: s.map.resource.slice(),
       river: s.map.river.slice(),
     },
-    players: s.players.map((p) => ({ id: p.id, name: p.name, human: p.human, alive: p.alive, explored: p.explored.slice() })),
+    players: s.players.map((p) => ({
+      id: p.id,
+      name: p.name,
+      human: p.human,
+      alive: p.alive,
+      explored: p.explored.slice(),
+      gold: p.gold,
+      research: p.research,
+      rate: p.rate,
+    })),
     units: s.units.map((u) => ({ ...u, path: u.path ? u.path.slice() : null })),
     nextUnitId: s.nextUnitId,
+    cities: s.cities.map((c) => structuredClone(c)),
+    nextCityId: s.nextCityId,
     rngState: s.rng.getState(),
   };
 }
 
 export class SaveError extends Error {}
 
-export function fromSaveData(d: SaveData): GameState {
-  if (!d || typeof d !== 'object') throw new SaveError('Speicherstand ist beschädigt');
-  if (d.version !== SAVE_VERSION) {
-    throw new SaveError(`Speicherstand-Version ${d.version} wird nicht unterstützt (erwartet ${SAVE_VERSION})`);
+/** Ältere Speicherstände auf das aktuelle Format bringen. */
+function migrate(d: SaveData): SaveData {
+  if (d.version === 1) {
+    d = {
+      ...d,
+      version: 2,
+      cities: [],
+      nextCityId: 1,
+      players: d.players.map((p) => ({ ...p, gold: 0, research: 0, rate: DEFAULT_RATE })),
+    };
   }
+  return d;
+}
+
+export function fromSaveData(raw: SaveData): GameState {
+  if (!raw || typeof raw !== 'object') throw new SaveError('Speicherstand ist beschädigt');
+  if (typeof raw.version !== 'number' || raw.version < 1 || raw.version > SAVE_VERSION) {
+    throw new SaveError(`Speicherstand-Version ${raw.version} wird nicht unterstützt (erwartet ≤ ${SAVE_VERSION})`);
+  }
+  const d = migrate(raw);
   const n = d.map.width * d.map.height;
   for (const key of ['terrain', 'relief', 'feature', 'resource', 'river'] as const) {
     if (!(d.map[key] instanceof Uint8Array) || d.map[key].length !== n) throw new SaveError('Kartendaten sind beschädigt');
   }
-  return {
+  const state: GameState = {
     turn: d.turn,
     map: d.map,
     options: d.options,
@@ -72,6 +116,13 @@ export function fromSaveData(d: SaveData): GameState {
     players: d.players.map((p) => ({ ...p, visible: new Uint8Array(n) })),
     units: d.units,
     nextUnitId: d.nextUnitId,
+    cities: d.cities,
+    nextCityId: d.nextCityId,
+    tileOwner: new Int16Array(n).fill(-1),
+    tileCity: new Int32Array(n).fill(-1),
     rng: Rng.fromState(d.rngState),
   };
+  recomputeOwnership(state);
+  for (const c of state.cities) assignTiles(state, c);
+  return state;
 }

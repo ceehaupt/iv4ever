@@ -88,6 +88,8 @@ export class Hud {
     let seed = Number.parseInt(this.seed.value, 10);
     if (randomSeed || !Number.isFinite(seed)) seed = Math.floor(Math.random() * 1_000_000);
     this.seed.value = String(seed);
+    // Fokus zurück aufs Spiel, sonst landen Tastenkürzel im Eingabefeld.
+    (document.activeElement as HTMLElement | null)?.blur();
     const s = MAP_SIZES.find((m) => m.key === this.size.value) ?? MAP_SIZES[2];
     this.unpin();
     this.onNewMap({

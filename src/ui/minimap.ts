@@ -1,5 +1,5 @@
-import type { UnitView } from '../protocol';
-import { shade, toCss } from '../render/color';
+import type { CityView, UnitView } from '../protocol';
+import { mix, shade, toCss } from '../render/color';
 import { BACKGROUND, minimapColor, PLAYER_COLORS } from '../render/palette';
 import { centerX, centerY, COL_W, HEX, liftOf, ROW_H, TILT, worldSize } from '../render/projection';
 import type { ViewRect } from '../render/renderer';
@@ -64,7 +64,7 @@ export class Minimap {
   }
 
   /** Kartenbild neu malen: fog = null zeigt alles. */
-  update(fog: Uint8Array | null, units: readonly UnitView[]): void {
+  update(fog: Uint8Array | null, units: readonly UnitView[], tileOwner: Int16Array | null, cities: readonly CityView[]): void {
     const map = this.map;
     if (!map) return;
     const b = this.base.getContext('2d')!;
@@ -79,10 +79,21 @@ export class Minimap {
         const i = r * map.width + c;
         const f = fog ? fog[i] : 2;
         if (f === 0) continue;
-        const color = minimapColor(map.terrain[i], map.relief[i], map.feature[i]);
+        let color = minimapColor(map.terrain[i], map.relief[i], map.feature[i]);
+        const o = tileOwner ? tileOwner[i] : -1;
+        if (o >= 0) color = mix(color, PLAYER_COLORS[o % PLAYER_COLORS.length], 0.45);
         b.fillStyle = toCss(f === 2 ? color : shade(color, 0.55));
         b.fillRect(centerX(c, r) - COL_W / 2, centerY(r) - (ROW_H * TILT) / 2 + (HEX * TILT) / 2, w, h);
       }
+    }
+    for (const c of cities) {
+      const cc = c.tile % map.width;
+      const r = (c.tile / map.width) | 0;
+      const s = 4.5 / this.scale;
+      b.fillStyle = '#ffffff';
+      b.fillRect(centerX(cc, r) - s / 2 - 1 / this.scale, centerY(r) - s / 2 - 1 / this.scale, s + 2 / this.scale, s + 2 / this.scale);
+      b.fillStyle = toCss(PLAYER_COLORS[c.owner % PLAYER_COLORS.length]);
+      b.fillRect(centerX(cc, r) - s / 2, centerY(r) - s / 2, s, s);
     }
     for (const u of units) {
       const c = u.tile % map.width;

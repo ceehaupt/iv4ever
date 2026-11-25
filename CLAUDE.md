@@ -1,7 +1,7 @@
 # iv4ever
 
 Rundenbasiertes 4X-Strategiespiel im Browser (Hexfelder, 2.5D, Einzelspieler gegen KI).
-Plan und Meilensteine: `docs/ROADMAP.md`. UI-Sprache Deutsch, Code-Bezeichner Englisch, Kommentare Deutsch.
+Plan und Meilensteine: `docs/ROADMAP.md`, Spielregeln: `docs/REGELN.md` (bei Regeländerungen mitpflegen). UI-Sprache Deutsch, Code-Bezeichner Englisch, Kommentare Deutsch.
 
 ## Rechtliches (verbindlich)
 
@@ -17,7 +17,8 @@ Enzyklopädie-Texte, Grafiken, UI-Layout/-Look, Musik, Sounds, Szenarien. Histor
 - `src/sim/gen/` – Weltgenerierung: Flüsse, Ressourcen, Startpositionen; Einstieg `src/sim/mapgen.ts`.
 - Welt ist ost-west umlaufend: Nachbarn/Distanzen immer über `src/sim/hex.ts` (`tileAt`, `neighborOf`, `tileDistance`), nie selbst `c ± 1` rechnen.
 - Flüsse liegen auf Kanten; Abfrage nur über `hasRiver`/`touchesRiver` (`src/sim/map.ts`).
-- `src/sim/game.ts` – Spielzustand, Befehle, Rundenwechsel; `path.ts` (A*), `vision.ts` (Sichtlinie), `save.ts` (versioniertes Speicherformat – bei Änderungen `SAVE_VERSION` erhöhen).
+- `src/sim/city.ts` – Städte: Gründung, Feldbesitz, Bewirtschaftung, Wachstum, Produktion, Stimmung/Versorgung.
+- `src/sim/game.ts` – Spielzustand, Befehle, Rundenwechsel, Wirtschaft; `path.ts` (A*), `vision.ts` (Sichtlinie), `save.ts` (versioniertes Speicherformat – bei Änderungen `SAVE_VERSION` erhöhen).
 - `src/worker/` – Worker-Einstieg, hält den Spielzustand; `storage.ts` = IndexedDB.
 - Der Hauptthread bekommt nur `GameView` (Sicht des Menschen, Nebel!) – nie den vollen Zustand.
 - `src/protocol.ts` – einzige Schnittstelle Worker ↔ Hauptthread.

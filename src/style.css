@@ -332,3 +332,202 @@ button:disabled {
     top: 120px;
   }
 }
+
+/* --- M3: Städte, Wirtschaft, Ereignisse --------------------------------- */
+
+#economy {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+#economy small,
+.rate {
+  color: var(--muted);
+}
+
+.rate {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.rate input {
+  flex: 1;
+  padding: 0;
+}
+
+#turnpanel {
+  bottom: 230px;
+}
+
+button.x {
+  padding: 0 6px;
+  line-height: 1.4;
+  background: none;
+  border-color: transparent;
+  color: var(--muted);
+}
+
+button.x:hover {
+  color: var(--text);
+  border-color: var(--border);
+}
+
+#citypanel {
+  top: 76px;
+  left: 12px;
+  width: 360px;
+  max-height: calc(100vh - 136px);
+  overflow-y: auto;
+  padding: 10px 14px;
+  z-index: 2;
+}
+
+#citypanel header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+#citypanel h2 {
+  margin: 0;
+  font-size: 17px;
+}
+
+#citypanel h2 small,
+#citypanel h3 small,
+#citypanel section small {
+  color: var(--muted);
+  font-weight: normal;
+}
+
+#citypanel h3 {
+  margin: 0 0 6px;
+  font-size: 13px;
+}
+
+#citypanel section {
+  padding: 8px 0;
+  border-top: 1px solid var(--border);
+}
+
+#citypanel .row {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+#citypanel .warn {
+  color: #ff8a7a;
+}
+
+.bar {
+  height: 6px;
+  margin: 4px 0 2px;
+  border-radius: 3px;
+  background: rgb(255 255 255 / 0.1);
+  overflow: hidden;
+}
+
+.bar span {
+  display: block;
+  height: 100%;
+}
+
+.bar.food span {
+  background: #7bd35a;
+}
+
+.bar.prod span {
+  background: #e0913f;
+}
+
+.queue {
+  margin: 6px 0 0;
+  padding-left: 20px;
+}
+
+.queue li small {
+  color: var(--muted);
+}
+
+.options {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+}
+
+button.build {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  text-align: left;
+}
+
+.grid2 {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 3px 10px;
+}
+
+.grid2 > span:nth-child(odd) {
+  color: var(--muted);
+}
+
+.tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.tag {
+  padding: 2px 6px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+}
+
+#citypanel .hint {
+  margin: 4px 0 0;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+#log {
+  top: 76px;
+  left: 12px;
+  width: 320px;
+  max-height: 40vh;
+  overflow-y: auto;
+  padding: 6px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+#log header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0 4px 4px;
+}
+
+#log .event {
+  text-align: left;
+  border-color: transparent;
+  background: none;
+  font-size: 13px;
+}
+
+#log .event:hover {
+  background: rgb(255 255 255 / 0.08);
+}
+
+@media (max-width: 640px) {
+  #citypanel {
+    left: 12px;
+    width: auto;
+    max-height: 60vh;
+  }
+}
