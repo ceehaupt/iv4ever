@@ -33,13 +33,14 @@ Grafik, Texte und Balancing sind eigene Entwürfe (siehe `CLAUDE.md`, Abschnitt 
 - Startpositionen: Standortbewertung (Umkreis 2, Fluss, Küste, Hügel), Mindestabstand, nur auf Landmassen ≥ 24 Felder, schwache Starts bekommen Bonus-Ressourcen
 - Kartentypen Kontinente / Pangäa / Archipel, Meeresspiegel, Klima; Spielerzahl nach Kartengröße (2–10)
 
-### M2 – Runden, Einheiten, Sicht
-- Spielzustand im Worker: Spieler, Einheiten, Runde, Rundenwechsel
-- Einheiten: Siedler, Arbeiter, Späher, Krieger (Startset)
-- Bewegung mit A* (Bewegungskosten, Bewegungspunkte, Wegvorschau mit Rundenzahl)
-- Nebel des Krieges: unerforscht / bekannt / sichtbar, Sichtweite + Höhenbonus
-- Einheiten-Rendering als Sprites (Billboards) mit Fahne/Farbe; Auswahl, Befehle, Hotkeys
-- Speichern/Laden (IndexedDB, Format versioniert)
+### M2 – Runden, Einheiten, Sicht ✅
+- Spielzustand im Worker: Spieler, Einheiten, Runde, Rundenwechsel; Gegner ziehen noch nicht (KI in M6)
+- Einheiten: Siedler, Arbeiter, Späher, Krieger; Start mit Siedler, Krieger, Späher; Stapel unbegrenzt (nur eigene)
+- Bewegung mit A* (Bewegungskosten, Rest-Bewegung darf teure Felder betreten, Weltumrundung), Wegvorschau mit Rundenzahl, Marschbefehle über mehrere Runden, Neuplanung bei Hindernissen
+- Nebel des Krieges: unbekannt / erkundet / sichtbar; Sichtlinie (Wald, Hügel, Gebirge verdecken), +1 Sicht auf Hügeln; Startumgebung (Radius 3) bekannt; nur betroffene Kartenzeilen werden neu gezeichnet
+- Einheiten als Plaketten in Spielerfarbe mit Bewegungs-/Befestigungsanzeige und Stapelzähler, Bewegungsanimation
+- Befehle: Bewegen (Rechtsklick / M), Befestigen/Schlafen, Überspringen, Aufwecken, Auflösen; automatische Auswahl der nächsten Einheit
+- Speichern/Laden in IndexedDB (versioniertes Format, Schnellspeicherung + Autosave je Runde)
 
 ### M3 – Städte
 - Gründung, Stadtradius, automatische + manuelle Feldbewirtschaftung

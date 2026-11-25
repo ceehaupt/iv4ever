@@ -5,22 +5,24 @@ import { hash2 } from '../sim/rng';
 import { Feature, isWater, Relief, Terrain } from '../sim/rules/terrain';
 import { mix, shade } from './color';
 import { ICON_CELL } from './icons';
-import { EARTH_COLOR, PLAYER_COLORS, RIVER_COLOR, surfaceColor } from './palette';
-import {
-  CORNER_X, CORNER_Y, centerX, centerY, HEX, liftOf, MAX_OVERHANG, TILT, topPoly, worldSize,
-} from './projection';
+import { EARTH_COLOR, RIVER_COLOR, surfaceColor } from './palette';
+import { CORNER_X, CORNER_Y, centerX, centerY, HEX, liftOf, MAX_OVERHANG, TILT, topPoly, worldSize } from './projection';
 
 /**
- * Statische Kartendarstellung.
+ * Statische Kartendarstellung mit Nebel des Krieges.
  *
- * Pro Kartenzeile je ein GraphicsContext für Gelände, Flüsse und Gitter (einmal tesselliert, liegt auf der GPU)
- * plus Ressourcen-Sprites. Bei Weltumrundung wird jede Zeile dreimal instanziiert (Versatz −1, 0, +1 Weltbreite);
- * die Instanzen teilen sich die Geometrie, kosten also nur je einen Draw-Call, wenn sichtbar.
- * Zeichenreihenfolge zeilenweise hinten → vorn (Maleralgorithmus).
+ * Pro Kartenzeile je ein GraphicsContext für Gelände, Flüsse und Gitter plus Ressourcen-Sprites.
+ * Unbekannte Felder werden gar nicht gezeichnet, erkundete aber nicht sichtbare gedimmt.
+ * Ändert sich der Nebel, werden nur die betroffenen Zeilen neu aufgebaut.
+ * Bei Weltumrundung wird jede Zeile dreimal instanziiert (Versatz −1, 0, +1 Weltbreite);
+ * die Instanzen teilen sich die Geometrie. Zeichenreihenfolge zeilenweise hinten → vorn.
  */
 export interface MapRow {
   minY: number;
   maxY: number;
+  tctx: GraphicsContext;
+  rctx: GraphicsContext;
+  gctx: GraphicsContext;
   terrain: Graphics[];
   rivers: Graphics[];
   grid: Graphics[];
@@ -30,63 +32,46 @@ export interface MapRow {
 export interface MapView {
   root: Container;
   rows: MapRow[];
-  /** x-Versatz je Instanz. */
   offsets: number[];
   worldWidth: number;
-  markers: Graphics[];
-  contexts: GraphicsContext[];
 }
 
-const ICON_SIZE = 22;
+/** Nebelzustand je Feld: 0 unbekannt, 1 erkundet, 2 sichtbar. null = alles sichtbar. */
+export type Fog = Uint8Array | null;
 
-export function buildMapView(map: GameMap, starts: readonly number[], icons: readonly Texture[]): MapView {
+const ICON_SIZE = 22;
+const FOG_ICON_TINT = 0x8a8f99;
+
+type Tint = (c: number) => number;
+const CLEAR: Tint = (c) => c;
+const FOGGED: Tint = (c) => shade(mix(c, 0x56606e, 0.35), 0.62);
+
+export function buildMapView(map: GameMap): MapView {
   const root = new Container();
   root.eventMode = 'none';
   root.interactiveChildren = false;
   const worldWidth = worldSize(map).width;
   const offsets = map.wrapX ? [-worldWidth, 0, worldWidth] : [0];
   const rows: MapRow[] = [];
-  const contexts: GraphicsContext[] = [];
 
   for (let r = 0; r < map.height; r++) {
-    const tctx = new GraphicsContext();
-    const rctx = new GraphicsContext();
-    const gctx = new GraphicsContext();
-    contexts.push(tctx, rctx, gctx);
-    const iconSpots: { x: number; y: number; id: number }[] = [];
-
-    for (let c = 0; c < map.width; c++) {
-      const i = r * map.width + c;
-      const cx = centerX(c, r);
-      const cy = centerY(r) - liftOf(map, i);
-      drawTile(tctx, map, i, c, r, cx, cy);
-      gctx.poly(topPoly(cx, cy)).stroke({ width: 1, color: 0x06101c, alpha: 0.28 });
-      if (map.resource[i]) iconSpots.push({ x: cx, y: cy - 1, id: map.resource[i] });
-      drawRiverEdges(rctx, map, i, c, r);
-    }
-
     const row: MapRow = {
       minY: centerY(r) - HEX * TILT - MAX_OVERHANG,
       maxY: centerY(r) + HEX * TILT + 2,
+      tctx: new GraphicsContext(),
+      rctx: new GraphicsContext(),
+      gctx: new GraphicsContext(),
       terrain: [],
       rivers: [],
       grid: [],
       icons: [],
     };
     for (const off of offsets) {
-      const t = new Graphics(tctx);
-      const rv = new Graphics(rctx);
-      const g = new Graphics(gctx);
-      t.x = rv.x = g.x = off;
+      const t = new Graphics(row.tctx);
+      const rv = new Graphics(row.rctx);
+      const g = new Graphics(row.gctx);
       const ic = new Container();
-      ic.x = off;
-      for (const s of iconSpots) {
-        const sp = new Sprite(icons[s.id]);
-        sp.anchor.set(0.5);
-        sp.scale.set(ICON_SIZE / ICON_CELL);
-        sp.position.set(s.x, s.y);
-        ic.addChild(sp);
-      }
+      t.x = rv.x = g.x = ic.x = off;
       row.terrain.push(t);
       row.rivers.push(rv);
       row.grid.push(g);
@@ -95,50 +80,95 @@ export function buildMapView(map: GameMap, starts: readonly number[], icons: rea
     root.addChild(...row.terrain, ...row.rivers, ...row.grid, ...row.icons);
     rows.push(row);
   }
+  return { root, rows, offsets, worldWidth };
+}
 
-  const mctx = new GraphicsContext();
-  contexts.push(mctx);
-  starts.forEach((s, p) => drawStartFlag(mctx, map, s, PLAYER_COLORS[p % PLAYER_COLORS.length]));
-  const markers = offsets.map((off) => {
-    const g = new Graphics(mctx);
-    g.x = off;
-    root.addChild(g);
-    return g;
-  });
+/** Zeile r neu zeichnen (nach Nebeländerung). */
+export function rebuildRow(view: MapView, map: GameMap, r: number, fog: Fog, icons: readonly Texture[]): void {
+  const row = view.rows[r];
+  row.tctx.clear();
+  row.rctx.clear();
+  row.gctx.clear();
+  for (const ic of row.icons) ic.removeChildren().forEach((c) => c.destroy());
 
-  return { root, rows, offsets, worldWidth, markers, contexts };
+  const spots: { x: number; y: number; id: number; dim: boolean }[] = [];
+  for (let c = 0; c < map.width; c++) {
+    const i = r * map.width + c;
+    const state = fog ? fog[i] : 2;
+    if (state > 0) {
+      const tint = state === 2 ? CLEAR : FOGGED;
+      const cx = centerX(c, r);
+      const cy = centerY(r) - liftOf(map, i);
+      drawTile(row.tctx, map, i, c, r, cx, cy, tint);
+      row.gctx.poly(topPoly(cx, cy)).stroke({ width: 1, color: 0x06101c, alpha: 0.28 });
+      if (map.resource[i]) spots.push({ x: cx, y: cy - 1, id: map.resource[i], dim: state === 1 });
+    }
+    drawRiverEdges(row.rctx, map, i, c, r, fog);
+  }
+  for (const ic of row.icons) {
+    for (const s of spots) {
+      const sp = new Sprite(icons[s.id]);
+      sp.anchor.set(0.5);
+      sp.scale.set(ICON_SIZE / ICON_CELL);
+      sp.position.set(s.x, s.y);
+      if (s.dim) sp.tint = FOG_ICON_TINT;
+      ic.addChild(sp);
+    }
+  }
+}
+
+/** Zeilen, deren Darstellung sich durch den Nebelwechsel ändert (inkl. Flusskanten der Folgezeile). */
+export function changedRows(map: GameMap, prev: Fog, next: Fog): number[] {
+  const out = new Set<number>();
+  for (let r = 0; r < map.height; r++) {
+    let changed = !prev || !next;
+    for (let c = 0; !changed && c < map.width; c++) {
+      const i = r * map.width + c;
+      changed = prev![i] !== next![i];
+    }
+    if (changed) {
+      out.add(r);
+      if (r + 1 < map.height) out.add(r + 1);
+    }
+  }
+  return [...out].sort((a, b) => a - b);
 }
 
 export function destroyMapView(view: MapView): void {
   view.root.destroy({ children: true });
-  for (const ctx of view.contexts) ctx.destroy();
+  for (const row of view.rows) {
+    row.tctx.destroy();
+    row.rctx.destroy();
+    row.gctx.destroy();
+  }
 }
 
 // --- Gelände -----------------------------------------------------------------
 
-function drawTile(g: GraphicsContext, map: GameMap, i: number, c: number, r: number, cx: number, cy: number): void {
+function drawTile(g: GraphicsContext, map: GameMap, i: number, c: number, r: number, cx: number, cy: number, tint: Tint): void {
   const t = map.terrain[i];
   const rl = map.relief[i];
   const f = map.feature[i];
   const lift = liftOf(map, i);
   const h = hash2(c, r, map.seed ^ 0xabc);
-  const top = shade(surfaceColor(t, rl, f), 0.95 + h * 0.1);
+  const base = shade(surfaceColor(t, rl, f), 0.95 + h * 0.1);
+  const top = tint(base);
 
   if (lift > 0) {
-    const wall = mix(top, EARTH_COLOR, 0.45);
-    sideWall(g, cx, cy, 0, 1, lift, shade(wall, 0.6));
-    sideWall(g, cx, cy, 1, 2, lift, shade(wall, 0.8));
+    const wall = mix(base, EARTH_COLOR, 0.45);
+    sideWall(g, cx, cy, 0, 1, lift, tint(shade(wall, 0.6)));
+    sideWall(g, cx, cy, 1, 2, lift, tint(shade(wall, 0.8)));
   }
   g.poly(topPoly(cx, cy)).fill(top);
 
   if (isWater(t)) {
-    if (f !== Feature.Ice && t === Terrain.Ocean && h > 0.55) waves(g, cx, cy, h, shade(top, 1.18));
+    if (f !== Feature.Ice && t === Terrain.Ocean && h > 0.55) waves(g, cx, cy, h, tint(shade(base, 1.18)));
   } else if (rl === Relief.Mountain) {
-    mountain(g, cx, cy, t === Terrain.Snow || t === Terrain.Tundra);
+    mountain(g, cx, cy, t === Terrain.Snow || t === Terrain.Tundra, tint);
   } else {
-    if (rl === Relief.Hill) hills(g, cx, cy, top);
-    if (f === Feature.Forest) forest(g, cx, cy, c, r, map.seed, t === Terrain.Tundra);
-    else if (f === Feature.Jungle) jungle(g, cx, cy, c, r, map.seed);
+    if (rl === Relief.Hill) hills(g, cx, cy, base, tint);
+    if (f === Feature.Forest) forest(g, cx, cy, c, r, map.seed, t === Terrain.Tundra, tint);
+    else if (f === Feature.Jungle) jungle(g, cx, cy, c, r, map.seed, tint);
   }
 }
 
@@ -157,38 +187,39 @@ function waves(g: GraphicsContext, cx: number, cy: number, h: number, color: num
   g.stroke({ width: 1.2, color, alpha: 0.55 });
 }
 
-function hills(g: GraphicsContext, cx: number, cy: number, top: number): void {
-  const light = shade(top, 1.12);
-  const dark = shade(top, 0.82);
+function hills(g: GraphicsContext, cx: number, cy: number, base: number, tint: Tint): void {
+  const light = tint(shade(base, 1.12));
+  const dark = tint(shade(base, 0.82));
   g.ellipse(cx - 7, cy + 3, 12, 5.5).fill(dark);
   g.ellipse(cx - 8, cy + 2, 11, 4.5).fill(light);
   g.ellipse(cx + 9, cy - 2, 9, 4.5).fill(dark);
   g.ellipse(cx + 8, cy - 3, 8, 3.6).fill(light);
 }
 
-function peak(g: GraphicsContext, x: number, baseY: number, w: number, h: number, light: number, dark: number): void {
+function peak(g: GraphicsContext, x: number, baseY: number, w: number, h: number, light: number, dark: number, snow: number): void {
   const ay = baseY - h;
   g.poly([x - w, baseY, x, ay, x, baseY]).fill(light);
   g.poly([x, ay, x + w, baseY, x, baseY]).fill(dark);
   const k = 0.3;
-  g.poly([x, ay, x - w * k, ay + h * k, x - w * k * 0.2, ay + h * k * 0.75, x + w * k * 0.4, ay + h * k * 0.9, x + w * k, ay + h * k]).fill(0xf1f4f6);
+  g.poly([x, ay, x - w * k, ay + h * k, x - w * k * 0.2, ay + h * k * 0.75, x + w * k * 0.4, ay + h * k * 0.9, x + w * k, ay + h * k]).fill(snow);
 }
 
-function mountain(g: GraphicsContext, cx: number, cy: number, cold: boolean): void {
-  const light = cold ? 0xa7a9ad : 0x9a8f83;
-  const dark = cold ? 0x6d7177 : 0x5f564d;
-  peak(g, cx - 10, cy + 5, 11, 17, light, dark);
-  peak(g, cx + 9, cy + 6, 10, 14, light, dark);
-  peak(g, cx + 1, cy + 8, 15, 26, light, dark);
+function mountain(g: GraphicsContext, cx: number, cy: number, cold: boolean, tint: Tint): void {
+  const light = tint(cold ? 0xa7a9ad : 0x9a8f83);
+  const dark = tint(cold ? 0x6d7177 : 0x5f564d);
+  const snow = tint(0xf1f4f6);
+  peak(g, cx - 10, cy + 5, 11, 17, light, dark, snow);
+  peak(g, cx + 9, cy + 6, 10, 14, light, dark, snow);
+  peak(g, cx + 1, cy + 8, 15, 26, light, dark, snow);
 }
 
 const TREE_SLOTS: readonly (readonly [number, number])[] = [
   [-12, -5], [1, -9], [13, -5], [-6, 1], [7, 2], [-13, 6], [0, 8], [13, 6],
 ];
 
-function forest(g: GraphicsContext, cx: number, cy: number, c: number, r: number, seed: number, taiga: boolean): void {
-  const light = taiga ? 0x3f6b4f : 0x3c7a32;
-  const dark = taiga ? 0x284937 : 0x26531f;
+function forest(g: GraphicsContext, cx: number, cy: number, c: number, r: number, seed: number, taiga: boolean, tint: Tint): void {
+  const light = tint(taiga ? 0x3f6b4f : 0x3c7a32);
+  const dark = tint(taiga ? 0x284937 : 0x26531f);
   for (let k = 0; k < TREE_SLOTS.length; k++) {
     if (hash2(c * 8 + k, r, seed + 5) < 0.2) continue;
     const jx = (hash2(c, r * 8 + k, seed + 6) - 0.5) * 4;
@@ -199,13 +230,15 @@ function forest(g: GraphicsContext, cx: number, cy: number, c: number, r: number
   }
 }
 
-function jungle(g: GraphicsContext, cx: number, cy: number, c: number, r: number, seed: number): void {
+function jungle(g: GraphicsContext, cx: number, cy: number, c: number, r: number, seed: number, tint: Tint): void {
+  const dark = tint(0x1d5a26);
+  const light = tint(0x2f7d33);
   for (let k = 0; k < TREE_SLOTS.length; k++) {
     const jx = (hash2(c, r * 8 + k, seed + 7) - 0.5) * 4;
     const x = cx + TREE_SLOTS[k][0] + jx;
     const y = cy + TREE_SLOTS[k][1] * TILT * 1.4 - 4;
-    g.circle(x, y, 6).fill(0x1d5a26);
-    g.circle(x - 1.6, y - 1.8, 3.4).fill(0x2f7d33);
+    g.circle(x, y, 6).fill(dark);
+    g.circle(x - 1.6, y - 1.8, 3.4).fill(light);
   }
 }
 
@@ -216,39 +249,26 @@ function jungle(g: GraphicsContext, cx: number, cy: number, c: number, r: number
  * SW-/SO-Kanten der Zeile darüber (die liegen an der Grenze zu dieser Zeile und würden sonst
  * von ihr überdeckt). Höhe = höhere der beiden Feldoberkanten.
  */
-function drawRiverEdges(g: GraphicsContext, map: GameMap, i: number, c: number, r: number): void {
-  if (hasRiver(map, i, Dir.E)) riverEdge(g, map, i, c, r, Dir.E, 5, 0);
+function drawRiverEdges(g: GraphicsContext, map: GameMap, i: number, c: number, r: number, fog: Fog): void {
+  if (hasRiver(map, i, Dir.E)) riverEdge(g, map, i, c, r, Dir.E, 5, 0, fog);
   if (r === 0) return;
-  // Felder der vorigen Zeile, deren SW/SO-Kante an dieses Feld grenzt: NO- und NW-Nachbar.
   const ne = neighborOf(map, i, Dir.NE);
-  if (ne >= 0 && hasRiver(map, ne, Dir.SW)) {
-    // ungewrappte Spalte des Nachbarn relativ zu c bestimmen
-    riverEdge(g, map, ne, c + ((r & 1) ? 1 : 0), r - 1, Dir.SW, 1, 2);
-  }
+  if (ne >= 0 && hasRiver(map, ne, Dir.SW)) riverEdge(g, map, ne, c + (r & 1 ? 1 : 0), r - 1, Dir.SW, 1, 2, fog);
   const nw = neighborOf(map, i, Dir.NW);
-  if (nw >= 0 && hasRiver(map, nw, Dir.SE)) {
-    riverEdge(g, map, nw, c - ((r & 1) ? 0 : 1), r - 1, Dir.SE, 0, 1);
-  }
+  if (nw >= 0 && hasRiver(map, nw, Dir.SE)) riverEdge(g, map, nw, c - (r & 1 ? 0 : 1), r - 1, Dir.SE, 0, 1, fog);
 }
 
-function riverEdge(g: GraphicsContext, map: GameMap, a: number, c: number, r: number, dir: number, k0: number, k1: number): void {
+function riverEdge(
+  g: GraphicsContext, map: GameMap, a: number, c: number, r: number, dir: number, k0: number, k1: number, fog: Fog,
+): void {
   const b = neighborOf(map, a, dir);
+  const sa = fog ? fog[a] : 2;
+  const sb = fog && b >= 0 ? fog[b] : 2;
+  if (sa === 0 && sb === 0) return;
   const lift = Math.max(liftOf(map, a), b >= 0 ? liftOf(map, b) : 0);
   const cx = centerX(c, r);
   const cy = centerY(r) - lift;
+  const color = sa === 2 || sb === 2 ? RIVER_COLOR : FOGGED(RIVER_COLOR);
   g.moveTo(cx + CORNER_X[k0], cy + CORNER_Y[k0]).lineTo(cx + CORNER_X[k1], cy + CORNER_Y[k1]);
-  g.stroke({ width: 4.5, color: RIVER_COLOR, cap: 'round' });
-}
-
-// --- Startmarker ---------------------------------------------------------------
-
-function drawStartFlag(g: GraphicsContext, map: GameMap, i: number, color: number): void {
-  const c = i % map.width;
-  const r = (i / map.width) | 0;
-  const x = centerX(c, r);
-  const y = centerY(r) - liftOf(map, i) + 4;
-  g.ellipse(x, y, 7, 3).fill({ color: 0x000000, alpha: 0.3 });
-  g.rect(x - 1, y - 30, 2, 30).fill(0x3b2e22);
-  g.poly([x + 1, y - 30, x + 17, y - 25, x + 1, y - 20]).fill(color);
-  g.poly([x + 1, y - 30, x + 17, y - 25, x + 1, y - 20]).stroke({ width: 1, color: 0x000000, alpha: 0.35 });
+  g.stroke({ width: 4.5, color, cap: 'round' });
 }

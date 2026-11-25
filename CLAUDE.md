@@ -17,7 +17,9 @@ Enzyklopädie-Texte, Grafiken, UI-Layout/-Look, Musik, Sounds, Szenarien. Histor
 - `src/sim/gen/` – Weltgenerierung: Flüsse, Ressourcen, Startpositionen; Einstieg `src/sim/mapgen.ts`.
 - Welt ist ost-west umlaufend: Nachbarn/Distanzen immer über `src/sim/hex.ts` (`tileAt`, `neighborOf`, `tileDistance`), nie selbst `c ± 1` rechnen.
 - Flüsse liegen auf Kanten; Abfrage nur über `hasRiver`/`touchesRiver` (`src/sim/map.ts`).
-- `src/worker/` – Worker-Einstieg, hält den Spielzustand.
+- `src/sim/game.ts` – Spielzustand, Befehle, Rundenwechsel; `path.ts` (A*), `vision.ts` (Sichtlinie), `save.ts` (versioniertes Speicherformat – bei Änderungen `SAVE_VERSION` erhöhen).
+- `src/worker/` – Worker-Einstieg, hält den Spielzustand; `storage.ts` = IndexedDB.
+- Der Hauptthread bekommt nur `GameView` (Sicht des Menschen, Nebel!) – nie den vollen Zustand.
 - `src/protocol.ts` – einzige Schnittstelle Worker ↔ Hauptthread.
 - `src/render/` – PixiJS-Renderer. Projektion/Konstanten in `projection.ts`; Zeichenreihenfolge zeilenweise hinten → vorn.
 - `src/ui/` – DOM-UI (HUD, Minimap).

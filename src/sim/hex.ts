@@ -91,6 +91,39 @@ export function tileDistance(g: Grid, a: number, b: number): number {
   return hexDistance(g, a % g.width, (a / g.width) | 0, b % g.width, (b / g.width) | 0);
 }
 
+/**
+ * Felder auf der geraden Linie zwischen a und b, ohne Start und Ziel.
+ * Bei Umrundung über die kürzere Seite.
+ */
+export function hexLineBetween(g: Grid, a: number, b: number): number[] {
+  const c1 = a % g.width;
+  const r1 = (a / g.width) | 0;
+  let c2 = b % g.width;
+  const r2 = (b / g.width) | 0;
+  if (g.wrapX) {
+    let best = rawDistance(c1, r1, c2, r2);
+    for (const alt of [c2 - g.width, c2 + g.width]) {
+      const d = rawDistance(c1, r1, alt, r2);
+      if (d < best) {
+        best = d;
+        c2 = alt;
+      }
+    }
+  }
+  const q1 = offsetToAxialQ(c1, r1);
+  const q2 = offsetToAxialQ(c2, r2);
+  const n = rawDistance(c1, r1, c2, r2);
+  const out: number[] = [];
+  for (let k = 1; k < n; k++) {
+    const t = k / n;
+    // Kleiner Versatz, damit Linien genau auf Kanten eindeutig gerundet werden.
+    const [q, r] = axialRound(q1 + (q2 - q1) * t + 1e-6, r1 + (r2 - r1) * t + 2e-6);
+    const i = tileAt(g, axialToOffsetCol(q, r), r);
+    if (i >= 0) out.push(i);
+  }
+  return out;
+}
+
 /** Rundet gebrochene Axial-Koordinaten auf das nächste Hexfeld. */
 export function axialRound(q: number, r: number): [number, number] {
   const s = -q - r;

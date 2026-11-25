@@ -1,13 +1,18 @@
-import { Application, Container, Graphics, type Texture } from 'pixi.js';
+import { Application, BitmapText, Container, Graphics, type Texture } from 'pixi.js';
+import type { UnitView } from '../protocol';
 import type { GameMap } from '../sim/map';
-import { createResourceAtlas } from './icons';
+import { createResourceAtlas, createUnitAtlas } from './icons';
+import { buildMapView, changedRows, destroyMapView, type Fog, type MapView, rebuildRow } from './mapView';
 import { BACKGROUND } from './palette';
-import { buildMapView, destroyMapView, type MapView } from './mapView';
 import { centerX, centerY, HEX, liftOf, pickTile, topPoly, worldSize } from './projection';
+import { TOKEN_SIZE, tokenPos, UnitLayer } from './unitLayer';
 
 export interface RendererEvents {
   onHover(tile: number): void;
-  onSelect(tile: number): void;
+  /** Linksklick (ohne Ziehen) auf ein Feld. */
+  onClick(tile: number): void;
+  /** Rechtsklick auf ein Feld (Bewegungsbefehl). */
+  onRightClick(tile: number): void;
   /** Kamera oder Bild hat sich geändert (für Minimap/Statistik). */
   onFrame(): void;
 }
@@ -23,30 +28,36 @@ const MIN_ZOOM = 0.2;
 const MAX_ZOOM = 3;
 const GRID_MIN_ZOOM = 0.45;
 const ICON_MIN_ZOOM = 0.38;
-const START_ZOOM = 0.7;
+const START_ZOOM = 1;
 const DRAG_THRESHOLD = 5;
 const KEY_PAN_SPEED = 900; // Bildschirmpixel pro Sekunde
 
 /**
- * Rendert nur bei Bedarf ("dirty"): Ohne Eingabe steht die GPU still.
- * Eingaben (Maus, Rad, Tastatur, Trackpad-Pinch) steuern eine einfache 2D-Kamera.
+ * Rendert nur bei Bedarf ("dirty"): Ohne Eingabe und Animation steht die GPU still.
+ * Ebenen (unten → oben): Karte, Einheiten, Markierungen/Wegvorschau.
  */
 export class GameRenderer {
   readonly app = new Application();
-  readonly camera = { x: 0, y: 0, zoom: 1 };
+  readonly camera = { x: 0, y: 0, zoom: START_ZOOM };
   lastRenderMs = 0;
 
   private readonly world = new Container();
   private readonly overlay = new Graphics();
+  private readonly pathLabels = new Container();
+  private units!: UnitLayer;
   private view: MapView | null = null;
   private map: GameMap | null = null;
+  private fog: Fog = null;
+  private revealAll = false;
   private dirty = true;
   private overlayDirty = true;
   private gridVisible = true;
   private iconsVisible = true;
   private icons: Texture[] = [];
   private hover = -1;
-  private selected = -1;
+  private selectedTile = -1;
+  private selectedUnitTile = -1;
+  private path: { from: number; tiles: number[]; turns: number[] } | null = null;
   private readonly keys = new Set<string>();
   private lastTime = 0;
   private drag: { id: number; x: number; y: number; moved: boolean } | null = null;
@@ -74,10 +85,12 @@ export class GameRenderer {
     this.app.stage.eventMode = 'none';
     this.world.eventMode = 'none';
     this.overlay.eventMode = 'none';
-    this.app.stage.addChild(this.world);
-    this.world.addChild(this.overlay);
-    this.host.appendChild(this.app.canvas);
+    this.pathLabels.eventMode = 'none';
     this.icons = createResourceAtlas();
+    this.units = new UnitLayer(createUnitAtlas());
+    this.app.stage.addChild(this.world);
+    this.world.addChild(this.units.root, this.overlay, this.pathLabels);
+    this.host.appendChild(this.app.canvas);
     this.bindInput();
     window.addEventListener('resize', () => {
       this.app.renderer.resize(this.host.clientWidth, this.host.clientHeight);
@@ -86,22 +99,71 @@ export class GameRenderer {
     requestAnimationFrame(this.frame);
   }
 
-  setMap(map: GameMap, starts: readonly number[]): void {
+  // --- Daten ---------------------------------------------------------------
+
+  /** Neue Karte. Gezeichnet wird erst, wenn mit setFog der Nebel bekannt ist. */
+  setMap(map: GameMap): void {
     if (this.view) destroyMapView(this.view);
     this.map = map;
-    this.view = buildMapView(map, starts, this.icons);
+    this.fog = null;
+    this.view = buildMapView(map);
     this.world.addChildAt(this.view.root, 0);
+    this.units.setMap(map, this.view.offsets);
     this.hover = -1;
-    this.selected = -1;
+    this.selectedTile = -1;
+    this.selectedUnitTile = -1;
+    this.path = null;
     this.camera.zoom = START_ZOOM;
-    if (starts.length) this.centerOnTile(starts[0]);
-    else {
-      const size = worldSize(map);
-      this.centerOn(size.width / 2, size.height / 2);
-    }
     this.overlayDirty = true;
     this.dirty = true;
   }
+
+  setFog(fog: Uint8Array): void {
+    if (!this.map || !this.view) return;
+    const prev = this.fog;
+    this.fog = fog;
+    if (this.revealAll && prev) return;
+    const rows = changedRows(this.map, this.revealAll ? null : prev, this.revealAll ? null : fog);
+    for (const r of rows) rebuildRow(this.view, this.map, r, this.revealAll ? null : fog, this.icons);
+    this.dirty = true;
+  }
+
+  /** Debug: ganze Karte ohne Nebel zeigen. */
+  toggleRevealAll(): boolean {
+    this.revealAll = !this.revealAll;
+    if (this.map && this.view) {
+      const fog = this.revealAll ? null : this.fog;
+      for (let r = 0; r < this.map.height; r++) rebuildRow(this.view, this.map, r, fog, this.icons);
+    }
+    this.dirty = true;
+    return this.revealAll;
+  }
+
+  /** Gibt die Dauer der Bewegungsanimationen in ms zurück. */
+  setUnits(units: UnitView[], human: number, moves: { unit: number; steps: number[] }[]): number {
+    const ms = this.units.setUnits(units, human, moves, performance.now());
+    this.dirty = true;
+    return ms;
+  }
+
+  setSelectedUnit(unitId: number, tile: number): void {
+    this.units.setSelected(unitId);
+    this.selectedUnitTile = tile;
+    this.overlayDirty = true;
+    this.dirty = true;
+  }
+
+  setSelectedTile(tile: number): void {
+    this.selectedTile = tile;
+    this.overlayDirty = true;
+  }
+
+  setPath(from: number, tiles: number[] | null, turns: number[] | null): void {
+    this.path = tiles && turns ? { from, tiles, turns } : null;
+    this.overlayDirty = true;
+  }
+
+  // --- Kamera ----------------------------------------------------------------
 
   centerOnTile(i: number): void {
     if (!this.map) return;
@@ -116,6 +178,17 @@ export class GameRenderer {
     this.dirty = true;
   }
 
+  /** Liegt das Feld (mit Rand) im sichtbaren Bereich? */
+  isTileOnScreen(i: number, margin = 80): boolean {
+    if (!this.map || !this.view) return false;
+    const p = tokenPos(this.map, i);
+    const v = this.viewRect();
+    const m = margin / this.camera.zoom;
+    const ww = this.view.worldWidth;
+    const inY = p.y >= v.y + m && p.y <= v.y + v.height - m;
+    return inY && [-ww, 0, ww].some((off) => p.x + off >= v.x + m && p.x + off <= v.x + v.width - m);
+  }
+
   toggleGrid(): void {
     this.gridVisible = !this.gridVisible;
     this.dirty = true;
@@ -124,11 +197,6 @@ export class GameRenderer {
   toggleResources(): void {
     this.iconsVisible = !this.iconsVisible;
     this.dirty = true;
-  }
-
-  /** Weltbreite einer Periode (für Minimap bei Umrundung). */
-  get worldWidth(): number {
-    return this.view?.worldWidth ?? 0;
   }
 
   viewRect(): ViewRect {
@@ -148,6 +216,10 @@ export class GameRenderer {
     const dt = Math.min(0.05, (time - this.lastTime) / 1000 || 0);
     this.lastTime = time;
     this.applyKeyboard(dt);
+    if (this.units.animating) {
+      this.units.tick(performance.now());
+      this.dirty = true;
+    }
     if (this.dirty || this.overlayDirty) {
       this.dirty = false;
       this.applyCamera();
@@ -196,8 +268,7 @@ export class GameRenderer {
         row.icons[k].visible = v && showIcons;
       }
     }
-    this.view.markers.forEach((m, k) => (m.visible = copyVisible[k]));
-    // Linienbreite der Markierung bleibt auf dem Bildschirm konstant.
+    // Linienbreiten der Markierungen bleiben auf dem Bildschirm konstant.
     this.overlayDirty = true;
   }
 
@@ -205,15 +276,62 @@ export class GameRenderer {
     this.overlayDirty = false;
     const g = this.overlay;
     g.clear();
-    if (!this.map || !this.view) return;
+    for (const c of this.pathLabels.removeChildren()) c.destroy();
+    const map = this.map;
+    if (!map || !this.view) return;
     const w = 1 / this.camera.zoom;
     for (const off of this.view.offsets) {
-      if (this.hover >= 0 && this.hover !== this.selected) {
-        g.poly(this.tileTop(this.hover, off)).stroke({ width: 2 * w, color: 0xffffff, alpha: 0.85 });
+      if (this.hover >= 0 && this.hover !== this.selectedTile) {
+        g.poly(this.tileTop(this.hover, off)).stroke({ width: 2 * w, color: 0xffffff, alpha: 0.7 });
       }
-      if (this.selected >= 0) {
-        g.poly(this.tileTop(this.selected, off)).stroke({ width: 3 * w, color: 0xffd54a, alpha: 1 });
+      if (this.selectedTile >= 0) {
+        g.poly(this.tileTop(this.selectedTile, off)).stroke({ width: 3 * w, color: 0xffd54a, alpha: 1 });
       }
+      if (this.selectedUnitTile >= 0) {
+        const p = tokenPos(map, this.selectedUnitTile);
+        g.circle(p.x + off, p.y, TOKEN_SIZE / 2 + 3).stroke({ width: 3 * w, color: 0xffd54a });
+      }
+      if (this.path) this.drawPath(g, off, w);
+    }
+  }
+
+  private drawPath(g: Graphics, off: number, w: number): void {
+    const map = this.map!;
+    const { from, tiles, turns } = this.path!;
+    // Weltkoordinaten entlang der Naht stetig halten (kein Sprung über die ganze Karte).
+    const ww = this.view!.worldWidth;
+    const pts: { x: number; y: number }[] = [];
+    let last = tokenPos(map, from);
+    pts.push(last);
+    for (const t of tiles) {
+      const p = { ...tokenPos(map, t) };
+      p.y += TOKEN_RAISE_PATH;
+      while (p.x - last.x > ww / 2) p.x -= ww;
+      while (last.x - p.x > ww / 2) p.x += ww;
+      pts.push(p);
+      last = p;
+    }
+    pts[0] = { x: pts[0].x, y: pts[0].y + TOKEN_RAISE_PATH };
+    g.moveTo(pts[0].x + off, pts[0].y);
+    for (let k = 1; k < pts.length; k++) g.lineTo(pts[k].x + off, pts[k].y);
+    g.stroke({ width: 3 * w, color: 0xffffff, alpha: 0.85, cap: 'round', join: 'round' });
+
+    for (let k = 0; k < tiles.length; k++) {
+      const p = pts[k + 1];
+      const endOfTurn = k === tiles.length - 1 || turns[k + 1] !== turns[k];
+      if (!endOfTurn) {
+        g.circle(p.x + off, p.y, 3 * w).fill(0xffffff);
+        continue;
+      }
+      g.circle(p.x + off, p.y, 9 * w).fill({ color: 0x10151f, alpha: 0.9 }).stroke({ width: 2 * w, color: 0xffffff });
+      const label = new BitmapText({
+        text: String(turns[k] + 1),
+        style: { fontFamily: 'Arial', fontSize: 12, fill: 0xffffff, fontWeight: 'bold' },
+      });
+      label.anchor.set(0.5);
+      label.scale.set(w);
+      label.position.set(p.x + off, p.y);
+      this.pathLabels.addChild(label);
     }
   }
 
@@ -257,8 +375,14 @@ export class GameRenderer {
   private bindInput(): void {
     const canvas = this.app.canvas;
     canvas.style.touchAction = 'none';
+    canvas.addEventListener('contextmenu', (e) => e.preventDefault());
 
     canvas.addEventListener('pointerdown', (e) => {
+      if (e.button === 2) {
+        const t = this.pick(e.offsetX, e.offsetY);
+        if (t >= 0) this.events.onRightClick(t);
+        return;
+      }
       if (e.button !== 0 || this.drag) return;
       canvas.setPointerCapture(e.pointerId);
       this.drag = { id: e.pointerId, x: e.offsetX, y: e.offsetY, moved: false };
@@ -285,11 +409,7 @@ export class GameRenderer {
       const d = this.drag;
       if (!d || d.id !== e.pointerId) return;
       this.drag = null;
-      if (!d.moved && e.type === 'pointerup') {
-        this.selected = this.pick(e.offsetX, e.offsetY);
-        this.overlayDirty = true;
-        this.events.onSelect(this.selected);
-      }
+      if (!d.moved && e.type === 'pointerup') this.events.onClick(this.pick(e.offsetX, e.offsetY));
     };
     canvas.addEventListener('pointerup', endDrag);
     canvas.addEventListener('pointercancel', endDrag);
@@ -310,7 +430,7 @@ export class GameRenderer {
     );
 
     window.addEventListener('keydown', (e) => {
-      if (isTyping(e)) return;
+      if (isTyping(e) || e.metaKey || e.ctrlKey) return;
       const k = e.key.toLowerCase();
       if (PAN_KEYS.has(k)) {
         this.keys.add(k);
@@ -319,10 +439,6 @@ export class GameRenderer {
         this.zoomAt(this.app.screen.width / 2, this.app.screen.height / 2, 1.2);
       } else if (k === '-') {
         this.zoomAt(this.app.screen.width / 2, this.app.screen.height / 2, 1 / 1.2);
-      } else if (k === 'escape') {
-        this.selected = -1;
-        this.overlayDirty = true;
-        this.events.onSelect(-1);
       }
     });
     window.addEventListener('keyup', (e) => this.keys.delete(e.key.toLowerCase()));
@@ -344,6 +460,9 @@ export class GameRenderer {
     this.dirty = true;
   }
 }
+
+/** Wegpunkte liegen etwas unter der Plakette, auf Höhe der Feldoberfläche. */
+const TOKEN_RAISE_PATH = 10;
 
 const PAN_KEYS = new Set(['w', 'a', 's', 'd', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright']);
 

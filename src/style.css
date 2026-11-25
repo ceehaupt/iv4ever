@@ -13,6 +13,11 @@
   box-sizing: border-box;
 }
 
+/* hidden muss auch gegen display:flex/grid gewinnen */
+[hidden] {
+  display: none !important;
+}
+
 html,
 body {
   margin: 0;
@@ -167,5 +172,163 @@ button:hover {
   #minimap {
     max-width: 45vw;
     height: auto !important;
+  }
+}
+
+/* --- M2: Einheiten, Runden, Speicherstände ----------------------------- */
+
+kbd {
+  font: 11px/1 ui-monospace, monospace;
+  padding: 1px 4px;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  color: var(--muted);
+}
+
+.sep {
+  width: 1px;
+  height: 18px;
+  background: var(--border);
+}
+
+button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+#unitpanel {
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: 52px;
+  max-width: min(560px, calc(100vw - 24px));
+  padding: 10px 14px;
+}
+
+.unit-head {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.unit-icon {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  border: 2px solid #141820;
+  font-size: 20px;
+}
+
+.unit-head small {
+  color: var(--muted);
+}
+
+.unit-stats {
+  display: flex;
+  gap: 12px;
+  font-variant-numeric: tabular-nums;
+  color: var(--muted);
+}
+
+.unit-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.unit-stack {
+  margin-top: 8px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  color: var(--muted);
+}
+
+.chip {
+  padding: 2px 6px;
+}
+
+.chip.ready {
+  border-color: #3ddc6a;
+}
+
+#turnpanel {
+  right: 12px;
+  bottom: 230px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px 12px;
+  min-width: 240px;
+}
+
+#turnpanel small {
+  color: var(--muted);
+}
+
+#endturn {
+  padding: 6px 10px;
+  font-weight: 600;
+}
+
+#endturn.pulse {
+  border-color: var(--accent);
+  animation: pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  50% {
+    background: rgb(255 213 74 / 0.25);
+  }
+}
+
+#saves {
+  top: 64px;
+  right: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px;
+  min-width: 280px;
+  z-index: 2;
+}
+
+#saves button {
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+}
+
+#saves small {
+  color: var(--muted);
+}
+
+#saves p {
+  margin: 4px;
+  color: var(--muted);
+}
+
+#toast {
+  top: 76px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 8px 14px;
+  z-index: 3;
+}
+
+#toast.error {
+  border-color: #ef6b5b;
+}
+
+@media (max-width: 640px) {
+  #unitpanel {
+    bottom: 12px;
+  }
+  #turnpanel {
+    bottom: auto;
+    top: 120px;
   }
 }

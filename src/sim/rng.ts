@@ -9,6 +9,17 @@ export class Rng {
     this.state = seed >>> 0 || 0x9e3779b9;
   }
 
+  /** Interner Zustand – für Speicherstände. */
+  getState(): number {
+    return this.state;
+  }
+
+  static fromState(state: number): Rng {
+    const r = new Rng(1);
+    r.state = state >>> 0;
+    return r;
+  }
+
   /** mulberry32 – Zahl in [0, 1). */
   next(): number {
     let t = (this.state = (this.state + 0x6d2b79f5) >>> 0);

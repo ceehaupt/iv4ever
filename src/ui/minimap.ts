@@ -1,22 +1,23 @@
-import type { GameMap } from '../sim/map';
-import { toCss } from '../render/color';
-import { minimapColor, PLAYER_COLORS } from '../render/palette';
+import type { UnitView } from '../protocol';
+import { shade, toCss } from '../render/color';
+import { BACKGROUND, minimapColor, PLAYER_COLORS } from '../render/palette';
 import { centerX, centerY, COL_W, HEX, liftOf, ROW_H, TILT, worldSize } from '../render/projection';
 import type { ViewRect } from '../render/renderer';
+import type { GameMap } from '../sim/map';
 
 const MAX_W = 240;
 const MAX_H = 160;
 
 /**
- * Übersichtskarte. Das Kartenbild wird einmal in ein Offscreen-Canvas gemalt;
- * pro Frame wird nur dieses Bild kopiert und der Sichtbereich darübergezeichnet.
+ * Übersichtskarte. Das Kartenbild (inkl. Nebel und Einheiten) wird bei Änderungen einmal
+ * in ein Offscreen-Canvas gemalt; pro Frame wird nur dieses Bild kopiert und der Sichtbereich darübergezeichnet.
  */
 export class Minimap {
   private readonly ctx: CanvasRenderingContext2D;
   private readonly base = document.createElement('canvas');
   private scale = 1;
   private dpr = 1;
-  private hasMap = false;
+  private map: GameMap | null = null;
   private worldW = 1;
   private worldH = 1;
 
@@ -35,7 +36,7 @@ export class Minimap {
       );
     };
     canvas.addEventListener('pointerdown', (e) => {
-      if (!this.hasMap) return;
+      if (!this.map) return;
       dragging = true;
       canvas.setPointerCapture(e.pointerId);
       jump(e);
@@ -45,7 +46,8 @@ export class Minimap {
     canvas.addEventListener('pointercancel', () => (dragging = false));
   }
 
-  setMap(map: GameMap, starts: readonly number[]): void {
+  setMap(map: GameMap): void {
+    this.map = map;
     const size = worldSize(map);
     this.worldW = size.width;
     this.worldH = size.height;
@@ -59,35 +61,44 @@ export class Minimap {
     }
     this.canvas.style.width = `${cssW}px`;
     this.canvas.style.height = `${cssH}px`;
+  }
 
+  /** Kartenbild neu malen: fog = null zeigt alles. */
+  update(fog: Uint8Array | null, units: readonly UnitView[]): void {
+    const map = this.map;
+    if (!map) return;
     const b = this.base.getContext('2d')!;
+    b.setTransform(1, 0, 0, 1, 0, 0);
+    b.fillStyle = toCss(BACKGROUND);
+    b.fillRect(0, 0, this.base.width, this.base.height);
     b.setTransform(this.dpr * this.scale, 0, 0, this.dpr * this.scale, 0, 0);
     const w = COL_W + 1 / this.scale;
     const h = ROW_H * TILT + 1 / this.scale;
     for (let r = 0; r < map.height; r++) {
       for (let c = 0; c < map.width; c++) {
         const i = r * map.width + c;
-        b.fillStyle = toCss(minimapColor(map.terrain[i], map.relief[i], map.feature[i]));
+        const f = fog ? fog[i] : 2;
+        if (f === 0) continue;
+        const color = minimapColor(map.terrain[i], map.relief[i], map.feature[i]);
+        b.fillStyle = toCss(f === 2 ? color : shade(color, 0.55));
         b.fillRect(centerX(c, r) - COL_W / 2, centerY(r) - (ROW_H * TILT) / 2 + (HEX * TILT) / 2, w, h);
       }
     }
-    // Startpositionen als farbige Punkte.
-    starts.forEach((s, p) => {
-      const c = s % map.width;
-      const r = (s / map.width) | 0;
+    for (const u of units) {
+      const c = u.tile % map.width;
+      const r = (u.tile / map.width) | 0;
       b.beginPath();
-      b.arc(centerX(c, r), centerY(r) - liftOf(map, s), 3.2 / this.scale, 0, Math.PI * 2);
-      b.fillStyle = toCss(PLAYER_COLORS[p % PLAYER_COLORS.length]);
+      b.arc(centerX(c, r), centerY(r) - liftOf(map, u.tile), 2.6 / this.scale, 0, Math.PI * 2);
+      b.fillStyle = toCss(PLAYER_COLORS[u.owner % PLAYER_COLORS.length]);
       b.fill();
-      b.lineWidth = 1 / this.scale;
+      b.lineWidth = 0.8 / this.scale;
       b.strokeStyle = '#000';
       b.stroke();
-    });
-    this.hasMap = true;
+    }
   }
 
   draw(view: ViewRect): void {
-    if (!this.hasMap) return;
+    if (!this.map) return;
     const ctx = this.ctx;
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.drawImage(this.base, 0, 0);

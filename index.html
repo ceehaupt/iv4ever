@@ -15,16 +15,31 @@
       <label>Meer <select id="sea"></select></label>
       <label>Klima <select id="climate"></select></label>
       <label>Seed <input id="seed" type="text" inputmode="numeric" size="8" /></label>
-      <button id="newmap" type="button">Neue Karte</button>
+      <button id="newmap" type="button">Neues Spiel</button>
+      <span class="sep"></span>
+      <button id="save" type="button" title="Strg/⌘ + S">Speichern</button>
+      <button id="load" type="button">Laden ▾</button>
       <span id="stats"></span>
     </header>
 
+    <div id="saves" class="panel" hidden></div>
+
     <aside id="info" class="panel" hidden></aside>
+
+    <section id="unitpanel" class="panel" hidden></section>
+
+    <section id="turnpanel" class="panel">
+      <div><strong id="turn">Runde –</strong> <small id="ready"></small></div>
+      <button id="endturn" type="button">Runde beenden <kbd>⏎</kbd></button>
+    </section>
 
     <canvas id="minimap" class="panel"></canvas>
 
+    <div id="toast" class="panel" hidden></div>
+
     <footer id="help" class="panel">
-      Ziehen / WASD: bewegen · Rad / Pinch / +−: zoomen · Klick: Feld wählen · H: zum Start · G: Gitter · R: Ressourcen · N: neue Karte
+      Ziehen / WASD: Karte · Rad: Zoom · Klick: wählen · Rechtsklick oder M: bewegen · Leertaste: überspringen ·
+      F: befestigen · Tab: nächste Einheit · Enter: Runde beenden · H: zur Einheit · G/R: Gitter/Ressourcen
     </footer>
 
     <script type="module" src="/src/main.ts"></script>
