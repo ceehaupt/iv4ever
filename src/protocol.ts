@@ -5,6 +5,7 @@ import type { Climate, MapScript, SeaLevel } from './sim/mapgen';
 import type { JobKind } from './sim/rules/improvements';
 import type { Difficulty } from './sim/rules/leaders';
 import type { CombatEvent } from './sim/war';
+import type { Progress, Victory } from './sim/victory';
 import type { SaveMeta } from './sim/save';
 
 export interface NewGameOptions {
@@ -120,6 +121,37 @@ export interface GameView {
   /** Bekannte Plündererlager (Felder). */
   camps: number[];
   barbarian: number;
+  diplomacy: DiplomacyView;
+  victory: VictoryView;
+}
+
+export interface CivRelationView {
+  id: number;
+  name: string;
+  leader: string;
+  war: boolean;
+  openBorders: boolean;
+  attitude: number;
+  attitudeLabel: string;
+  /** Militärische Stärke im Verhältnis zur eigenen (1 = gleich). */
+  powerRatio: number;
+  gold: number;
+  /** Technologien, die man von ihnen bekommen bzw. ihnen geben könnte. */
+  techsToGet: number[];
+  techsToGive: number[];
+}
+
+export interface DiplomacyView {
+  civs: CivRelationView[];
+  pending: { id: number; from: number; kind: string }[];
+}
+
+export interface VictoryView {
+  progress: Progress;
+  winner: Victory | null;
+  humanAlive: boolean;
+  ranking: { id: number; name: string; score: number }[];
+  turnLimit: number;
 }
 
 export type ViewReason = 'new' | 'load' | 'command' | 'turn';

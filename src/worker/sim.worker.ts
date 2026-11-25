@@ -8,6 +8,9 @@ import { promotionChoices, UnitTypeId, xpForNext } from '../sim/rules/units';
 import { tilesAround } from '../sim/hex';
 import { isWater, Relief } from '../sim/rules/terrain';
 import { type CombatEvent, cityDefenseAt } from '../sim/war';
+import { attitude, attitudeLabel, canGive, militaryPower, relation } from '../sim/diplomacy';
+import { DEFAULT_TURN_LIMIT, progress, score } from '../sim/victory';
+import { TECHS } from '../sim/rules/techs';
 import { jobTurns } from '../sim/work';
 import { BuildingId } from '../sim/rules/buildings';
 import { cloneMap, mapTransferables } from '../sim/map';
@@ -128,6 +131,32 @@ function sendView(
       })),
     camps: s.camps.filter((c) => p.explored[c.tile]).map((c) => c.tile),
     barbarian: s.barbarian,
+    diplomacy: {
+      civs: s.players
+        .filter((o) => o.id !== HUMAN && !o.barbarian && o.alive && relation(s, HUMAN, o.id).met)
+        .map((o) => {
+          const r = relation(s, HUMAN, o.id);
+          const att = attitude(s, o.id, HUMAN);
+          const techs = (giver: number, receiver: number) =>
+            TECHS.map((_, id) => id).filter((id) => canGive(s, giver, receiver, { kind: 'tech', tech: id }));
+          return {
+            id: o.id, name: o.name, leader: o.persona?.leader ?? '', war: r.war, openBorders: r.openBorders,
+            attitude: att, attitudeLabel: attitudeLabel(att),
+            powerRatio: militaryPower(s, o.id) / Math.max(1, militaryPower(s, HUMAN)), gold: o.gold,
+            techsToGet: techs(o.id, HUMAN), techsToGive: techs(HUMAN, o.id),
+          };
+        }),
+      pending: s.diplomacy.pending.filter((x) => x.to === HUMAN).map((x) => ({ id: x.id, from: x.from, kind: x.proposal.kind })),
+    },
+    victory: {
+      progress: progress(s, HUMAN),
+      winner: s.winner,
+      humanAlive: pl.alive,
+      ranking: s.players.filter((o) => !o.barbarian && o.alive && (o.id === HUMAN || relation(s, HUMAN, o.id).met))
+        .map((o) => ({ id: o.id, name: o.human ? 'Du' : o.name, score: score(s, o.id) }))
+        .sort((a, b) => b.score - a.score),
+      turnLimit: s.options.turnLimit ?? DEFAULT_TURN_LIMIT,
+    },
   };
   // Fremde Bewegungen nur zeigen, wenn sie im Sichtbereich liegen.
   const visibleMoves = moves.filter((m) => m.owner === HUMAN || m.steps.some((t) => p.visible[t]));

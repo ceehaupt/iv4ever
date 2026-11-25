@@ -707,3 +707,132 @@ button.tech.locked {
   display: block;
   color: var(--muted);
 }
+
+/* --- M7: Diplomatie, Sieg ------------------------------------------------ */
+
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 5;
+  background: rgb(5 9 18 / 0.6);
+  display: grid;
+  place-items: center;
+  padding: 16px;
+}
+
+.diplo-box,
+.victory-box {
+  position: relative;
+  width: min(820px, 100%);
+  max-height: calc(100vh - 32px);
+  overflow: auto;
+  padding: 12px 16px;
+}
+
+.diplo-box > header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.diplo-box h2,
+.victory-box h2 {
+  margin: 0;
+}
+
+.civ {
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 8px 10px;
+  margin: 8px 0;
+}
+
+.civ header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.civ header small {
+  color: var(--muted);
+}
+
+.civ .swatch {
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+  display: inline-block;
+}
+
+.civ .status {
+  margin-left: auto;
+  font-size: 12px;
+  padding: 1px 6px;
+  border-radius: 4px;
+}
+
+.status.war {
+  background: rgb(239 107 91 / 0.25);
+  color: #ffb1a6;
+}
+
+.status.peace {
+  background: rgb(61 220 106 / 0.15);
+  color: #a6f0bd;
+}
+
+.civ .facts {
+  color: var(--muted);
+  margin: 4px 0;
+}
+
+.civ .actions,
+.civ .trade {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  margin-top: 6px;
+}
+
+.civ .trade input {
+  width: 64px;
+}
+
+button.danger {
+  border-color: rgb(239 107 91 / 0.6);
+}
+
+.pending {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  padding: 6px;
+  border: 1px solid var(--accent);
+  border-radius: 6px;
+  margin: 6px 0;
+}
+
+.pending span {
+  flex: 1;
+}
+
+.victory ul,
+.victory ol {
+  margin: 4px 0;
+  padding-left: 20px;
+  color: var(--muted);
+}
+
+.ranking .me {
+  color: var(--accent);
+}
+
+.victory-box {
+  width: min(460px, 100%);
+  text-align: center;
+}
+
+.victory-box ol {
+  text-align: left;
+}

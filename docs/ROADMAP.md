@@ -84,9 +84,14 @@ Grafik, Texte und Balancing sind eigene Entwürfe (siehe `CLAUDE.md`, Abschnitt 
 - Schwierigkeitsgrade Leicht/Normal/Schwer/Sehr schwer als Ertragsfaktor (0,8–1,5) der KI
 - Deterministisch (Test), ~3 ms pro KI-Runde bei 6 Spielern
 
-### M7 – Diplomatie & Sieg
-- Kontakt, Krieg/Frieden, offene Grenzen, Tausch von Ressourcen/Gold/Technologien, Beziehungsgedächtnis
-- Siegbedingungen: Eroberung, Vorherrschaft (Land/Bevölkerung), Kultur, Punkte bei Rundenlimit
+### M7 – Diplomatie & Sieg ✅
+- Erstkontakt über Sicht, Grundzustand Frieden, Kriegserklärung nötig (Rückfrage beim Angriff), Plünderer immer feindlich
+- Frieden ohne offene Grenzen sperrt fremdes Gebiet; bei Friedensschluss verlassen Truppen das fremde Gebiet
+- Haltung mit Gedächtnis (Kriegserklärungen, Handel, Dauer des Friedens, Persönlichkeit)
+- Angebote: Frieden, offene Grenzen, Handel mit Gold und Technologien; KI bewertet und antwortet mit Begründung
+- KI-Diplomatie: Kriegserklärungen nach Stärke und Persönlichkeit, Friedensangebote, offene Grenzen untereinander
+- Siegbedingungen: Eroberung, Vorherrschaft (45 % Land + 50 % Bevölkerung), Kultur (3 Städte à 1500), Punkte bei Rundenlimit
+- Diplomatie-Übersicht (D) mit Siegfortschritt und Rangliste, Sieg-/Niederlagenbildschirm; Speicherformat v5
 
 ### M8 – Spätere Zeitalter & Systeme
 - Renaissance bis Moderne, eigenes Glaubens-/Ideologiesystem, Handelsrouten, Ereignisse, Weltraum- oder Projekt-Sieg

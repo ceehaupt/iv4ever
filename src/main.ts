@@ -15,6 +15,8 @@ import { isWater } from './sim/rules/terrain';
 import { TechId } from './sim/rules/techs';
 import { ALL_JOBS, jobBlocker, jobTech, jobTurns } from './sim/work';
 import { TechPanel } from './ui/techPanel';
+import { DiploPanel } from './ui/diploPanel';
+import { VICTORY_NAMES } from './sim/victory';
 import { GameUi, type JobOption, type UnitAction } from './ui/gameUi';
 import { Hud } from './ui/hud';
 import { Minimap } from './ui/minimap';
@@ -57,8 +59,40 @@ const ui = new GameUi({
     if (c?.own) openCity(c.id);
   },
   onOpenTech: () => techPanel.toggle(),
+  onOpenDiplomacy: () => diploPanel.toggle(),
 });
 const techPanel = new TechPanel((tech) => send({ type: 'command', command: { type: 'research', tech } }));
+const diploPanel = new DiploPanel({
+  onDeclareWar: (civ) => command({ type: 'command', command: { type: 'declareWar', target: civ } }),
+  onPropose: (civ, proposal) => command({ type: 'command', command: { type: 'propose', target: civ, proposal } }),
+  onRespond: (id, accept) => command({ type: 'command', command: { type: 'respond', proposal: id, accept } }),
+});
+let victoryShown = false;
+const victoryEl = document.getElementById('victory')!;
+victoryEl.addEventListener('click', (e) => {
+  const act = (e.target as HTMLElement).closest<HTMLElement>('[data-act]')?.dataset.act;
+  if (act === 'continue') victoryEl.hidden = true;
+  else if (act === 'new') {
+    victoryEl.hidden = true;
+    hud.requestNewMap(true, false);
+  }
+});
+
+function showVictory(v: GameView['victory']): void {
+  if (victoryShown || !view) return;
+  const lost = !v.humanAlive;
+  if (!v.winner && !lost) return;
+  victoryShown = true;
+  const won = v.winner && v.winner.player === view.human;
+  const winnerName = v.winner ? (view.players.find((p) => p.id === v.winner!.player)?.name ?? '?') : '';
+  victoryEl.innerHTML = `<div class="panel victory-box">
+    <h2>${won ? '🏆 Sieg!' : '⚑ Niederlage'}</h2>
+    <p>${won ? `${VICTORY_NAMES[v.winner!.type]} in Runde ${v.winner!.turn}.` : lost ? 'Dein Volk wurde vernichtet.' : `${winnerName} gewinnt durch ${VICTORY_NAMES[v.winner!.type]}.`}</p>
+    <ol>${v.ranking.map((r) => `<li>${r.name} – ${r.score} Punkte</li>`).join('')}</ol>
+    <div><button type="button" data-act="continue">Weiterspielen</button> <button type="button" data-act="new">Neues Spiel</button></div>
+  </div>`;
+  victoryEl.hidden = false;
+}
 const cityPanel = new CityPanel({
   onClose: closeCity,
   onBuild: (item, append) => {
@@ -268,6 +302,8 @@ function updatePathPreview(): void {
   const fog = view.fog;
   const foreign = new Set(view.units.filter((x) => x.owner !== view!.human).map((x) => x.tile));
   for (const c of view.cities) if (c.owner !== view.human) foreign.add(c.tile);
+  // Im Frieden ohne offene Grenzen ist fremdes Gebiet gesperrt.
+  const closedBorders = new Set(view.diplomacy.civs.filter((c) => !c.war && !c.openBorders).map((c) => c.id));
   // Eigene Transportschiffe auf Wasser mit freiem Platz (zum Einsteigen).
   const transports = new Set<number>();
   for (const s of view.units) {
@@ -285,7 +321,7 @@ function updatePathPreview(): void {
       map,
       type: u.type,
       isKnown: (i) => fog[i] > 0,
-      isBlocked: (i) => foreign.has(i),
+      isBlocked: (i) => foreign.has(i) || closedBorders.has(view!.tileOwner[i]),
       ownCities: new Set(view.cities.filter((c) => c.owner === view!.human).map((c) => c.tile)),
       transports,
       roadCost: roadStepCost(knows(TechId.Engineering)),
@@ -383,6 +419,20 @@ function updateCombatTooltip(x: number, y: number): void {
   combatEl.style.top = `${Math.min(window.innerHeight - 120, y + 16)}px`;
 }
 
+/** Besitzer auf dem Ziel, mit dem kein Krieg herrscht (für die Kriegsrückfrage), sonst -1. */
+function peacefulOwnerAt(u: UnitView, tile: number): number {
+  if (!view) return -1;
+  const owners = new Set(view.units.filter((x) => x.tile === tile && x.owner !== u.owner).map((x) => x.owner));
+  const c = cityAtTile(tile);
+  if (c && c.owner !== u.owner) owners.add(c.owner);
+  for (const o of owners) {
+    if (o === view.barbarian) continue;
+    const rel = view.diplomacy.civs.find((x) => x.id === o);
+    if (!rel || !rel.war) return o;
+  }
+  return -1;
+}
+
 function moveOrAttack(u: UnitView, tile: number): void {
   if (hasEnemyTarget(u, tile)) {
     moveMode = false;
@@ -390,6 +440,12 @@ function moveOrAttack(u: UnitView, tile: number): void {
     if (problem) {
       ui.toast(problem, 'error');
       return;
+    }
+    const peaceful = peacefulOwnerAt(u, tile);
+    if (peaceful >= 0) {
+      const civ = view!.players.find((p) => p.id === peaceful)?.name ?? 'diesem Volk';
+      if (!window.confirm(`Mit ${civ} herrscht Frieden. Krieg erklären und angreifen?`)) return;
+      send({ type: 'command', command: { type: 'declareWar', target: peaceful } });
     }
     combatEl.hidden = true;
     command({ type: 'command', command: { type: 'attack', unit: u.id, target: tile } });
@@ -466,6 +522,7 @@ worker.onmessage = (e: MessageEvent<FromWorker>) => {
       map = msg.map;
       view = null;
       selected = -1;
+      victoryShown = false;
       closeCity();
       const t0 = performance.now();
       renderer.setMap(map);
@@ -484,6 +541,10 @@ worker.onmessage = (e: MessageEvent<FromWorker>) => {
       renderer.setFog(view.fog);
       renderer.refreshTiles(changedTiles);
       techPanel.update(view.research);
+      diploPanel.update(view.diplomacy, view.victory);
+      ui.setDiplomacy(view.diplomacy.pending.length);
+      showVictory(view.victory);
+      if (msg.reason === 'command' && msg.events.length) ui.toast(msg.events[msg.events.length - 1].text);
       ui.setResearch(TechPanel.summary(view.research), view.research.current < 0);
       setBarbarianId(view.barbarian);
       renderer.setCities(view.cities, view.tileOwner, view.camps);
@@ -587,7 +648,8 @@ window.addEventListener('keydown', (e) => {
       if (own) runAction('disband', u.id);
       return;
     case 'Escape':
-      if (techPanel.open) techPanel.hide();
+      if (diploPanel.open) diploPanel.hide();
+      else if (techPanel.open) techPanel.hide();
       else if (cityPanel.openCityId >= 0) closeCity();
       else if (moveMode) moveMode = false;
       else if (selected >= 0) selectUnit(-1, false);
@@ -620,6 +682,9 @@ window.addEventListener('keydown', (e) => {
       break;
     case 't':
       techPanel.toggle();
+      break;
+    case 'd':
+      diploPanel.toggle();
       break;
     case 'r':
       renderer.toggleResources();

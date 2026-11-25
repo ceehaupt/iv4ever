@@ -16,6 +16,7 @@ import { TECHS, TechId } from './rules/techs';
 import { isNaval, MOVE_SCALE, promotionChoices, UNIT_TYPES, UnitTypeId } from './rules/units';
 import { type CombatEvent, cityDefenseAt, fighterOf } from './war';
 import { ALL_JOBS, jobBlocker } from './work';
+import { isHostile, mayEnterTerritory } from './diplomacy';
 import { RESOURCES } from './rules/resources';
 import { RESOURCE_IMPROVEMENT, improvementForJob } from './rules/improvements';
 
@@ -47,12 +48,8 @@ function run(state: GameState, pid: number, c: Command, out: Out): CommandResult
 const isMilitary = (type: number) => UNIT_TYPES[type].strength > 0 && UNIT_TYPES[type].cls !== 'recon' && !isNaval(type);
 const power = (type: number) => UNIT_TYPES[type].strength + UNIT_TYPES[type].ranged * 0.8;
 
-/** Darf die KI diesen Spieler angreifen? (M7 ersetzt das durch Diplomatie.) */
-export type HostilityCheck = (a: number, b: number) => boolean;
-let hostile: HostilityCheck = () => true;
-export function setHostilityCheck(fn: HostilityCheck): void {
-  hostile = fn;
-}
+/** Feindschaft kommt aus der Diplomatie (Krieg bzw. Plünderer). */
+let hostile = (_a: number, _b: number) => true;
 
 // --- Forschung ---------------------------------------------------------------------
 
@@ -215,7 +212,7 @@ function knownLandCost(state: GameState, pid: number) {
   const occupied = new Set<number>();
   for (const u of state.units) if (u.owner !== pid && p.visible[u.tile]) occupied.add(u.tile);
   for (const c of state.cities) if (c.owner !== pid) occupied.add(c.tile);
-  return landCost(state.map, (i) => p.explored[i] === 1, (i) => occupied.has(i));
+  return landCost(state.map, (i) => p.explored[i] === 1, (i) => occupied.has(i) || !mayEnterTerritory(state, pid, state.tileOwner[i]));
 }
 
 function moveTo(state: GameState, u: Unit, target: number, out: Out): boolean {
@@ -436,6 +433,7 @@ function promote(state: GameState, p: Player, out: Out): void {
 
 /** Ein Zug aller Computerspieler. */
 export function aiTurn(state: GameState, out: Out): void {
+  hostile = (a, b) => isHostile(state, a, b);
   for (const p of state.players) {
     if (p.human || p.barbarian || !p.alive || !p.persona) continue;
     chooseResearch(state, p, out);

@@ -9,6 +9,7 @@ import { Rng } from './rng';
 import { Feature, Relief, Terrain } from './rules/terrain';
 import { PromotionId, UnitTypeId, xpForNext } from './rules/units';
 import { fromSaveData, toSaveData } from './save';
+import { relation } from './diplomacy';
 
 const flat = () => {
   const m = createMap(10, 8, 1, true);
@@ -61,6 +62,12 @@ describe('Kampfformel', () => {
 
 const opts = { width: 64, height: 40, seed: 321, players: 4, script: 'continents' as const };
 
+function atWar(s: GameState): void {
+  const r = relation(s, HUMAN, 1);
+  r.met = true;
+  r.war = true;
+}
+
 /** Spiel mit einer Landfläche neben dem eigenen Krieger zum Testen von Angriffen. */
 function battle(): { s: GameState; warrior: ReturnType<typeof addUnit>; target: number } {
   const s = createGame(generateWorld(opts), opts);
@@ -94,6 +101,7 @@ describe('Angriff und Eroberung', () => {
   it('Zivilisten werden gefangen genommen (Siedler werden Arbeiter)', () => {
     const { s, warrior, target } = battle();
     const settler = addUnit(s, 1, UnitTypeId.Settler, target);
+    atWar(s);
     refreshVision(s, HUMAN);
     applyCommand(s, HUMAN, { type: 'attack', unit: warrior.id, target });
     expect(settler.owner).toBe(HUMAN);
@@ -106,6 +114,7 @@ describe('Angriff und Eroberung', () => {
       id: 77, owner: 1, name: 'Fremdstadt', tile: target, size: 3, foodStored: 0, prodStored: 10, culture: 0,
       founded: 1, queue: [{ kind: 'unit', id: 3 }], buildings: [0], worked: [], locked: [],
     });
+    atWar(s);
     refreshVision(s, HUMAN);
     const res = applyCommand(s, HUMAN, { type: 'attack', unit: warrior.id, target });
     const c = s.cities.find((x) => x.id === 77)!;

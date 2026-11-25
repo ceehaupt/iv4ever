@@ -17,6 +17,11 @@ import { type Persona, personaFor } from './rules/leaders';
 import { applyJob, jobBlocker, jobTurns } from './work';
 import { sailable, unitCost } from './naval';
 import { aiTurn } from './ai';
+import {
+  aiDiplomacy, createDiplomacy, declareWar, type Diplomacy, evaluate, execute, mayEnterTerritory, type Proposal, relation,
+  updateContacts,
+} from './diplomacy';
+import { checkVictory, type Victory } from './victory';
 import { barbarianTurn, type Camp } from './barbarians';
 import { type CombatEvent, healUnits, performAttack } from './war';
 
@@ -108,6 +113,9 @@ export interface GameState {
   /** Spieler-ID der Plünderer (letzter Eintrag in players). */
   barbarian: number;
   camps: Camp[];
+  diplomacy: Diplomacy;
+  /** Gewinner (sobald eine Siegbedingung erfüllt ist). */
+  winner: Victory | null;
   rng: Rng;
 }
 
@@ -126,7 +134,10 @@ export type Command =
   | { type: 'research'; tech: number }
   | { type: 'attack'; unit: number; target: number }
   | { type: 'promote'; unit: number; promotion: number }
-  | { type: 'load'; unit: number };
+  | { type: 'load'; unit: number }
+  | { type: 'declareWar'; target: number }
+  | { type: 'propose'; target: number; proposal: Proposal }
+  | { type: 'respond'; proposal: number; accept: boolean };
 
 export interface MoveEvent {
   unit: number;
@@ -176,6 +187,8 @@ export function createGame(world: GeneratedWorld, options: MapGenOptions): GameS
     starts: world.starts,
     barbarian,
     camps: [],
+    diplomacy: createDiplomacy(),
+    winner: null,
     players,
     units: [],
     nextUnitId: 1,
@@ -266,7 +279,9 @@ function costFor(state: GameState, u: Unit, occ: Int16Array) {
     map: state.map,
     type: u.type,
     isKnown: (i) => p.explored[i] === 1,
-    isBlocked: (i) => occ[i] >= 0 && occ[i] !== u.owner && p.visible[i] === 1,
+    isBlocked: (i) =>
+      (occ[i] >= 0 && occ[i] !== u.owner && p.visible[i] === 1) ||
+      (p.explored[i] === 1 && !mayEnterTerritory(state, u.owner, state.tileOwner[i])),
     ownCities: ownCityTiles(state, u.owner),
     transports: new Set(transportsOf(state, u.owner).keys()),
     roadCost: roadCostFor(state, u.owner),
@@ -277,6 +292,7 @@ function costFor(state: GameState, u: Unit, occ: Int16Array) {
 function canEnter(state: GameState, u: Unit, tile: number, occ: Int16Array): boolean {
   const m = state.map;
   if (occ[tile] >= 0 && occ[tile] !== u.owner) return false;
+  if (!mayEnterTerritory(state, u.owner, state.tileOwner[tile])) return false;
   if (UNIT_TYPES[u.type].naval) return sailable(m, u.type, tile, ownCityTiles(state, u.owner));
   if (isWater(m.terrain[tile])) return transportsOf(state, u.owner).has(tile);
   return Number.isFinite(tileMoveCost(m.terrain[tile], m.relief[tile], m.feature[tile]));
@@ -341,6 +357,8 @@ export interface CommandResult {
   foundedCity?: number;
   combats?: CombatEvent[];
   events?: TurnEvent[];
+  /** Antwort auf ein Angebot. */
+  reply?: { accepted: boolean; text: string };
 }
 
 function ownCity(state: GameState, player: number, id: number): City {
@@ -379,6 +397,32 @@ export function applyCommand(state: GameState, player: number, cmd: Command): Co
       }
       assignTiles(state, c);
       return { moves: [] };
+    }
+    case 'declareWar': {
+      const r = relation(state, player, cmd.target);
+      if (!r.met) throw new CommandError('Ihr kennt euch noch nicht');
+      if (r.war) throw new CommandError('Ihr seid bereits im Krieg');
+      const events: TurnEvent[] = [];
+      declareWar(state, player, cmd.target, events);
+      return { moves: [], events };
+    }
+    case 'propose': {
+      const target = state.players[cmd.target];
+      if (!target || target.barbarian || !relation(state, player, cmd.target).met) throw new CommandError('Unbekannter Gesprächspartner');
+      if (target.human) throw new CommandError('Angebote an Menschen kommen mit dem Mehrspielermodus');
+      const verdict = evaluate(state, cmd.target, player, cmd.proposal);
+      const events: TurnEvent[] = [];
+      if (verdict.accept) execute(state, player, cmd.target, cmd.proposal, events);
+      events.push({ player, text: `${target.name}: „${verdict.reason}“ – ${verdict.accept ? 'angenommen' : 'abgelehnt'}`, tile: -1 });
+      return { moves: [], events, reply: { accepted: verdict.accept, text: verdict.reason } };
+    }
+    case 'respond': {
+      const idx = state.diplomacy.pending.findIndex((p) => p.id === cmd.proposal && p.to === player);
+      if (idx < 0) throw new CommandError('Angebot nicht mehr gültig');
+      const [prop] = state.diplomacy.pending.splice(idx, 1);
+      const events: TurnEvent[] = [];
+      if (cmd.accept) execute(state, prop.from, prop.to, prop.proposal, events);
+      return { moves: [], events };
     }
     case 'setRate': {
       state.players[player].rate = Math.max(0, Math.min(100, Math.round(cmd.rate / 10) * 10));
@@ -491,6 +535,7 @@ export function endTurn(state: GameState): { moves: MoveEvent[]; events: TurnEve
   const combats: CombatEvent[] = [];
   const events: MoveEvent[] = [];
   aiTurn(state, { events: turnEvents, combats, moves: events });
+  aiDiplomacy(state, turnEvents);
   processJobs(state, turnEvents);
   processEconomy(state, turnEvents);
   barbarianTurn(state, turnEvents, combats, events);
@@ -508,6 +553,12 @@ export function endTurn(state: GameState): { moves: MoveEvent[]; events: TurnEve
     }
   }
   for (const p of state.players) refreshVision(state, p.id);
+  updateContacts(state, turnEvents);
+  const won = checkVictory(state);
+  if (won) {
+    const w = state.players[won.player];
+    for (const p of state.players) turnEvents.push({ player: p.id, text: `${w.human ? 'Du hast' : `${w.name} hat`} gewonnen!`, tile: -1 });
+  }
   return { moves: events, events: turnEvents, combats };
 }
 

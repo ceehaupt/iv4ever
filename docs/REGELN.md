@@ -101,6 +101,27 @@ bzw. im Spiel über **T**.
   Stadtwache I–II (+20/+30 % in Städten), Flankenschutz (+50 % gegen Berittene), Gewaltmarsch (+1 Bewegung),
   Feldscher (+10 Heilung auf dem Feld). Voraussetzungen siehe `src/sim/rules/units.ts`.
 
+## Diplomatie
+
+- Völker lernen sich kennen, sobald sie Einheiten, Städte oder Gebiet der anderen sehen. Grundzustand ist **Frieden**.
+- Angriffe auf Völker im Frieden erfordern eine **Kriegserklärung** (Rückfrage beim Angriff oder in der Diplomatie, D).
+  Plünderer sind immer feindlich.
+- Im Frieden ohne **offene Grenzen** darf man fremdes Gebiet nicht betreten; bei Friedensschluss kehren Truppen
+  aus fremdem Gebiet in die nächste eigene Stadt zurück.
+- **Haltung** (−10 … +10): −4 im Krieg, bis +3 durch lange Friedenszeit, +2 offene Grenzen, ±Gedächtnis
+  (erlittene Kriegserklärung −4, Handel +1, Dritte −1 gegenüber Aggressoren), aggressive Herrscher −1 bis −2.
+- **Angebote**: Frieden (nach mind. 6 Kriegsrunden; die KI willigt ein, wenn sie unterlegen ist oder der Krieg lange dauert),
+  offene Grenzen (ab Haltung +1 oder bei friedfertigen Herrschern), Handel mit Gold und Technologien
+  (Technologie zählt 1,2 × ihre Kosten; Aufschlag je nach Haltung 0,9 / 1,0 / 1,3; ab −6 kein Handel).
+
+## Siegbedingungen
+
+- **Eroberung**: alle anderen Völker vernichtet.
+- **Vorherrschaft**: mindestens 45 % des Landes und 50 % der Weltbevölkerung.
+- **Kultur**: drei eigene Städte mit je mindestens 1500 Kultur.
+- **Punkte**: Beim Rundenlimit (Standard 300) gewinnt die höchste Punktzahl
+  (Bevölkerung ×3, Land ÷3, Technologien ×6, Wunder ×20, Kultur ÷50).
+
 ## Computerspieler
 
 - Erfundene Völker und Herrscher (`src/sim/rules/leaders.ts`); die Persönlichkeit bestimmt Forschung, Expansion, Militär und Bauten.

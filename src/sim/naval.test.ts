@@ -4,6 +4,7 @@ import { createMap } from './map';
 import { Terrain } from './rules/terrain';
 import { UnitTypeId } from './rules/units';
 import { generateWorld } from './mapgen';
+import { relation } from './diplomacy';
 
 /** Kleine Testwelt: Land links (Spalten 0–3), Küste (4–5), Ozean (6–9), Land rechts ab Spalte 10. */
 function seaWorld(): GameState {
@@ -69,6 +70,8 @@ describe('Seefahrt', () => {
     ship.hp = 1;
     const war = addUnit(s, HUMAN, UnitTypeId.WarGalley, T(4, 3));
     const land = addUnit(s, HUMAN, UnitTypeId.Warrior, T(3, 3));
+    relation(s, HUMAN, 1).met = true;
+    relation(s, HUMAN, 1).war = true;
     refreshVision(s, HUMAN);
     expect(() => applyCommand(s, HUMAN, { type: 'attack', unit: land.id, target: T(4, 3) })).toThrow(CommandError);
     applyCommand(s, HUMAN, { type: 'attack', unit: war.id, target: T(5, 3) });

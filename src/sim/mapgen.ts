@@ -22,6 +22,8 @@ export interface MapGenOptions {
   climate?: Climate;
   /** Schwierigkeitsgrad (wirkt nur auf die KI, nicht auf die Karte). */
   difficulty?: Difficulty;
+  /** Rundenlimit für den Punktsieg. */
+  turnLimit?: number;
 }
 
 export interface GeneratedWorld {

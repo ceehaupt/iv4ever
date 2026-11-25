@@ -25,6 +25,7 @@ npm run dev        # http://localhost:5173
 | `L` | Landeinheiten auf das ausgewählte Schiff laden |
 | `Tab` | Nächste Einheit, die einen Befehl braucht |
 | `T` | Technologien (Forschungsziel wählen) |
+| `D` | Diplomatie, Handel und Siegfortschritt |
 | `Enter` | Runde beenden |
 | `Entf` | Einheit auflösen |
 | `H` | Zur ausgewählten Einheit |

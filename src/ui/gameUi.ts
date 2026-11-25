@@ -27,6 +27,7 @@ export interface GameUiHandlers {
   onRate(rate: number): void;
   onEventClick(tile: number): void;
   onOpenTech(): void;
+  onOpenDiplomacy(): void;
 }
 
 function $<T extends HTMLElement = HTMLElement>(id: string): T {
@@ -63,11 +64,13 @@ export class GameUi {
   private readonly rateVal = $('rateval');
   private readonly logEl = $('log');
   private readonly researchEl = $<HTMLButtonElement>('research');
+  private readonly diploEl = $<HTMLButtonElement>('diplobtn');
   private toastTimer = 0;
 
   constructor(h: GameUiHandlers) {
     this.endTurn.addEventListener('click', () => h.onEndTurn());
     this.researchEl.addEventListener('click', () => h.onOpenTech());
+    this.diploEl.addEventListener('click', () => h.onOpenDiplomacy());
     this.rateEl.addEventListener('input', () => (this.rateVal.textContent = `${this.rateEl.value} %`));
     this.rateEl.addEventListener('change', () => h.onRate(Number(this.rateEl.value)));
     this.logEl.addEventListener('click', (e) => {
@@ -113,6 +116,11 @@ export class GameUi {
       this.rateEl.value = String(e.rate);
       this.rateVal.textContent = `${e.rate} %`;
     }
+  }
+
+  setDiplomacy(pending: number): void {
+    this.diploEl.textContent = pending ? `🤝 Diplomatie (${pending} Angebot${pending > 1 ? 'e' : ''})` : '🤝 Diplomatie';
+    this.diploEl.classList.toggle('pulse', pending > 0);
   }
 
   setResearch(summary: string, missing: boolean): void {

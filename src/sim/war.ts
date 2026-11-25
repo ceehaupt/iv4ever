@@ -3,6 +3,7 @@ import { type Battlefield, bestDefender, type Fighter, resolveCombat } from './c
 import { CommandError, type GameState, Orders, refreshVision, type Unit } from './game';
 import { tileDistance } from './hex';
 import { isWater } from './rules/terrain';
+import { isHostile, relation } from './diplomacy';
 import { BUILDINGS, BuildingId } from './rules/buildings';
 import { PROMOTIONS, UNIT_TYPES, UnitTypeId } from './rules/units';
 
@@ -74,6 +75,12 @@ export function attackBlocker(state: GameState, u: Unit, target: number): string
   const enemyCity = city && city.owner !== u.owner ? city : null;
   const camp = state.camps.some((c) => c.tile === target);
   if (!enemies.length && !enemyCity && !camp) return 'Kein Gegner auf diesem Feld';
+  const owners = new Set([...enemies.map((o) => o.owner), ...(enemyCity ? [enemyCity.owner] : [])]);
+  for (const o of owners) {
+    if (!isHostile(state, u.owner, o)) {
+      return relation(state, u.owner, o).met ? `Kein Krieg mit ${state.players[o].name} – erst Krieg erklären` : 'Unbekannte Zivilisation';
+    }
+  }
   if (t.ranged > 0) {
     if (dist < 1 || dist > t.range) return `Außer Reichweite (${t.range} Felder)`;
     if (!enemies.some((o) => UNIT_TYPES[o.type].strength > 0)) return 'Kein Ziel für Fernkampf – Nahkämpfer nötig';

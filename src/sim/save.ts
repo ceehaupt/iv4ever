@@ -1,5 +1,7 @@
 import { assignTiles, type City, recomputeOwnership } from './city';
 import type { Camp } from './barbarians';
+import { createDiplomacy, type Diplomacy } from './diplomacy';
+import type { Victory } from './victory';
 import { DEFAULT_RATE, type GameState, newPlayer, type Unit } from './game';
 import { TECHS } from './rules/techs';
 import { type Persona, personaFor } from './rules/leaders';
@@ -16,8 +18,9 @@ import { Rng } from './rng';
  * 2 – M3: Städte, Gold/Forschung/Steuersatz je Spieler
  * 3 – M4: Technologien, Forschungsziel, Verbesserungen/Straßen, Arbeiteraufträge; Bewegung ×2 (MOVE_SCALE 12)
  * 4 – M5: Lebenspunkte/Erfahrung/Beförderungen, Plünderer (eigener Spieler) und Lager
+ * 5 – M7: Diplomatie (Beziehungen, Gedächtnis, Angebote), Gewinner
  */
-export const SAVE_VERSION = 4;
+export const SAVE_VERSION = 5;
 
 interface SavedPlayer {
   id: number;
@@ -48,6 +51,8 @@ export interface SaveData {
   jobs: Record<string, number>;
   barbarian: number;
   camps: Camp[];
+  diplomacy: Diplomacy;
+  winner: Victory | null;
   rngState: number;
 }
 
@@ -99,6 +104,8 @@ export function toSaveData(s: GameState): SaveData {
     jobs: { ...s.jobs },
     barbarian: s.barbarian,
     camps: s.camps.map((c) => ({ ...c })),
+    diplomacy: structuredClone(s.diplomacy),
+    winner: s.winner ? { ...s.winner } : null,
     rngState: s.rng.getState(),
   };
 }
@@ -143,6 +150,9 @@ function migrate(d: SaveData): SaveData {
       camps: [],
     };
   }
+  if (d.version === 4) {
+    d = { ...d, version: 5, diplomacy: createDiplomacy(), winner: null };
+  }
   return d;
 }
 
@@ -169,6 +179,8 @@ export function fromSaveData(raw: SaveData): GameState {
     jobs: d.jobs,
     barbarian: d.barbarian,
     camps: d.camps,
+    diplomacy: d.diplomacy,
+    winner: d.winner,
     tileOwner: new Int16Array(n).fill(-1),
     tileCity: new Int32Array(n).fill(-1),
     rng: Rng.fromState(d.rngState),
