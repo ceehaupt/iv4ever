@@ -967,3 +967,27 @@ body.large-text .panel input {
 #tutorial small {
   color: var(--muted);
 }
+
+/* --- M10: Mehrspieler -------------------------------------------------------- */
+
+.overlay.opaque {
+  background: var(--bg);
+  z-index: 6;
+}
+
+#onlinepanel .row {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+#onlinepanel ol {
+  margin: 4px 0;
+  padding-left: 20px;
+}
+
+#onlinepanel .hint {
+  color: var(--muted);
+  font-size: 12px;
+  margin: 4px 0;
+}

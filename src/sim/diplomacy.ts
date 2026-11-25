@@ -281,6 +281,8 @@ export function aiDiplomacy(state: GameState, events: TurnEvent[]): void {
       }
     }
   }
-  // Unbeantwortete Angebote verfallen nach 5 Runden.
-  state.diplomacy.pending = state.diplomacy.pending.filter((p) => state.turn - p.turn <= 5 && relation(state, p.from, p.to).war);
+  // Unbeantwortete Angebote verfallen nach 5 Runden; Friedensangebote auch, wenn kein Krieg mehr herrscht.
+  state.diplomacy.pending = state.diplomacy.pending.filter(
+    (p) => state.turn - p.turn <= 5 && (p.proposal.kind !== 'peace' || relation(state, p.from, p.to).war),
+  );
 }

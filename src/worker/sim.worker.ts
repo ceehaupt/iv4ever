@@ -1,7 +1,7 @@
 import type { CityView, FromWorker, GameView, NewGameOptions, ToWorker, ViewReason } from '../protocol';
 import { availableItems, buildCost, type City, cityReport, cultureToNextRadius, foodToGrow, type TurnEvent, workableTiles } from '../sim/city';
 import {
-  addUnit, applyCommand, canPromote, CommandError, createGame, currentResearch, economy, endTurn, type GameState, HUMAN, type MoveEvent,
+  addUnit, applyCommand, canPromote, CommandError, createGame, currentResearch, economy, endTurn, type GameState, type MoveEvent,
   refreshVision,
 } from '../sim/game';
 import { promotionChoices, UnitTypeId, xpForNext } from '../sim/rules/units';
@@ -25,6 +25,51 @@ import { getSave, listSaves, putSave } from './storage';
  */
 let state: GameState | null = null;
 
+/** Mehrspieler: wessen Sicht gerade gezeigt wird, welche Spieler Menschen sind, wer die Runde beendet hat. */
+let viewer = 0;
+let mode: 'single' | 'hotseat' | 'online' = 'single';
+let humans: number[] = [0];
+const ended = new Set<number>();
+/** Ereignisse der letzten Rundenauswertung je Spieler (für die Übergabe im Hotseat). */
+let lastEvents: TurnEvent[] = [];
+
+function aliveHumans(s: GameState): number[] {
+  return humans.filter((h) => s.players[h]?.alive);
+}
+
+/** Einfache Prüfsumme (FNV-1a) über den spielrelevanten Zustand – erkennt Abweichungen im Online-Spiel. */
+function stateHash(s: GameState): string {
+  const parts = [
+    s.turn, s.rng.getState(),
+    ...s.units.map((u) => `${u.id},${u.owner},${u.type},${u.tile},${u.hp},${u.moves}`),
+    ...s.cities.map((c) => `${c.id},${c.owner},${c.size},${c.foodStored},${c.prodStored},${c.culture}`),
+    ...s.players.map((p) => `${p.gold},${p.research},${p.alive}`),
+  ].join('|');
+  let h = 0x811c9dc5;
+  for (let i = 0; i < parts.length; i++) {
+    h ^= parts.charCodeAt(i);
+    h = Math.imul(h, 0x01000193);
+  }
+  return (h >>> 0).toString(16);
+}
+
+/** Alle Menschen fertig → Runde auswerten (KI, Wirtschaft, Plünderer …). */
+async function finishRound(s: GameState): Promise<void> {
+  const res = endTurn(s);
+  ended.clear();
+  lastEvents = res.events;
+  const alive = aliveHumans(s);
+  if (mode !== 'online') viewer = alive[0] ?? viewer;
+  sendView(s, mode === 'hotseat' && alive.length > 1 ? 'handoff' : 'turn', res.moves, res.events, undefined, res.combats);
+  post({ type: 'hash', turn: s.turn, hash: stateHash(s) });
+  if (mode === 'online') return;
+  try {
+    await putSave(saveMeta(s, 'auto', 'Autosave'), toSaveData(s));
+  } catch {
+    notice('Autosave fehlgeschlagen', 'error');
+  }
+}
+
 function post(msg: FromWorker, transfer: Transferable[] = []): void {
   // Im Worker hat postMessage dieselbe Options-Signatur wie window.postMessage.
   self.postMessage(msg, { transfer });
@@ -45,7 +90,7 @@ function cityView(s: GameState, c: City, explored: Uint8Array): CityView | null 
     id: c.id, owner: c.owner, name: c.name, tile: c.tile, size: c.size, capital: c.buildings.includes(BuildingId.Palace),
     defense: cityDefenseAt(s, c.tile) ?? 0,
   };
-  if (c.owner !== HUMAN) return explored[c.tile] ? base : null;
+  if (c.owner !== viewer) return explored[c.tile] ? base : null;
   const report = cityReport(s, c);
   const item = c.queue[0];
   return {
@@ -80,14 +125,14 @@ function sendView(
   s: GameState, reason: ViewReason, moves: MoveEvent[] = [], events: TurnEvent[] = [], foundedCity?: number,
   combats: CombatEvent[] = [],
 ): void {
-  const p = s.players[HUMAN];
+  const p = s.players[viewer];
   const n = s.map.width * s.map.height;
   const fog = new Uint8Array(n);
   for (let i = 0; i < n; i++) fog[i] = p.visible[i] ? 2 : p.explored[i] ? 1 : 0;
   const tileOwner = new Int16Array(n);
   for (let i = 0; i < n; i++) tileOwner[i] = p.explored[i] ? s.tileOwner[i] : -1;
-  const pl = s.players[HUMAN];
-  const econ = economy(s, HUMAN);
+  const pl = s.players[viewer];
+  const econ = economy(s, viewer);
   // Kartenebenen: nur auf erkundeten Feldern den echten Stand zeigen.
   const layers = { improvement: new Uint8Array(n), road: new Uint8Array(n), feature: s.map.feature.slice() };
   for (let i = 0; i < n; i++) {
@@ -103,18 +148,21 @@ function sendView(
     research: {
       known: [...pl.techs.keys()].filter((t) => pl.techs[t]),
       goal: pl.goal,
-      current: currentResearch(s, HUMAN),
+      current: currentResearch(s, viewer),
       progress: pl.research,
       perTurn: econ.research,
     },
     layers,
-    human: HUMAN,
+    human: viewer,
+    mode,
+    humans: humans.slice(),
+    waitingFor: mode === 'online' ? aliveHumans(s).filter((h) => !ended.has(h)) : [],
     fog,
     players: s.players.map((pl) => ({
       id: pl.id, name: pl.name, human: pl.human, barbarian: !!pl.barbarian, alive: pl.alive, leader: pl.persona?.leader,
     })),
     units: s.units
-      .filter((u) => u.owner === HUMAN || p.visible[u.tile])
+      .filter((u) => u.owner === viewer || p.visible[u.tile])
       .map((u) => ({
         id: u.id,
         type: u.type,
@@ -123,16 +171,16 @@ function sendView(
         moves: u.moves,
         maxMoves: maxMoves(u.type),
         orders: u.orders,
-        path: u.owner === HUMAN && u.path ? u.path.slice() : null,
+        path: u.owner === viewer && u.path ? u.path.slice() : null,
         job:
-          u.owner === HUMAN && u.job
+          u.owner === viewer && u.job
             ? { kind: u.job, progress: s.jobs[`${u.tile}:${u.job}`] ?? 0, turns: jobTurns(u.job) }
             : null,
         hp: u.hp,
         xp: u.xp,
         promotions: u.promotions.slice(),
         xpNext: xpForNext(u.promotions.length),
-        promotable: u.owner === HUMAN && canPromote(u) ? promotionChoices(u.type, u.promotions) : [],
+        promotable: u.owner === viewer && canPromote(u) ? promotionChoices(u.type, u.promotions) : [],
         carriedBy: u.carriedBy ?? null,
       })),
     camps: s.camps.filter((c) => p.explored[c.tile]).map((c) => c.tile),
@@ -140,35 +188,35 @@ function sendView(
     doctrines: { active: pl.doctrines.slice(), upheaval: pl.upheaval },
     diplomacy: {
       civs: s.players
-        .filter((o) => o.id !== HUMAN && !o.barbarian && o.alive && relation(s, HUMAN, o.id).met)
+        .filter((o) => o.id !== viewer && !o.barbarian && o.alive && relation(s, viewer, o.id).met)
         .map((o) => {
-          const r = relation(s, HUMAN, o.id);
-          const att = attitude(s, o.id, HUMAN);
+          const r = relation(s, viewer, o.id);
+          const att = attitude(s, o.id, viewer);
           const techs = (giver: number, receiver: number) =>
             TECHS.map((_, id) => id).filter((id) => canGive(s, giver, receiver, { kind: 'tech', tech: id }));
           return {
             id: o.id, name: o.name, leader: o.persona?.leader ?? '', war: r.war, openBorders: r.openBorders,
             attitude: att, attitudeLabel: attitudeLabel(att),
-            powerRatio: militaryPower(s, o.id) / Math.max(1, militaryPower(s, HUMAN)), gold: o.gold,
-            techsToGet: techs(o.id, HUMAN), techsToGive: techs(HUMAN, o.id),
+            powerRatio: militaryPower(s, o.id) / Math.max(1, militaryPower(s, viewer)), gold: o.gold,
+            techsToGet: techs(o.id, viewer), techsToGive: techs(viewer, o.id),
           };
         }),
-      pending: s.diplomacy.pending.filter((x) => x.to === HUMAN).map((x) => ({ id: x.id, from: x.from, kind: x.proposal.kind })),
+      pending: s.diplomacy.pending.filter((x) => x.to === viewer).map((x) => ({ id: x.id, from: x.from, kind: x.proposal.kind })),
     },
     victory: {
-      progress: progress(s, HUMAN),
+      progress: progress(s, viewer),
       winner: s.winner,
       humanAlive: pl.alive,
-      ranking: s.players.filter((o) => !o.barbarian && o.alive && (o.id === HUMAN || relation(s, HUMAN, o.id).met))
+      ranking: s.players.filter((o) => !o.barbarian && o.alive && (o.id === viewer || relation(s, viewer, o.id).met))
         .map((o) => ({ id: o.id, name: o.human ? 'Du' : o.name, score: score(s, o.id) }))
         .sort((a, b) => b.score - a.score),
       turnLimit: s.options.turnLimit ?? DEFAULT_TURN_LIMIT,
     },
   };
   // Fremde Bewegungen nur zeigen, wenn sie im Sichtbereich liegen.
-  const visibleMoves = moves.filter((m) => m.owner === HUMAN || m.steps.some((t) => p.visible[t]));
-  const ownEvents = events.filter((e) => e.player === HUMAN);
-  const visibleCombats = combats.filter((c) => c.attackerOwner === HUMAN || c.defenderOwner === HUMAN || p.visible[c.tile] || p.visible[c.from]);
+  const visibleMoves = moves.filter((m) => m.owner === viewer || m.steps.some((t) => p.visible[t]));
+  const ownEvents = events.filter((e) => e.player === viewer);
+  const visibleCombats = combats.filter((c) => c.attackerOwner === viewer || c.defenderOwner === viewer || p.visible[c.tile] || p.visible[c.from]);
   post({ type: 'view', view, moves: visibleMoves, events: ownEvents, combats: visibleCombats, reason, foundedCity }, [
     fog.buffer, tileOwner.buffer, layers.improvement.buffer, layers.road.buffer, layers.feature.buffer,
   ]);
@@ -190,14 +238,19 @@ async function handle(msg: ToWorker): Promise<void> {
       const t0 = performance.now();
       const world = generateWorld(msg.options);
       state = createGame(world, msg.options);
+      mode = msg.options.mode ?? 'single';
+      humans = state.players.filter((p) => p.human).map((p) => p.id);
+      viewer = mode === 'online' ? (msg.options.seat ?? 0) : humans[0];
+      ended.clear();
+      lastEvents = [];
       sendMap(state, performance.now() - t0);
-      sendView(state, 'new');
+      sendView(state, mode === 'hotseat' ? 'handoff' : 'new');
       break;
     }
     case 'command': {
       if (!state) return;
       try {
-        const res = applyCommand(state, HUMAN, msg.command);
+        const res = applyCommand(state, viewer, msg.command);
         sendView(state, 'command', res.moves, res.events ?? [], res.foundedCity, res.combats ?? []);
       } catch (e) {
         if (e instanceof CommandError) notice(e.message, 'error');
@@ -207,12 +260,33 @@ async function handle(msg: ToWorker): Promise<void> {
     }
     case 'endTurn': {
       if (!state) return;
-      const res = endTurn(state);
-      sendView(state, 'turn', res.moves, res.events, undefined, res.combats);
+      ended.add(viewer);
+      const next = aliveHumans(state).find((h) => !ended.has(h));
+      if (next !== undefined) {
+        // Hotseat: nächster Mensch ist dran (gleiche Runde).
+        viewer = next;
+        sendView(state, 'handoff', [], lastEvents);
+      } else {
+        await finishRound(state);
+      }
+      break;
+    }
+    case 'remote': {
+      // Online: Befehle aller Spieler in der vom Server festgelegten Reihenfolge.
+      if (!state) return;
+      if (msg.action.kind === 'endTurn') {
+        ended.add(msg.player);
+        if (aliveHumans(state).every((h) => ended.has(h))) await finishRound(state);
+        else if (msg.player === viewer) sendView(state, 'waiting');
+        break;
+      }
       try {
-        await putSave(saveMeta(state, 'auto', 'Autosave'), toSaveData(state));
-      } catch {
-        notice('Autosave fehlgeschlagen', 'error');
+        const res = applyCommand(state, msg.player, msg.action.command);
+        sendView(state, 'command', res.moves, res.events ?? [], msg.player === viewer ? res.foundedCity : undefined, res.combats ?? []);
+      } catch (e) {
+        // Ungültige Befehle sind auf allen Rechnern gleich ungültig – nur der Absender erfährt davon.
+        if (!(e instanceof CommandError)) throw e;
+        if (msg.player === viewer) notice(e.message, 'error');
       }
       break;
     }
@@ -233,8 +307,12 @@ async function handle(msg: ToWorker): Promise<void> {
         // Sicht ist abgeleitet und wird neu berechnet.
         for (const p of loaded.players) refreshVision(loaded, p.id);
         state = loaded;
+        mode = loaded.options.mode === 'online' ? 'single' : (loaded.options.mode ?? 'single');
+        humans = state.players.filter((p) => p.human).map((p) => p.id);
+        viewer = humans[0];
+        ended.clear();
         sendMap(state, 0);
-        sendView(state, 'load');
+        sendView(state, mode === 'hotseat' ? 'handoff' : 'load');
         notice(`Geladen: Runde ${state.turn}`);
       } catch (e) {
         notice(e instanceof SaveError ? e.message : 'Laden fehlgeschlagen', 'error');
@@ -252,7 +330,7 @@ async function handle(msg: ToWorker): Promise<void> {
         return;
       }
       addUnit(s, s.barbarian, UnitTypeId.Warrior, free);
-      refreshVision(s, HUMAN);
+      refreshVision(s, viewer);
       sendView(s, 'command');
       break;
     }

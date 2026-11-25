@@ -67,6 +67,7 @@ export class Hud {
   private readonly sea = $<HTMLSelectElement>('sea');
   private readonly climate = $<HTMLSelectElement>('climate');
   private readonly difficulty = $<HTMLSelectElement>('difficulty');
+  private readonly mode = $<HTMLSelectElement>('mode');
   private readonly seed = $<HTMLInputElement>('seed');
   private readonly stats = $('stats');
   private readonly info = $('info');
@@ -84,6 +85,7 @@ export class Hud {
     fill(this.sea, SEA_LEVELS, 'normal');
     fill(this.climate, CLIMATES, 'temperate');
     fill(this.difficulty, Object.entries(DIFFICULTY_NAMES) as [Difficulty, string][], 'normal');
+    fill(this.mode, [['single', 'Einzelspieler'], ['hotseat2', 'Hotseat (2)'], ['hotseat3', 'Hotseat (3)'], ['hotseat4', 'Hotseat (4)'], ['online', 'Online …']], 'single');
     $('newmap').addEventListener('click', () => this.requestNewMap(true));
     this.seed.addEventListener('keydown', (e) => {
       if (e.key === 'Enter') this.requestNewMap(false);
@@ -98,9 +100,19 @@ export class Hud {
     this.seed.value = String(seed);
     // Fokus zurück aufs Spiel, sonst landen Tastenkürzel im Eingabefeld.
     (document.activeElement as HTMLElement | null)?.blur();
-    const s = MAP_SIZES.find((m) => m.key === this.size.value) ?? MAP_SIZES[2];
     this.unpin();
-    this.onNewMap({
+    this.onNewMap(this.currentOptions(seed));
+  }
+
+  /** Aktuelle Einstellungen der Kopfleiste (Seed aus dem Feld bzw. übergeben). */
+  currentOptions(seedArg?: number): NewGameOptions {
+    const seed = seedArg ?? (Number.parseInt(this.seed.value, 10) || Math.floor(Math.random() * 1_000_000));
+    const s = MAP_SIZES.find((m) => m.key === this.size.value) ?? MAP_SIZES[2];
+    const m = this.mode.value;
+    const mode = m.startsWith('hotseat') ? 'hotseat' : m === 'online' ? 'online' : 'single';
+    return {
+      mode,
+      humans: mode === 'hotseat' ? Number(m.slice(7)) : 1,
       width: s.width,
       height: s.height,
       players: s.players,
@@ -109,7 +121,7 @@ export class Hud {
       seaLevel: this.sea.value as SeaLevel,
       climate: this.climate.value as Climate,
       difficulty: this.difficulty.value as Difficulty,
-    });
+    };
   }
 
   /** Einstellungen eines geladenen Spiels in die Kopfleiste übernehmen. */

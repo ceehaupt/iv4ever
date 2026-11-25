@@ -20,6 +20,7 @@ import { DoctrinePanel } from './ui/doctrinePanel';
 import { SoundEngine } from './audio/sound';
 import { loadSettings, saveSettings, type Settings, SettingsPanel } from './ui/settings';
 import { Tutorial } from './ui/tutorial';
+import { OnlineClient } from './net/online';
 import { setAnimationSpeed } from './render/unitLayer';
 import { setColorblind } from './render/palette';
 import { VICTORY_NAMES } from './sim/victory';
@@ -32,7 +33,91 @@ import { Minimap } from './ui/minimap';
  * liegt im Worker; hier gibt es nur die Sicht des menschlichen Spielers (GameView).
  */
 const worker = new Worker(new URL('./worker/sim.worker.ts', import.meta.url), { type: 'module' });
-const send = (msg: ToWorker) => worker.postMessage(msg);
+/** Online-Spiel aktiv? Dann gehen Spielaktionen über den Server, nicht direkt an die Simulation. */
+let onlineGame = false;
+const send = (msg: ToWorker) => {
+  if (onlineGame && msg.type === 'command') online.act({ kind: 'command', command: msg.command });
+  else if (onlineGame && msg.type === 'endTurn') online.act({ kind: 'endTurn' });
+  else worker.postMessage(msg);
+};
+
+// --- Online (M10) ----------------------------------------------------------------------
+const onlineEl = document.getElementById('onlinepanel')!;
+let onlineHost = false;
+let lobbyPlayers: { seat: number; name: string }[] = [];
+const online = new OnlineClient({
+  onJoined: (room, _seat, host) => {
+    onlineHost = host;
+    renderOnline(`Raum <b>${room}</b> – Code an Mitspieler weitergeben.`);
+  },
+  onLobby: (players) => {
+    lobbyPlayers = players;
+    renderOnline();
+  },
+  onStart: (options) => {
+    onlineGame = true;
+    onlineEl.hidden = true;
+    worker.postMessage({ type: 'newGame', options: { ...options, seat: online.seat } });
+  },
+  onAction: (seat, action) => worker.postMessage({ type: 'remote', player: seat, action }),
+  onDesync: (turn) => ui.toast(`Achtung: Spielstände weichen in Runde ${turn} voneinander ab (Desync)`, 'error'),
+  onLeft: (name) => ui.toast(`${name} hat das Spiel verlassen`, 'error'),
+  onError: (text) => {
+    ui.toast(text, 'error');
+    renderOnline();
+  },
+});
+let onlineStatus = '';
+function renderOnline(status?: string): void {
+  if (status !== undefined) onlineStatus = status;
+  const inRoom = !!online.room;
+  const url = (document.getElementById('onlineurl') as HTMLInputElement | null)?.value ?? `ws://${location.hostname || 'localhost'}:8787`;
+  const name = (document.getElementById('onlinename') as HTMLInputElement | null)?.value ?? 'Spieler';
+  onlineEl.innerHTML = `<div class="panel settings-box" role="dialog" aria-label="Online-Spiel">
+    <header><h2>Online-Spiel</h2><button type="button" class="x" data-close aria-label="Schließen">✕</button></header>
+    <section>
+      <label>Server <input id="onlineurl" value="${url}" ${inRoom ? 'disabled' : ''} /></label>
+      <label>Name <input id="onlinename" value="${name}" maxlength="24" ${inRoom ? 'disabled' : ''} /></label>
+      ${inRoom ? '' : `<div class="row"><button type="button" data-act="create">Raum erstellen</button>
+        <input id="onlineroom" placeholder="Code" size="6" /> <button type="button" data-act="join">Beitreten</button></div>`}
+      <p class="hint">${onlineStatus || 'Server starten mit <code>npm run server</code>. Alle Spieler brauchen dieselbe Spielversion.'}</p>
+    </section>
+    ${inRoom ? `<section><h3>Spieler</h3><ol>${lobbyPlayers.map((p) => `<li>${p.name}${p.seat === online.seat ? ' (du)' : ''}</li>`).join('')}</ol>
+      ${onlineHost ? '<button type="button" data-act="start">Spiel starten (Einstellungen aus der Kopfleiste)</button>' : '<p class="hint">Warte auf den Start durch den Gastgeber …</p>'}</section>` : ''}
+  </div>`;
+  onlineEl.hidden = false;
+}
+onlineEl.addEventListener('click', async (e) => {
+  const t = e.target as HTMLElement;
+  if (t === onlineEl || t.closest('[data-close]')) {
+    onlineEl.hidden = true;
+    return;
+  }
+  const act = t.closest<HTMLElement>('[data-act]')?.dataset.act;
+  const url = (document.getElementById('onlineurl') as HTMLInputElement).value;
+  const name = (document.getElementById('onlinename') as HTMLInputElement).value || 'Spieler';
+  try {
+    if (act === 'create' || act === 'join') {
+      await online.connect(url);
+      if (act === 'create') online.create(name);
+      else online.join((document.getElementById('onlineroom') as HTMLInputElement).value.trim(), name);
+    } else if (act === 'start') {
+      online.start(hud.currentOptions());
+    }
+  } catch (err) {
+    renderOnline(err instanceof Error ? err.message : String(err));
+  }
+});
+
+// --- Hotseat-Übergabe ------------------------------------------------------------------
+const handoffEl = document.getElementById('handoff')!;
+handoffEl.addEventListener('click', () => (handoffEl.hidden = true));
+function showHandoff(v: GameView): void {
+  const name = v.players.find((p) => p.id === v.human)?.name ?? 'Nächster Spieler';
+  handoffEl.innerHTML = `<div class="panel victory-box"><h2>${name} ist am Zug</h2>
+    <p>Runde ${v.turn}. Gerät weitergeben – die anderen bitte wegsehen.</p><button type="button">Weiter</button></div>`;
+  handoffEl.hidden = false;
+}
 
 let map: GameMap | null = null;
 let view: GameView | null = null;
@@ -568,6 +653,10 @@ function endTurn(): void {
 }
 
 function save(): void {
+  if (onlineGame) {
+    ui.toast('Im Online-Spiel nicht verfügbar', 'error');
+    return;
+  }
   if (view) send({ type: 'save', slot: 'quick', label: 'Schnellspeicherung' });
 }
 
@@ -647,7 +736,17 @@ worker.onmessage = (e: MessageEvent<FromWorker>) => {
         break;
       }
 
-      if (msg.reason === 'new' || msg.reason === 'load') {
+      if (msg.reason === 'waiting') {
+        ui.setBusy(true);
+        ui.toast(`Warte auf ${view.waitingFor.length} Mitspieler …`);
+        break;
+      }
+      if (msg.reason === 'handoff') {
+        showHandoff(view);
+        ui.showEvents(msg.events.filter((e) => e.player === view!.human));
+      }
+      if (msg.reason === 'new' || msg.reason === 'load' || msg.reason === 'handoff') {
+        selected = -1;
         const first = readyUnits()[0] ?? view.units.find(isOwn);
         if (first) {
           renderer.centerOnTile(first.tile);
@@ -671,6 +770,9 @@ worker.onmessage = (e: MessageEvent<FromWorker>) => {
     case 'saves':
       ui.showSaves(msg.saves);
       break;
+    case 'hash':
+      if (onlineGame) online.hash(msg.turn, msg.hash);
+      break;
     case 'notice':
       if (msg.level === 'error') sound.play('error');
       ui.toast(msg.text, msg.level);
@@ -683,7 +785,15 @@ worker.onmessage = (e: MessageEvent<FromWorker>) => {
 };
 
 hud.confirmDiscard = confirmDiscard;
-hud.onNewMap = (options) => send({ type: 'newGame', options });
+hud.onNewMap = (options) => {
+  if (options.mode === 'online') {
+    renderOnline();
+    return;
+  }
+  onlineGame = false;
+  online.close();
+  worker.postMessage({ type: 'newGame', options });
+};
 
 // --- Tastatur ---------------------------------------------------------------------
 

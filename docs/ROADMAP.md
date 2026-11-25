@@ -113,8 +113,14 @@ Grafik, Texte und Balancing sind eigene Entwürfe (siehe `CLAUDE.md`, Abschnitt 
 - Barrierefreiheit: Fokusrahmen, ARIA-Rollen für Dialoge und Meldungen, reduzierte Bewegung wird respektiert
 - Bundle: Erststart ≈ 150 KB gzip; WebGPU-/Canvas-Renderer und Handbuch werden nur bei Bedarf geladen
 
-### M10 – optional: Multiplayer
-- Hotseat → Online (deterministischer Lockstep, Befehle statt Zustand übertragen)
+### M10 – Multiplayer ✅
+- Mehrere menschliche Spieler in der Simulation; Sicht je Spieler (Nebel, Ereignisse, Diplomatie)
+- Hotseat für 2–4 Menschen am selben Gerät mit Übergabebildschirm; Speichern/Laden möglich
+- Online im deterministischen Lockstep: Relay-Server (`npm run server`, WebSocket) ordnet die Aktionen, jeder Client rechnet selbst;
+  Räume mit Code, Lobby, Warteanzeige, Prüfsumme je Runde mit Desync-Warnung
+- Plattformunabhängige Mathematik in der Simulation (eigene ln/exp/pow, sqrt statt hypot)
+- Angebote zwischen Menschen (Frieden, offene Grenzen, Handel) mit Annehmen/Ablehnen
+- Grenzen: kein Wiedereinstieg nach Verbindungsabbruch, kein Speichern im Online-Spiel
 
 ## Entscheidungen
 

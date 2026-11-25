@@ -24,6 +24,10 @@ export interface MapGenOptions {
   difficulty?: Difficulty;
   /** Rundenlimit für den Punktsieg. */
   turnLimit?: number;
+  /** Mehrspieler: Modus, Anzahl Menschen, eigener Sitz (online). */
+  mode?: 'single' | 'hotseat' | 'online';
+  humans?: number;
+  seat?: number;
 }
 
 export interface GeneratedWorld {
@@ -139,7 +143,9 @@ export function generateWorld(opts: MapGenOptions): GeneratedWorld {
       for (const b of blobs) {
         let dx = Math.abs(wx - b.x) % W;
         if (dx > W / 2) dx = W - dx; // kürzester Abstand um den Globus
-        const d = Math.hypot(dx, wy - b.y) / b.r;
+        const dy = wy - b.y;
+        // sqrt ist exakt gerundet (IEEE) – im Gegensatz zu Math.hypot überall gleich.
+        const d = Math.sqrt(dx * dx + dy * dy) / b.r;
         if (d < 1) cont = Math.max(cont, b.w * (1 - d * d));
       }
       let h = cont + (nDetail.fbm(px, py, seed + 11, 5) - 0.5) * detailAmp;

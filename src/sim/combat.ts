@@ -1,3 +1,4 @@
+import { detPow } from './detmath';
 import { neighborOf } from './hex';
 import { type GameMap, hasRiver } from './map';
 import type { Rng } from './rng';
@@ -84,7 +85,7 @@ export function defensePower(def: Fighter, att: Fighter, bf: Battlefield, ranged
 }
 
 function damage(ratio: number, roll: number): number {
-  return Math.max(1, Math.min(MAX_HP, Math.round(BASE_DAMAGE * Math.pow(ratio, EXPONENT) * roll)));
+  return Math.max(1, Math.min(MAX_HP, Math.round(BASE_DAMAGE * detPow(ratio, EXPONENT) * roll)));
 }
 
 export interface CombatOutcome {

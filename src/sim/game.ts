@@ -21,7 +21,7 @@ import { applyJob, jobBlocker, jobTurns } from './work';
 import { sailable, unitCost } from './naval';
 import { aiTurn } from './ai';
 import {
-  aiDiplomacy, createDiplomacy, declareWar, type Diplomacy, evaluate, execute, mayEnterTerritory, type Proposal, relation,
+  aiDiplomacy, canGive, createDiplomacy, declareWar, type Diplomacy, evaluate, execute, mayEnterTerritory, type Proposal, relation,
   updateContacts,
 } from './diplomacy';
 import { checkVictory, type Victory } from './victory';
@@ -195,8 +195,9 @@ export function newPlayer(id: number, n: number, name: string, human: boolean): 
 
 export function createGame(world: GeneratedWorld, options: MapGenOptions): GameState {
   const n = world.map.width * world.map.height;
+  const humans = Math.max(1, Math.min(world.starts.length, options.humans ?? 1));
   const players = world.starts.map((_, id) => {
-    if (id === HUMAN) return newPlayer(id, n, 'Du', true);
+    if (id < humans) return newPlayer(id, n, humans > 1 ? `Spieler ${id + 1}` : 'Du', true);
     const persona = personaFor(options.seed, id - 1);
     return { ...newPlayer(id, n, persona.people, false), persona };
   });
@@ -436,7 +437,17 @@ export function applyCommand(state: GameState, player: number, cmd: Command): Co
     case 'propose': {
       const target = state.players[cmd.target];
       if (!target || target.barbarian || !relation(state, player, cmd.target).met) throw new CommandError('Unbekannter Gesprächspartner');
-      if (target.human) throw new CommandError('Angebote an Menschen kommen mit dem Mehrspielermodus');
+      if (target.human) {
+        // Mensch an Mensch: Angebot wartet auf Antwort (Diplomatie-Übersicht des Empfängers).
+        state.diplomacy.pending.push({ id: state.diplomacy.nextProposalId++, from: player, to: cmd.target, proposal: cmd.proposal, turn: state.turn });
+        return {
+          moves: [],
+          events: [
+            { player, text: `Angebot an ${target.name} gesendet`, tile: -1 },
+            { player: cmd.target, text: `${state.players[player].name} macht dir ein Angebot (Diplomatie: D)`, tile: -1 },
+          ],
+        };
+      }
       const verdict = evaluate(state, cmd.target, player, cmd.proposal);
       const events: TurnEvent[] = [];
       if (verdict.accept) execute(state, player, cmd.target, cmd.proposal, events);
@@ -448,7 +459,14 @@ export function applyCommand(state: GameState, player: number, cmd: Command): Co
       if (idx < 0) throw new CommandError('Angebot nicht mehr gültig');
       const [prop] = state.diplomacy.pending.splice(idx, 1);
       const events: TurnEvent[] = [];
+      if (cmd.accept && prop.proposal.kind === 'trade') {
+        // Bedingungen können sich seit dem Angebot geändert haben.
+        const ok = prop.proposal.give.every((i) => canGive(state, prop.from, prop.to, i)) &&
+          prop.proposal.get.every((i) => canGive(state, prop.to, prop.from, i));
+        if (!ok) throw new CommandError('Das Angebot kann nicht mehr erfüllt werden');
+      }
       if (cmd.accept) execute(state, prop.from, prop.to, prop.proposal, events);
+      else events.push({ player: prop.from, text: `${state.players[player].name} lehnt dein Angebot ab`, tile: -1 });
       return { moves: [], events };
     }
     case 'setDoctrine': {

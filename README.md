@@ -43,6 +43,14 @@ Gleicher Seed + gleiche Einstellungen = gleiche Karte. Die Welt ist ost-west uml
 Einstellungen (⚙): Klang, Animationen, Kontrast, Schriftgröße, Farben für Farbsehschwäche, Tutorial.
 Speicherstände liegen in IndexedDB des Browsers (Schnellspeicherung + Autosave jede Runde).
 
+## Mehrspieler
+
+- **Hotseat**: In der Kopfleiste „Modus: Hotseat (2–4)“ wählen und „Neues Spiel“. Zwischen den Zügen verdeckt ein Übergabebildschirm die Karte.
+- **Online**: Einer startet den Relay-Server (`npm run server`, Port 8787, über `PORT` änderbar). Alle wählen „Modus: Online …“ →
+  „Neues Spiel“, tragen die Serveradresse ein (z. B. `ws://192.168.1.10:8787`), der Gastgeber erstellt einen Raum, die anderen treten
+  mit dem Code bei. Der Gastgeber startet mit den Karteneinstellungen aus seiner Kopfleiste. Alle brauchen dieselbe Spielversion.
+  Die Runde endet, wenn alle Menschen „Runde beenden“ gedrückt haben.
+
 ## Stand und Planung
 
 Siehe [`docs/ROADMAP.md`](docs/ROADMAP.md), Spielregeln in [`docs/REGELN.md`](docs/REGELN.md).

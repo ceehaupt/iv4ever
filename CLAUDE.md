@@ -13,6 +13,9 @@ Enzyklopädie-Texte, Grafiken, UI-Layout/-Look, Musik, Sounds, Szenarien. Histor
 ## Architektur
 
 - `src/sim/` – Spiellogik, rein und deterministisch, kein DOM/Pixi, kein `Math.random()` (nur `Rng`). Läuft im Worker.
+  Für Online-Lockstep auch plattformgleich: kein `Math.pow/exp/log/hypot/sin/cos` in der Simulation – `sim/detmath.ts` bzw. `Math.sqrt` verwenden.
+- `src/sim/ai.ts` – KI; `diplomacy.ts`, `victory.ts`, `events.ts`, `naval.ts`; `rules/doctrines.ts`, `rules/leaders.ts`.
+- `src/net/online.ts` + `server/relay.mjs` – Online-Mehrspieler (Server ordnet nur Aktionen, rechnet nichts).
 - `src/sim/rules/` – Spieldaten (Gelände, Ressourcen, später Einheiten, Technologien …) als Tabellen.
 - `src/sim/gen/` – Weltgenerierung: Flüsse, Ressourcen, Startpositionen; Einstieg `src/sim/mapgen.ts`.
 - Welt ist ost-west umlaufend: Nachbarn/Distanzen immer über `src/sim/hex.ts` (`tileAt`, `neighborOf`, `tileDistance`), nie selbst `c ± 1` rechnen.

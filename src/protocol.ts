@@ -17,7 +17,18 @@ export interface NewGameOptions {
   seaLevel: SeaLevel;
   climate: Climate;
   difficulty: Difficulty;
+  /** Spielmodus; Hotseat/Online mit mehreren Menschen. */
+  mode?: GameMode;
+  /** Anzahl menschlicher Spieler (Sitze 0 … humans−1). */
+  humans?: number;
+  /** Online: eigener Sitz. */
+  seat?: number;
 }
+
+export type GameMode = 'single' | 'hotseat' | 'online';
+
+/** Online-Aktion eines Spielers (vom Server in eine feste Reihenfolge gebracht). */
+export type RemoteAction = { kind: 'command'; command: Command } | { kind: 'endTurn' };
 
 /** Einheit, wie der menschliche Spieler sie sieht. */
 export interface UnitView {
@@ -109,7 +120,12 @@ export interface EconomyView extends Economy {
 /** Alles, was der Hauptthread vom Spielzustand sehen darf (Nebel des Krieges!). */
 export interface GameView {
   turn: number;
+  /** Spieler, dessen Sicht das ist. */
   human: number;
+  mode: GameMode;
+  humans: number[];
+  /** Online: Menschen, die die Runde noch nicht beendet haben. */
+  waitingFor: number[];
   /** Je Feld: 0 unbekannt, 1 erkundet (Nebel), 2 sichtbar. */
   fog: Uint8Array;
   units: UnitView[];
@@ -157,7 +173,7 @@ export interface VictoryView {
   turnLimit: number;
 }
 
-export type ViewReason = 'new' | 'load' | 'command' | 'turn';
+export type ViewReason = 'new' | 'load' | 'command' | 'turn' | 'handoff' | 'waiting';
 
 /** Nachrichten Hauptthread → Simulations-Worker. */
 export type ToWorker =
@@ -167,6 +183,7 @@ export type ToWorker =
   | { type: 'save'; slot: string; label: string }
   | { type: 'load'; slot: string }
   | { type: 'listSaves' }
+  | { type: 'remote'; player: number; action: RemoteAction }
   /** Nur Entwicklung: Plünderer neben ein Feld setzen. */
   | { type: 'debugRaider'; tile: number };
 
@@ -183,4 +200,5 @@ export type FromWorker =
       foundedCity?: number;
     }
   | { type: 'saves'; saves: SaveMeta[] }
+  | { type: 'hash'; turn: number; hash: string }
   | { type: 'notice'; text: string; level: 'info' | 'error' };
