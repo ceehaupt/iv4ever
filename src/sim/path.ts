@@ -3,8 +3,8 @@ import type { GameMap } from './map';
 import { MOVE_SCALE } from './rules/units';
 import { isWater, tileMoveCost } from './rules/terrain';
 
-/** Kosten, ein Feld zu betreten (skaliert), Infinity = nicht betretbar. */
-export type StepCost = (tile: number) => number;
+/** Kosten für den Schritt von → nach (skaliert), Infinity = nicht betretbar. */
+export type StepCost = (from: number, to: number) => number;
 
 export interface PathQuery {
   map: GameMap;
@@ -26,16 +26,29 @@ export interface PathResult {
   turns: number[];
 }
 
+/** Kosten eines Straßenschritts: ⅓ Bewegung, mit Ingenieurwesen ¼. */
+export function roadStepCost(engineering: boolean): number {
+  return engineering ? MOVE_SCALE / 4 : MOVE_SCALE / 3;
+}
+
+/** Schrittkosten nach Spielregeln (ohne Wissens-/Blockadeprüfung). */
+export function stepCost(map: GameMap, from: number, to: number, roadCost: number): number {
+  if (isWater(map.terrain[to])) return Infinity;
+  if (map.road[from] && map.road[to]) return roadCost;
+  return tileMoveCost(map.terrain[to], map.relief[to], map.feature[to]) * MOVE_SCALE;
+}
+
 /**
- * Landkosten nach Spielregeln. Unbekannte Felder werden optimistisch mit 1 angenommen
- * (wie in Strategiespielen üblich); blockierte Felder (fremde Einheiten) sind unpassierbar.
+ * Landkosten aus Sicht eines Spielers. Unbekannte Felder werden optimistisch mit 1 angenommen
+ * (wie in Strategiespielen üblich); blockierte Felder (fremde Einheiten/Städte) sind unpassierbar.
  */
-export function landCost(map: GameMap, isKnown: (i: number) => boolean, isBlocked: (i: number) => boolean): StepCost {
-  return (i) => {
-    if (isBlocked(i)) return Infinity;
-    if (!isKnown(i)) return MOVE_SCALE;
-    if (isWater(map.terrain[i])) return Infinity;
-    return tileMoveCost(map.terrain[i], map.relief[i], map.feature[i]) * MOVE_SCALE;
+export function landCost(
+  map: GameMap, isKnown: (i: number) => boolean, isBlocked: (i: number) => boolean, roadCost = MOVE_SCALE / 3,
+): StepCost {
+  return (from, to) => {
+    if (isBlocked(to)) return Infinity;
+    if (!isKnown(to)) return MOVE_SCALE;
+    return stepCost(map, from, to, roadCost);
   };
 }
 
@@ -98,7 +111,7 @@ class MinHeap {
 export function findPath(q: PathQuery): PathResult | null {
   const { map, from, to, maxMoves, cost } = q;
   if (from === to || maxMoves <= 0) return null;
-  if (!Number.isFinite(cost(to))) return null;
+  if (!Number.isFinite(cost(to, to))) return null;
   const n = map.width * map.height;
   const limit = q.limit ?? n;
 
@@ -126,7 +139,7 @@ export function findPath(q: PathQuery): PathResult | null {
     for (let d = 0; d < 6; d++) {
       const nb = neighborOf(map, cur, d);
       if (nb < 0 || closed[nb]) continue;
-      const c = cost(nb);
+      const c = cost(cur, nb);
       if (!Number.isFinite(c)) continue;
       let turn = turnOf[cur];
       let left = leftOf[cur];

@@ -18,7 +18,8 @@ Enzyklopädie-Texte, Grafiken, UI-Layout/-Look, Musik, Sounds, Szenarien. Histor
 - Welt ist ost-west umlaufend: Nachbarn/Distanzen immer über `src/sim/hex.ts` (`tileAt`, `neighborOf`, `tileDistance`), nie selbst `c ± 1` rechnen.
 - Flüsse liegen auf Kanten; Abfrage nur über `hasRiver`/`touchesRiver` (`src/sim/map.ts`).
 - `src/sim/city.ts` – Städte: Gründung, Feldbesitz, Bewirtschaftung, Wachstum, Produktion, Stimmung/Versorgung.
-- `src/sim/game.ts` – Spielzustand, Befehle, Rundenwechsel, Wirtschaft; `path.ts` (A*), `vision.ts` (Sichtlinie), `save.ts` (versioniertes Speicherformat – bei Änderungen `SAVE_VERSION` erhöhen).
+- `src/sim/work.ts` – Arbeiteraufträge (Prüfung/Anwendung, auch von der UI genutzt); `rules/techs.ts`, `rules/improvements.ts`, `rules/buildings.ts` (Indizes nur hinten anhängen – stehen in Speicherständen).
+- `src/sim/game.ts` – Spielzustand, Befehle, Rundenwechsel, Wirtschaft, Forschung; `path.ts` (A*), `vision.ts` (Sichtlinie), `save.ts` (versioniertes Speicherformat – bei Änderungen `SAVE_VERSION` erhöhen).
 - `src/worker/` – Worker-Einstieg, hält den Spielzustand; `storage.ts` = IndexedDB.
 - Der Hauptthread bekommt nur `GameView` (Sicht des Menschen, Nebel!) – nie den vollen Zustand.
 - `src/protocol.ts` – einzige Schnittstelle Worker ↔ Hauptthread.

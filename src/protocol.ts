@@ -2,6 +2,7 @@ import type { BuildItem, CityReport, TurnEvent } from './sim/city';
 import type { Command, Economy, MoveEvent } from './sim/game';
 import type { GameMap } from './sim/map';
 import type { Climate, MapScript, SeaLevel } from './sim/mapgen';
+import type { JobKind } from './sim/rules/improvements';
 import type { SaveMeta } from './sim/save';
 
 export interface NewGameOptions {
@@ -25,6 +26,24 @@ export interface UnitView {
   orders: number;
   /** Restweg bei Marschbefehl (nur eigene Einheiten). */
   path: number[] | null;
+  /** Arbeiterauftrag mit Fortschritt (nur eigene Einheiten). */
+  job: { kind: JobKind; progress: number; turns: number } | null;
+}
+
+export interface ResearchView {
+  known: number[];
+  goal: number;
+  current: number;
+  progress: number;
+  /** Forschung pro Runde (nach Unterhalt nicht bereinigt). */
+  perTurn: number;
+}
+
+/** Veränderliche Kartenebenen (Verbesserungen, Straßen, Bewuchs), nur für erkundete Felder aktuell. */
+export interface MapLayers {
+  improvement: Uint8Array;
+  road: Uint8Array;
+  feature: Uint8Array;
 }
 
 export interface PlayerView {
@@ -78,6 +97,8 @@ export interface GameView {
   /** Feldbesitzer (nur auf erkundeten Feldern, sonst -1). */
   tileOwner: Int16Array;
   economy: EconomyView;
+  research: ResearchView;
+  layers: MapLayers;
 }
 
 export type ViewReason = 'new' | 'load' | 'command' | 'turn';

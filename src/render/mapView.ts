@@ -2,6 +2,7 @@ import { Container, Graphics, GraphicsContext, Sprite, type Texture } from 'pixi
 import { Dir, neighborOf } from '../sim/hex';
 import { type GameMap, hasRiver } from '../sim/map';
 import { hash2 } from '../sim/rng';
+import { Improvement } from '../sim/rules/improvements';
 import { Feature, isWater, Relief, Terrain } from '../sim/rules/terrain';
 import { mix, shade } from './color';
 import { ICON_CELL } from './icons';
@@ -167,8 +168,68 @@ function drawTile(g: GraphicsContext, map: GameMap, i: number, c: number, r: num
     mountain(g, cx, cy, t === Terrain.Snow || t === Terrain.Tundra, tint);
   } else {
     if (rl === Relief.Hill) hills(g, cx, cy, base, tint);
+    improvement(g, map.improvement[i], cx, cy, tint);
+    if (map.road[i]) road(g, map, i, cx, cy, tint);
     if (f === Feature.Forest) forest(g, cx, cy, c, r, map.seed, t === Terrain.Tundra, tint);
     else if (f === Feature.Jungle) jungle(g, cx, cy, c, r, map.seed, tint);
+  }
+}
+
+// --- Verbesserungen und Straßen ---------------------------------------------------
+
+/** Kantenmitten je Richtung (O, NO, NW, W, SW, SO) relativ zum Mittelpunkt. */
+const EDGE_MID: readonly (readonly [number, number])[] = [[5, 0], [4, 5], [3, 4], [2, 3], [1, 2], [0, 1]].map(
+  ([a, b]) => [(CORNER_X[a] + CORNER_X[b]) / 2, (CORNER_Y[a] + CORNER_Y[b]) / 2] as const,
+);
+
+function road(g: GraphicsContext, map: GameMap, i: number, cx: number, cy: number, tint: Tint): void {
+  const color = tint(0x8a6a44);
+  let any = false;
+  for (let d = 0; d < 6; d++) {
+    const n = neighborOf(map, i, d);
+    if (n < 0 || !map.road[n]) continue;
+    any = true;
+    g.moveTo(cx, cy).lineTo(cx + EDGE_MID[d][0], cy + EDGE_MID[d][1]);
+  }
+  if (any) g.stroke({ width: 3.2, color, cap: 'round', alpha: 0.95 });
+  g.circle(cx, cy, 2.6).fill(color);
+}
+
+function improvement(g: GraphicsContext, id: number, cx: number, cy: number, tint: Tint): void {
+  if (!id) return;
+  // Leicht nach links unten versetzt, damit Ressourcen-Symbol (Mitte) frei bleibt.
+  const x = cx - 9;
+  const y = cy + 5;
+  switch (id) {
+    case Improvement.Farm:
+      for (let k = -1; k <= 1; k++) {
+        g.moveTo(cx - 17, cy + k * 5 + 2).lineTo(cx + 17, cy + k * 5 + 2);
+      }
+      g.stroke({ width: 2.2, color: tint(0xd8d06a), alpha: 0.85 });
+      break;
+    case Improvement.Mine:
+      g.ellipse(x, y, 9, 5).fill(tint(0x6f6a64));
+      g.ellipse(x, y + 1, 4, 3).fill(tint(0x1c1a18));
+      break;
+    case Improvement.Pasture:
+      g.moveTo(x - 9, y - 2).lineTo(x + 9, y - 2).moveTo(x - 9, y + 2).lineTo(x + 9, y + 2);
+      for (const px of [-9, 0, 9]) g.moveTo(x + px, y - 5).lineTo(x + px, y + 4);
+      g.stroke({ width: 1.4, color: tint(0xe6d3a8) });
+      break;
+    case Improvement.Camp:
+      g.poly([x - 7, y + 3, x, y - 7, x + 7, y + 3]).fill(tint(0xb07a45));
+      g.poly([x - 2, y + 3, x, y - 2, x + 2, y + 3]).fill(tint(0x3a2614));
+      break;
+    case Improvement.Plantation:
+      for (let k = 0; k < 6; k++) g.circle(x - 6 + (k % 3) * 6, y - 2 + Math.floor(k / 3) * 5, 2.2).fill(tint(0x2d6b2a));
+      break;
+    case Improvement.Lumbermill:
+      for (let k = 0; k < 3; k++) g.roundRect(x - 8, y - 4 + k * 3.2, 16, 3, 1.5).fill(tint(k % 2 ? 0x8a5a2b : 0x9c6a36));
+      break;
+    case Improvement.Quarry:
+      g.rect(x - 8, y - 2, 7, 5).fill(tint(0xb9b2a6));
+      g.rect(x, y - 4, 7, 7).fill(tint(0x9a9388));
+      break;
   }
 }
 

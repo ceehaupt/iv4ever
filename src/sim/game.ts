@@ -1,15 +1,19 @@
 import {
-  assignTiles, availableItems, type BuildItem, type City, cityAt, cityReport, foundCity, foundingBlocker, processCity,
-  recomputeOwnership, sameItem, type TurnEvent, workableTiles,
+  assignTiles, availableItems, type BuildItem, type City, cityAt, cityReport, foundCity, foundingBlocker, knowsFn,
+  playerContext, processCity, recomputeOwnership, sameItem, type TurnEvent, workableTiles,
 } from './city';
 import { tilesAround } from './hex';
 import type { GameMap } from './map';
 import type { GeneratedWorld, MapGenOptions } from './mapgen';
-import { findPath, landCost } from './path';
+import { findPath, landCost, roadStepCost, stepCost } from './path';
 import { Rng } from './rng';
+import { BUILDINGS } from './rules/buildings';
+import { type JobKind, JOB_NAMES } from './rules/improvements';
+import { canResearch, nextStepTowards, TECHS, TechId, techCost } from './rules/techs';
 import { isWater, tileMoveCost } from './rules/terrain';
-import { MOVE_SCALE, maxMoves, START_UNITS, UNIT_TYPES } from './rules/units';
+import { maxMoves, START_UNITS, UNIT_TYPES } from './rules/units';
 import { markVisible } from './vision';
+import { applyJob, jobBlocker, jobTurns } from './work';
 
 export const Orders = {
   None: 0,
@@ -19,6 +23,8 @@ export const Orders = {
   Skip: 2,
   /** Unterwegs zu einem Ziel (Restweg in path). */
   Goto: 3,
+  /** Arbeiter bei der Arbeit (Auftrag in job). */
+  Work: 4,
 } as const;
 
 export interface Unit {
@@ -30,6 +36,8 @@ export interface Unit {
   moves: number;
   orders: number;
   path: number[] | null;
+  /** Laufender Arbeiterauftrag. */
+  job?: JobKind | null;
 }
 
 export interface Player {
@@ -42,10 +50,14 @@ export interface Player {
   /** 1 = Feld ist aktuell sichtbar (abgeleitet, wird nicht gespeichert). */
   visible: Uint8Array;
   gold: number;
-  /** Angesammelte Forschung (wird ab M4 für Technologien ausgegeben). */
+  /** Forschungsfortschritt (für die aktuelle Technologie bzw. angespart, solange keine gewählt ist). */
   research: number;
   /** Anteil des Handels für Forschung in Prozent (Rest = Gold), Schritte zu 10. */
   rate: number;
+  /** 1 = Technologie bekannt (Index = Tech-ID). */
+  techs: Uint8Array;
+  /** Forschungsziel (-1 = keins); erforscht wird jeweils der nächste Schritt dorthin. */
+  goal: number;
 }
 
 /** Wirtschaftsbilanz eines Spielers pro Runde. */
@@ -72,6 +84,8 @@ export interface GameState {
   /** Abgeleitet (recomputeOwnership): Besitzer bzw. Stadt je Feld, -1 = niemand. */
   tileOwner: Int16Array;
   tileCity: Int32Array;
+  /** Fortschritt laufender Arbeiteraufträge: Schlüssel "feld:auftrag" → Runden. */
+  jobs: Record<string, number>;
   rng: Rng;
 }
 
@@ -85,7 +99,9 @@ export type Command =
   | { type: 'build'; city: number; item: BuildItem; append: boolean }
   | { type: 'unqueue'; city: number; index: number }
   | { type: 'toggleTile'; city: number; tile: number }
-  | { type: 'setRate'; rate: number };
+  | { type: 'setRate'; rate: number }
+  | { type: 'work'; unit: number; job: JobKind }
+  | { type: 'research'; tech: number };
 
 export interface MoveEvent {
   unit: number;
@@ -120,6 +136,8 @@ export function createGame(world: GeneratedWorld, options: MapGenOptions): GameS
       gold: 0,
       research: 0,
       rate: DEFAULT_RATE,
+      techs: new Uint8Array(TECHS.length),
+      goal: -1,
     })),
     units: [],
     nextUnitId: 1,
@@ -127,6 +145,7 @@ export function createGame(world: GeneratedWorld, options: MapGenOptions): GameS
     nextCityId: 1,
     tileOwner: new Int16Array(n).fill(-1),
     tileCity: new Int32Array(n).fill(-1),
+    jobs: {},
     rng: new Rng(options.seed ^ 0x5eed),
   };
   world.starts.forEach((tile, owner) => {
@@ -170,6 +189,10 @@ function occupancy(state: GameState): Int16Array {
   return occ;
 }
 
+export function roadCostFor(state: GameState, owner: number): number {
+  return roadStepCost(state.players[owner].techs[TechId.Engineering] === 1);
+}
+
 /** Kostenfunktion aus Sicht eines Spielers: eigenes Wissen, sichtbare fremde Einheiten blockieren. */
 function costFor(state: GameState, owner: number, occ: Int16Array) {
   const p = state.players[owner];
@@ -177,6 +200,7 @@ function costFor(state: GameState, owner: number, occ: Int16Array) {
     state.map,
     (i) => p.explored[i] === 1,
     (i) => occ[i] >= 0 && occ[i] !== owner && p.visible[i] === 1,
+    roadCostFor(state, owner),
   );
 }
 
@@ -213,8 +237,7 @@ function continueMove(state: GameState, u: Unit): MoveEvent | null {
       if (!u.path) break;
       continue;
     }
-    const m = state.map;
-    const cost = tileMoveCost(m.terrain[next], m.relief[next], m.feature[next]) * MOVE_SCALE;
+    const cost = stepCost(state.map, u.tile, next, roadCostFor(state, u.owner));
     occ[u.tile] = state.units.some((o) => o !== u && o.tile === u.tile) || cityAt(state, u.tile) ? u.owner : -1;
     u.tile = next;
     occ[next] = u.owner;
@@ -246,7 +269,7 @@ export function applyCommand(state: GameState, player: number, cmd: Command): Co
   switch (cmd.type) {
     case 'build': {
       const c = ownCity(state, player, cmd.city);
-      if (!availableItems(c).some((i) => sameItem(i, cmd.item))) {
+      if (!availableItems(state, c).some((i) => sameItem(i, cmd.item))) {
         throw new CommandError('Kann hier nicht gebaut werden');
       }
       if (cmd.append) c.queue.push(cmd.item);
@@ -277,6 +300,13 @@ export function applyCommand(state: GameState, player: number, cmd: Command): Co
       state.players[player].rate = Math.max(0, Math.min(100, Math.round(cmd.rate / 10) * 10));
       return { moves: [] };
     }
+    case 'research': {
+      const p = state.players[player];
+      if (!TECHS[cmd.tech]) throw new CommandError('Unbekannte Technologie');
+      if (p.techs[cmd.tech]) throw new CommandError('Schon erforscht');
+      p.goal = cmd.tech;
+      return { moves: [] };
+    }
     default:
       return unitCommand(state, player, cmd);
   }
@@ -296,8 +326,19 @@ function unitCommand(state: GameState, player: number, cmd: Extract<Command, { u
       for (const p of state.players) refreshVision(state, p.id);
       return { moves: [], foundedCity: c.id };
     }
+    case 'work': {
+      if (!UNIT_TYPES[u.type].canWork) throw new CommandError('Nur Arbeiter können das');
+      const blocker = jobBlocker(state.map, state.tileOwner, player, u.tile, cmd.job, knowsFn(state, player));
+      if (blocker) throw new CommandError(blocker);
+      u.orders = Orders.Work;
+      u.job = cmd.job;
+      u.path = null;
+      u.moves = 0;
+      return { moves: [] };
+    }
     case 'move': {
       if (cmd.target === u.tile) return { moves: [] };
+      u.job = null;
       if (u.moves <= 0) throw new CommandError('Keine Bewegung mehr übrig');
       const path = planPath(state, u, cmd.target, occupancy(state));
       if (!path) throw new CommandError('Ziel ist nicht erreichbar');
@@ -309,6 +350,7 @@ function unitCommand(state: GameState, player: number, cmd: Extract<Command, { u
     case 'fortify':
       u.orders = Orders.Fortify;
       u.path = null;
+      u.job = null;
       return { moves: [] };
     case 'skip':
       u.orders = Orders.Skip;
@@ -316,6 +358,7 @@ function unitCommand(state: GameState, player: number, cmd: Extract<Command, { u
     case 'wake':
       u.orders = Orders.None;
       u.path = null;
+      u.job = null;
       return { moves: [] };
     case 'disband':
       state.units = state.units.filter((o) => o !== u);
@@ -330,11 +373,13 @@ function unitCommand(state: GameState, player: number, cmd: Extract<Command, { u
  */
 export function endTurn(state: GameState): { moves: MoveEvent[]; events: TurnEvent[] } {
   const turnEvents: TurnEvent[] = [];
+  processJobs(state, turnEvents);
   processEconomy(state, turnEvents);
   state.turn++;
   const events: MoveEvent[] = [];
   for (const u of state.units) {
-    u.moves = maxMoves(u.type);
+    // Arbeitende Einheiten verbrauchen ihre Bewegung für den Auftrag.
+    u.moves = u.orders === Orders.Work ? 0 : maxMoves(u.type);
     if (u.orders === Orders.Skip) u.orders = Orders.None;
   }
   for (const u of state.units) {
@@ -347,51 +392,135 @@ export function endTurn(state: GameState): { moves: MoveEvent[]; events: TurnEve
   return { moves: events, events: turnEvents };
 }
 
-/** Unterhalt: Städte ab der vierten je 1 Gold, Einheiten über dem Freikontingent je 1 Gold. */
-export function economy(state: GameState, player: number, trade?: number): Economy {
+/** Fortschritt der Arbeiteraufträge; fertige Aufträge verändern die Karte. */
+function processJobs(state: GameState, events: TurnEvent[]): void {
+  const done = new Set<string>();
+  for (const u of state.units) {
+    if (u.orders !== Orders.Work || !u.job) continue;
+    const key = `${u.tile}:${u.job}`;
+    // Gelände kann sich geändert haben (z. B. gerodet) – dann Auftrag abbrechen.
+    if (jobBlocker(state.map, state.tileOwner, u.owner, u.tile, u.job, knowsFn(state, u.owner))) {
+      u.orders = Orders.None;
+      u.job = null;
+      continue;
+    }
+    state.jobs[key] = (state.jobs[key] ?? 0) + 1;
+    if (state.jobs[key] >= jobTurns(u.job) && !done.has(key)) {
+      done.add(key);
+      applyJob(state.map, u.tile, u.job);
+      events.push({ player: u.owner, text: `${JOB_NAMES[u.job]} fertiggestellt`, tile: u.tile });
+    }
+  }
+  if (!done.size) return;
+  for (const key of done) delete state.jobs[key];
+  for (const u of state.units) {
+    if (u.orders === Orders.Work && u.job && done.has(`${u.tile}:${u.job}`)) {
+      u.orders = Orders.None;
+      u.job = null;
+    }
+  }
+  // Erträge haben sich geändert → Bewirtschaftung neu verteilen.
+  for (const c of state.cities) assignTiles(state, c);
+}
+
+/** Unterhalt: Städte ab der vierten je 1 Gold (Gerichtsgebäude befreit), Einheiten über dem Freikontingent je 1 Gold. */
+export function economy(state: GameState, player: number, income?: { research: number; gold: number }): Economy {
   const p = state.players[player];
   const cities = state.cities.filter((c) => c.owner === player);
   const units = state.units.filter((u) => u.owner === player).length;
-  const t = trade ?? cities.reduce((sum, c) => sum + cityTrade(state, c), 0);
-  const research = Math.floor((t * p.rate) / 100);
-  const goldIncome = t - research;
-  const freeUnits = 3 + 2 * cities.length;
-  const cityUpkeep = Math.max(0, cities.length - 3);
+  let research = 0;
+  let goldIncome = 0;
+  let trade = 0;
+  if (income) {
+    research = income.research;
+    goldIncome = income.gold;
+  } else {
+    const ctx = playerContext(state, player);
+    for (const c of cities) {
+      const r = cityReport(state, c, ctx);
+      research += r.research;
+      goldIncome += r.gold;
+      trade += r.yields.trade;
+    }
+  }
+  const freeUnits = 3 + 2 * cities.length + (p.techs[TechId.Feudalism] ? cities.length : 0);
+  const paying = cities.filter((c) => !c.buildings.some((b) => BUILDINGS[b].noUpkeep)).length;
+  const cityUpkeep = Math.max(0, paying - 3);
   const unitUpkeep = Math.max(0, units - freeUnits);
-  return { trade: t, research, goldIncome, cityUpkeep, unitUpkeep, freeUnits, net: goldIncome - cityUpkeep - unitUpkeep };
+  return { trade, research, goldIncome, cityUpkeep, unitUpkeep, freeUnits, net: goldIncome - cityUpkeep - unitUpkeep };
 }
 
-function cityTrade(state: GameState, c: City): number {
-  return cityReport(state, c).yields.trade;
+/** Aktuell erforschte Technologie (nächster Schritt zum Ziel), -1 = keine. */
+export function currentResearch(state: GameState, player: number): number {
+  const p = state.players[player];
+  return p.goal >= 0 ? nextStepTowards(p.techs, p.goal) : -1;
 }
 
 /** Städte aller Spieler abrechnen, neue Einheiten aufstellen, Forschung und Gold verbuchen. */
 function processEconomy(state: GameState, events: TurnEvent[]): void {
   let radiusChanged = false;
-  const tradeBy = new Map<number, number>();
+  const income = new Map<number, { research: number; gold: number }>();
+  const contexts = new Map(state.players.map((p) => [p.id, playerContext(state, p.id)]));
   for (const c of [...state.cities].sort((a, b) => a.id - b.id)) {
-    const res = processCity(state, c, events);
-    tradeBy.set(c.owner, (tradeBy.get(c.owner) ?? 0) + res.trade);
+    const res = processCity(state, c, events, contexts.get(c.owner)!);
+    const inc = income.get(c.owner) ?? { research: 0, gold: 0 };
+    inc.research += res.research;
+    inc.gold += res.gold;
+    income.set(c.owner, inc);
     for (const type of res.newUnits) addUnit(state, c.owner, type, c.tile);
     radiusChanged ||= res.radiusChanged;
+    if (res.wonder !== undefined) {
+      // Weltwunder: Auftrag bei allen anderen Städten entfernen.
+      for (const other of state.cities) {
+        if (other === c) continue;
+        const before = other.queue.length;
+        other.queue = other.queue.filter((q) => !(q.kind === 'building' && q.id === res.wonder));
+        if (other.queue.length !== before) {
+          events.push({ player: other.owner, text: `${other.name}: ${BUILDINGS[res.wonder].name} wurde anderswo vollendet`, tile: other.tile, city: other.id });
+        }
+      }
+    }
   }
   if (radiusChanged) {
     recomputeOwnership(state);
     for (const c of state.cities) assignTiles(state, c);
   }
   for (const p of state.players) {
-    const e = economy(state, p.id, tradeBy.get(p.id) ?? 0);
-    p.research += e.research;
+    const e = economy(state, p.id, income.get(p.id) ?? { research: 0, gold: 0 });
+    let research = e.research;
     p.gold += e.net;
     if (p.gold < 0) {
       // Fehlbetrag wird aus der Forschung dieser Runde gedeckt.
-      const cover = Math.min(-p.gold, e.research);
-      p.research -= cover;
+      const cover = Math.min(-p.gold, research);
+      research -= cover;
       p.gold += cover;
       if (p.gold < 0) {
         p.gold = 0;
         events.push({ player: p.id, text: 'Die Staatskasse ist leer – Unterhalt kann nicht bezahlt werden', tile: -1 });
       }
+    }
+    p.research += research;
+    advanceResearch(state, p.id, events);
+  }
+}
+
+/** Fortschritt in Technologien umsetzen (auch mehrere pro Runde, wenn genug angespart ist). */
+function advanceResearch(state: GameState, player: number, events: TurnEvent[]): void {
+  const p = state.players[player];
+  for (let guard = 0; guard < 10; guard++) {
+    const tech = currentResearch(state, player);
+    if (tech < 0 || !canResearch(p.techs, tech) || p.research < techCost(tech)) break;
+    p.research -= techCost(tech);
+    p.techs[tech] = 1;
+    events.push({ player, text: `Erforscht: ${TECHS[tech].name}`, tile: -1 });
+    if (p.goal === tech) {
+      p.goal = -1;
+      events.push({ player, text: 'Forschungsziel erreicht – wähle ein neues (T)', tile: -1 });
+    }
+  }
+  if (p.goal < 0 && state.cities.some((c) => c.owner === player) && TECHS.some((_, id) => canResearch(p.techs, id))) {
+    if (!events.some((e) => e.player === player && e.text.startsWith('Forschungsziel'))) {
+      events.push({ player, text: 'Keine Forschung gewählt – Fortschritt wird angespart (T)', tile: -1 });
     }
   }
 }

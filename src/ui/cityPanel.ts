@@ -121,7 +121,8 @@ export class CityPanel {
         <div class="options">${options}</div>
       </section>
       <section class="grid2">
-        <span>💰 Handel</span><b>${y.trade}</b>
+        <span>💰 Handel</span><b>${y.trade} <small>→ 🔬 ${r.research} · 💰 ${r.gold}</small></b>
+        <span>🛤️ Handelsnetz</span><span>${c.capital ? 'Hauptstadt' : r.connected ? 'angebunden (+2 💰)' : '<span class="warn">nicht angebunden</span> – Straße oder Fluss zur Hauptstadt'}</span>
         <span>👥 Spezialisten</span><b>${r.specialists} <small>(+${r.specialists * 2} 💰)</small></b>
         <span>🙂 Stimmung</span><span>Grenze ${r.moodLimit} · ${moodLine}</span>
         <span>💧 Versorgung</span><span>Grenze ${r.supplyLimit}${r.supplyDeficit ? ` · <span class="warn">−${r.supplyDeficit} 🌾</span>` : ' · ausreichend'}</span>

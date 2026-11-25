@@ -23,6 +23,7 @@ npm run dev        # http://localhost:5173
 | `F` | Befestigen / Schlafen bzw. Aufwecken |
 | `B` | Stadt gründen (Siedler) |
 | `Tab` | Nächste Einheit, die einen Befehl braucht |
+| `T` | Technologien (Forschungsziel wählen) |
 | `Enter` | Runde beenden |
 | `Entf` | Einheit auflösen |
 | `H` | Zur ausgewählten Einheit |

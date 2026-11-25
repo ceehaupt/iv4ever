@@ -1,6 +1,8 @@
-import { Dir, type Grid, neighborOf } from './hex';
+import { Dir, forEachNeighbor, type Grid, neighborOf } from './hex';
+import { Improvement, IMPROVEMENTS, RESOURCE_IMPROVEMENT } from './rules/improvements';
 import { RESOURCES } from './rules/resources';
-import { baseYields, type Yields } from './rules/terrain';
+import { TechId } from './rules/techs';
+import { baseYields, isWater, Terrain, type Yields } from './rules/terrain';
 
 /**
  * Spielkarte als Struct-of-Arrays: ein Byte pro Feld und Eigenschaft.
@@ -16,9 +18,14 @@ export interface GameMap extends Grid {
   readonly feature: Uint8Array;
   readonly resource: Uint8Array;
   readonly river: Uint8Array;
+  /** Geländeverbesserung je Feld (Improvement-ID). Veränderlich während des Spiels. */
+  readonly improvement: Uint8Array;
+  /** 1 = Straße. Veränderlich während des Spiels. */
+  readonly road: Uint8Array;
 }
 
-const FIELDS = ['terrain', 'relief', 'feature', 'resource', 'river'] as const;
+export const MAP_FIELDS = ['terrain', 'relief', 'feature', 'resource', 'river', 'improvement', 'road'] as const;
+const FIELDS = MAP_FIELDS;
 
 export function createMap(width: number, height: number, seed: number, wrapX = true): GameMap {
   const n = width * height;
@@ -32,6 +39,8 @@ export function createMap(width: number, height: number, seed: number, wrapX = t
     feature: new Uint8Array(n),
     resource: new Uint8Array(n),
     river: new Uint8Array(n),
+    improvement: new Uint8Array(n),
+    road: new Uint8Array(n),
   };
 }
 
@@ -46,6 +55,8 @@ export function cloneMap(m: GameMap): GameMap {
     feature: m.feature.slice(),
     resource: m.resource.slice(),
     river: m.river.slice(),
+    improvement: m.improvement.slice(),
+    road: m.road.slice(),
   };
 }
 
@@ -76,10 +87,39 @@ export function touchesRiver(m: GameMap, i: number): boolean {
   return false;
 }
 
-export function tileYields(m: GameMap, i: number): Yields {
-  const y = baseYields(m.terrain[i], m.relief[i], m.feature[i], touchesRiver(m, i));
+/** Süßwasser: Fluss an einer Kante oder ein See daneben. */
+export function hasFreshWater(m: GameMap, tile: number): boolean {
+  if (touchesRiver(m, tile)) return true;
+  let lake = false;
+  forEachNeighbor(m, tile, (n) => {
+    if (m.terrain[n] === Terrain.Lake) lake = true;
+  });
+  return lake;
+}
+
+/** Welche Technologien der betrachtende Spieler kennt (Standard: keine). */
+export type Knows = (tech: number) => boolean;
+const KNOWS_NOTHING: Knows = () => false;
+
+/** Bringt die Ressource ihren Bonus? Landressourcen brauchen die passende Verbesserung, Wasserressourcen Fischerei. */
+export function resourceActive(m: GameMap, i: number, knows: Knows = KNOWS_NOTHING): boolean {
   const res = RESOURCES[m.resource[i]];
-  if (res) {
+  if (!res) return false;
+  if (isWater(m.terrain[i])) return knows(TechId.Fishing);
+  return m.improvement[i] !== Improvement.None && RESOURCE_IMPROVEMENT[res.key] === m.improvement[i];
+}
+
+export function tileYields(m: GameMap, i: number, knows: Knows = KNOWS_NOTHING): Yields {
+  const y = baseYields(m.terrain[i], m.relief[i], m.feature[i], touchesRiver(m, i));
+  const imp = IMPROVEMENTS[m.improvement[i]];
+  if (imp) {
+    y.food += imp.delta.food;
+    y.prod += imp.delta.prod;
+    y.trade += imp.delta.trade;
+    if (m.improvement[i] === Improvement.Farm && knows(TechId.Irrigation) && hasFreshWater(m, i)) y.food += 1;
+  }
+  if (resourceActive(m, i, knows)) {
+    const res = RESOURCES[m.resource[i]]!;
     y.food += res.delta.food;
     y.prod += res.delta.prod;
     y.trade += res.delta.trade;

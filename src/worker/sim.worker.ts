@@ -1,6 +1,9 @@
 import type { CityView, FromWorker, GameView, NewGameOptions, ToWorker, ViewReason } from '../protocol';
 import { availableItems, buildCost, type City, cityReport, cultureToNextRadius, foodToGrow, type TurnEvent, workableTiles } from '../sim/city';
-import { applyCommand, CommandError, createGame, economy, endTurn, type GameState, HUMAN, type MoveEvent, refreshVision } from '../sim/game';
+import {
+  applyCommand, CommandError, createGame, currentResearch, economy, endTurn, type GameState, HUMAN, type MoveEvent, refreshVision,
+} from '../sim/game';
+import { jobTurns } from '../sim/work';
 import { BuildingId } from '../sim/rules/buildings';
 import { cloneMap, mapTransferables } from '../sim/map';
 import { generateWorld } from '../sim/mapgen';
@@ -46,7 +49,7 @@ function cityView(s: GameState, c: City, explored: Uint8Array): CityView | null 
       worked: c.worked.slice(),
       locked: c.locked.slice(),
       workable: workableTiles(s, c),
-      available: availableItems(c),
+      available: availableItems(s, c),
       report,
       turnsToGrow:
         report.surplus > 0 ? Math.max(1, Math.ceil((foodToGrow(c.size) - c.foodStored) / report.surplus)) : null,
@@ -66,11 +69,27 @@ function sendView(
   const tileOwner = new Int16Array(n);
   for (let i = 0; i < n; i++) tileOwner[i] = p.explored[i] ? s.tileOwner[i] : -1;
   const pl = s.players[HUMAN];
+  const econ = economy(s, HUMAN);
+  // Kartenebenen: nur auf erkundeten Feldern den echten Stand zeigen.
+  const layers = { improvement: new Uint8Array(n), road: new Uint8Array(n), feature: s.map.feature.slice() };
+  for (let i = 0; i < n; i++) {
+    if (!p.explored[i]) continue;
+    layers.improvement[i] = s.map.improvement[i];
+    layers.road[i] = s.map.road[i];
+  }
   const view: GameView = {
     turn: s.turn,
     tileOwner,
     cities: s.cities.map((c) => cityView(s, c, p.explored)).filter((c): c is CityView => c !== null),
-    economy: { ...economy(s, HUMAN), gold: pl.gold, researchTotal: pl.research, rate: pl.rate },
+    economy: { ...econ, gold: pl.gold, researchTotal: pl.research, rate: pl.rate },
+    research: {
+      known: [...pl.techs.keys()].filter((t) => pl.techs[t]),
+      goal: pl.goal,
+      current: currentResearch(s, HUMAN),
+      progress: pl.research,
+      perTurn: econ.research,
+    },
+    layers,
     human: HUMAN,
     fog,
     players: s.players.map((pl) => ({ id: pl.id, name: pl.name, human: pl.human })),
@@ -85,12 +104,18 @@ function sendView(
         maxMoves: maxMoves(u.type),
         orders: u.orders,
         path: u.owner === HUMAN && u.path ? u.path.slice() : null,
+        job:
+          u.owner === HUMAN && u.job
+            ? { kind: u.job, progress: s.jobs[`${u.tile}:${u.job}`] ?? 0, turns: jobTurns(u.job) }
+            : null,
       })),
   };
   // Fremde Bewegungen nur zeigen, wenn sie im Sichtbereich liegen.
   const visibleMoves = moves.filter((m) => m.owner === HUMAN || m.steps.some((t) => p.visible[t]));
   const ownEvents = events.filter((e) => e.player === HUMAN);
-  post({ type: 'view', view, moves: visibleMoves, events: ownEvents, reason, foundedCity }, [fog.buffer, tileOwner.buffer]);
+  post({ type: 'view', view, moves: visibleMoves, events: ownEvents, reason, foundedCity }, [
+    fog.buffer, tileOwner.buffer, layers.improvement.buffer, layers.road.buffer, layers.feature.buffer,
+  ]);
 }
 
 function saveMeta(s: GameState, slot: string, label: string): SaveMeta {

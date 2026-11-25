@@ -1,5 +1,8 @@
 import type { NewGameOptions } from '../protocol';
-import { type GameMap, tileYields, touchesRiver } from '../sim/map';
+import { type GameMap, type Knows, resourceActive, tileYields, touchesRiver } from '../sim/map';
+import { IMPROVEMENTS, RESOURCE_IMPROVEMENT } from '../sim/rules/improvements';
+import { TECHS, TechId } from '../sim/rules/techs';
+import { isWater } from '../sim/rules/terrain';
 import type { Climate, MapScript, SeaLevel } from '../sim/mapgen';
 import { RESOURCE_KIND_NAME, RESOURCES } from '../sim/rules/resources';
 import { RIVER_DEFENSE, tileDefense, tileMoveCost, tileName } from '../sim/rules/terrain';
@@ -66,6 +69,8 @@ export class Hud {
   private readonly stats = $('stats');
   private readonly info = $('info');
   private pinned = -1;
+  /** Technologiestand des Spielers – beeinflusst Erträge in der Feldinfo. */
+  knows: Knows = () => false;
 
   constructor() {
     fill(
@@ -146,12 +151,24 @@ export class Hud {
     const t = map.terrain[i];
     const rl = map.relief[i];
     const f = map.feature[i];
-    const y = tileYields(map, i);
+    const y = tileYields(map, i, this.knows);
     const move = tileMoveCost(t, rl, f);
     const def = tileDefense(rl, f);
     const res = RESOURCES[map.resource[i]];
     const rows: string[] = [];
-    if (res) rows.push(`<dt>Ressource</dt><dd>${res.icon} ${res.name} <small>(${RESOURCE_KIND_NAME[res.kind]})</small></dd>`);
+    if (res) {
+      let hint = '';
+      if (!resourceActive(map, i, this.knows)) {
+        hint = isWater(t)
+          ? ` <small>– braucht ${TECHS[TechId.Fishing].name}</small>`
+          : ` <small>– braucht ${IMPROVEMENTS[RESOURCE_IMPROVEMENT[res.key]]?.name ?? 'Verbesserung'}</small>`;
+      }
+      rows.push(`<dt>Ressource</dt><dd>${res.icon} ${res.name} <small>(${RESOURCE_KIND_NAME[res.kind]})</small>${hint}</dd>`);
+    }
+    const imp = IMPROVEMENTS[map.improvement[i]];
+    if (imp || map.road[i]) {
+      rows.push(`<dt>Ausbau</dt><dd>${[imp ? `${imp.icon} ${imp.name}` : '', map.road[i] ? '🛤️ Straße' : ''].filter(Boolean).join(' · ')}</dd>`);
+    }
     if (touchesRiver(map, i)) rows.push(`<dt>Fluss</dt><dd>+1 Handel, +${RIVER_DEFENSE} % gegen Angriffe über den Fluss</dd>`);
     rows.push(`<dt>Bewegung</dt><dd>${Number.isFinite(move) ? move : 'unpassierbar'}</dd>`);
     rows.push(`<dt>Verteidigung</dt><dd>${def > 0 ? `+${def} %` : '–'}</dd>`);

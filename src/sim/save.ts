@@ -1,5 +1,6 @@
 import { assignTiles, type City, recomputeOwnership } from './city';
 import { DEFAULT_RATE, type GameState, type Unit } from './game';
+import { TECHS } from './rules/techs';
 import type { GameMap } from './map';
 import type { MapGenOptions } from './mapgen';
 import { Rng } from './rng';
@@ -11,8 +12,9 @@ import { Rng } from './rng';
  * Versionen:
  * 1 – M2: Karte, Spieler (Erkundung), Einheiten
  * 2 – M3: Städte, Gold/Forschung/Steuersatz je Spieler
+ * 3 – M4: Technologien, Forschungsziel, Verbesserungen/Straßen, Arbeiteraufträge; Bewegung ×2 (MOVE_SCALE 12)
  */
-export const SAVE_VERSION = 2;
+export const SAVE_VERSION = 3;
 
 interface SavedPlayer {
   id: number;
@@ -23,6 +25,8 @@ interface SavedPlayer {
   gold: number;
   research: number;
   rate: number;
+  techs: Uint8Array;
+  goal: number;
 }
 
 export interface SaveData {
@@ -36,6 +40,7 @@ export interface SaveData {
   nextUnitId: number;
   cities: City[];
   nextCityId: number;
+  jobs: Record<string, number>;
   rngState: number;
 }
 
@@ -63,6 +68,8 @@ export function toSaveData(s: GameState): SaveData {
       feature: s.map.feature.slice(),
       resource: s.map.resource.slice(),
       river: s.map.river.slice(),
+      improvement: s.map.improvement.slice(),
+      road: s.map.road.slice(),
     },
     players: s.players.map((p) => ({
       id: p.id,
@@ -73,11 +80,14 @@ export function toSaveData(s: GameState): SaveData {
       gold: p.gold,
       research: p.research,
       rate: p.rate,
+      techs: p.techs.slice(),
+      goal: p.goal,
     })),
     units: s.units.map((u) => ({ ...u, path: u.path ? u.path.slice() : null })),
     nextUnitId: s.nextUnitId,
     cities: s.cities.map((c) => structuredClone(c)),
     nextCityId: s.nextCityId,
+    jobs: { ...s.jobs },
     rngState: s.rng.getState(),
   };
 }
@@ -95,6 +105,20 @@ function migrate(d: SaveData): SaveData {
       players: d.players.map((p) => ({ ...p, gold: 0, research: 0, rate: DEFAULT_RATE })),
     };
   }
+  if (d.version === 2) {
+    const n = d.map.width * d.map.height;
+    const road = new Uint8Array(n);
+    for (const c of d.cities) road[c.tile] = 1;
+    d = {
+      ...d,
+      version: 3,
+      map: { ...d.map, improvement: new Uint8Array(n), road },
+      players: d.players.map((p) => ({ ...p, techs: new Uint8Array(TECHS.length), goal: -1 })),
+      // Bewegungspunkte wurden von Sechsteln auf Zwölftel umgestellt.
+      units: d.units.map((u) => ({ ...u, moves: u.moves * 2 })),
+      jobs: {},
+    };
+  }
   return d;
 }
 
@@ -105,7 +129,7 @@ export function fromSaveData(raw: SaveData): GameState {
   }
   const d = migrate(raw);
   const n = d.map.width * d.map.height;
-  for (const key of ['terrain', 'relief', 'feature', 'resource', 'river'] as const) {
+  for (const key of ['terrain', 'relief', 'feature', 'resource', 'river', 'improvement', 'road'] as const) {
     if (!(d.map[key] instanceof Uint8Array) || d.map[key].length !== n) throw new SaveError('Kartendaten sind beschädigt');
   }
   const state: GameState = {
@@ -118,6 +142,7 @@ export function fromSaveData(raw: SaveData): GameState {
     nextUnitId: d.nextUnitId,
     cities: d.cities,
     nextCityId: d.nextCityId,
+    jobs: d.jobs,
     tileOwner: new Int16Array(n).fill(-1),
     tileCity: new Int32Array(n).fill(-1),
     rng: Rng.fromState(d.rngState),

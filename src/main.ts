@@ -6,8 +6,11 @@ import { Orders } from './sim/game';
 import { UNIT_TYPES } from './sim/rules/units';
 import { CityPanel } from './ui/cityPanel';
 import type { GameMap } from './sim/map';
-import { findPath, landCost } from './sim/path';
-import { GameUi, type UnitAction } from './ui/gameUi';
+import { findPath, landCost, roadStepCost } from './sim/path';
+import { TechId } from './sim/rules/techs';
+import { ALL_JOBS, jobBlocker, jobTech, jobTurns } from './sim/work';
+import { TechPanel } from './ui/techPanel';
+import { GameUi, type JobOption, type UnitAction } from './ui/gameUi';
 import { Hud } from './ui/hud';
 import { Minimap } from './ui/minimap';
 
@@ -40,11 +43,17 @@ const ui = new GameUi({
   },
   onRate: (rate) => send({ type: 'command', command: { type: 'setRate', rate } }),
   onEventClick: (tile) => {
+    if (tile < 0) {
+      techPanel.show();
+      return;
+    }
     renderer.centerOnTile(tile);
     const c = cityAtTile(tile);
     if (c?.own) openCity(c.id);
   },
+  onOpenTech: () => techPanel.toggle(),
 });
+const techPanel = new TechPanel((tech) => send({ type: 'command', command: { type: 'research', tech } }));
 const cityPanel = new CityPanel({
   onClose: closeCity,
   onBuild: (item, append) => {
@@ -109,6 +118,35 @@ function cityAtTile(tile: number): CityView | undefined {
   return view?.cities.find((c) => c.tile === tile);
 }
 
+function knows(tech: number): boolean {
+  return !!view && view.research.known.includes(tech);
+}
+
+/** Arbeiteraufträge, deren Technologie bekannt ist, mit Blockade-Grund (dieselben Regeln wie im Worker). */
+function jobOptions(u: UnitView): JobOption[] {
+  if (!map || !view || !UNIT_TYPES[u.type].canWork) return [];
+  return ALL_JOBS.filter((j) => knows(jobTech(j))).map((job) => ({
+    job,
+    turns: jobTurns(job),
+    blocker: jobBlocker(map!, view!.tileOwner, u.owner, u.tile, job, knows),
+  }));
+}
+
+/** Veränderte Kartenebenen in die lokale Karte übernehmen; liefert die geänderten Felder. */
+function applyLayers(layers: GameView['layers']): number[] {
+  if (!map) return [];
+  const changed: number[] = [];
+  for (let i = 0; i < layers.road.length; i++) {
+    if (map.improvement[i] !== layers.improvement[i] || map.road[i] !== layers.road[i] || map.feature[i] !== layers.feature[i]) {
+      changed.push(i);
+    }
+  }
+  map.improvement.set(layers.improvement);
+  map.road.set(layers.road);
+  map.feature.set(layers.feature);
+  return changed;
+}
+
 /** null = Stadtgründung möglich, sonst Begründung (dieselbe Prüfung wie im Worker). */
 function foundBlocker(u: UnitView): string | null {
   if (!map || !view || !UNIT_TYPES[u.type].canFound) return 'Diese Einheit kann keine Stadt gründen';
@@ -165,7 +203,7 @@ function selectUnit(id: number, center: boolean): void {
   renderer.setSelectedUnit(u.id, u.tile);
   renderer.setSelectedTile(-1);
   hud.unpin();
-  ui.showUnits(stackAt(u.tile), u, view!.human, foundBlocker(u));
+  ui.showUnits(stackAt(u.tile), u, view!.human, foundBlocker(u), isOwn(u) ? jobOptions(u) : []);
   if (center && !renderer.isTileOnScreen(u.tile)) renderer.centerOnTile(u.tile);
   updatePathPreview();
 }
@@ -227,7 +265,7 @@ function updatePathPreview(): void {
     to: hoverTile,
     maxMoves: u.maxMoves,
     movesLeft: u.moves,
-    cost: landCost(map, (i) => fog[i] > 0, (i) => foreign.has(i)),
+    cost: landCost(map, (i) => fog[i] > 0, (i) => foreign.has(i), roadStepCost(knows(TechId.Engineering))),
     limit: 6000,
   });
   renderer.setPath(u.tile, res?.tiles ?? null, res?.turns ?? null);
@@ -269,6 +307,13 @@ function runAction(action: UnitAction, unitId: number): void {
     case 'disband':
       if (window.confirm('Einheit wirklich auflösen?')) command({ type: 'command', command: { type: 'disband', unit: u.id } });
       break;
+    default: {
+      if (action.startsWith('job:')) {
+        const job = action.slice(4) as Parameters<typeof jobTurns>[0];
+        command({ type: 'command', command: { type: 'work', unit: u.id, job } });
+      }
+      break;
+    }
     case 'found': {
       const blocker = foundBlocker(u);
       if (blocker) ui.toast(blocker, 'error');
@@ -311,7 +356,12 @@ worker.onmessage = (e: MessageEvent<FromWorker>) => {
       view = msg.view;
       busy = false;
       ui.setBusy(false);
+      const changedTiles = applyLayers(view.layers);
+      hud.knows = knows;
       renderer.setFog(view.fog);
+      renderer.refreshTiles(changedTiles);
+      techPanel.update(view.research);
+      ui.setResearch(TechPanel.summary(view.research), view.research.current < 0);
       renderer.setCities(view.cities, view.tileOwner);
       const animMs = renderer.setUnits(view.units, view.human, msg.moves);
       minimap.update(fogForUi(), view.units, view.tileOwner, view.cities);
@@ -395,7 +445,8 @@ window.addEventListener('keydown', (e) => {
       if (own) runAction('disband', u.id);
       return;
     case 'Escape':
-      if (cityPanel.openCityId >= 0) closeCity();
+      if (techPanel.open) techPanel.hide();
+      else if (cityPanel.openCityId >= 0) closeCity();
       else if (moveMode) moveMode = false;
       else if (selected >= 0) selectUnit(-1, false);
       else {
@@ -421,6 +472,9 @@ window.addEventListener('keydown', (e) => {
     }
     case 'g':
       renderer.toggleGrid();
+      break;
+    case 't':
+      techPanel.toggle();
       break;
     case 'r':
       renderer.toggleResources();

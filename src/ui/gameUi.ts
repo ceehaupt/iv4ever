@@ -1,12 +1,20 @@
 import type { EconomyView, UnitView } from '../protocol';
 import type { TurnEvent } from '../sim/city';
+import { type JobKind, JOB_ICONS, JOB_NAMES } from '../sim/rules/improvements';
 import { toCss } from '../render/color';
 import { PLAYER_COLORS } from '../render/palette';
 import { Orders } from '../sim/game';
 import type { SaveMeta } from '../sim/save';
 import { MOVE_SCALE, UNIT_TYPES } from '../sim/rules/units';
 
-export type UnitAction = 'fortify' | 'skip' | 'wake' | 'disband' | 'found' | 'moveMode';
+export type UnitAction = 'fortify' | 'skip' | 'wake' | 'disband' | 'found' | 'moveMode' | `job:${JobKind}`;
+
+/** Arbeiteraufträge, die der Spieler grundsätzlich kennt, mit Grund, falls hier nicht möglich. */
+export interface JobOption {
+  job: JobKind;
+  turns: number;
+  blocker: string | null;
+}
 
 export interface GameUiHandlers {
   onEndTurn(): void;
@@ -17,6 +25,7 @@ export interface GameUiHandlers {
   onLoad(slot: string): void;
   onRate(rate: number): void;
   onEventClick(tile: number): void;
+  onOpenTech(): void;
 }
 
 function $<T extends HTMLElement = HTMLElement>(id: string): T {
@@ -25,9 +34,9 @@ function $<T extends HTMLElement = HTMLElement>(id: string): T {
   return el as T;
 }
 
-const FRACTIONS: Record<number, string> = { 2: '⅓', 3: '½', 4: '⅔' };
+const FRACTIONS: Record<number, string> = { 3: '¼', 4: '⅓', 6: '½', 8: '⅔', 9: '¾' };
 
-/** Bewegungspunkte lesbar: 6 → "1", 3 → "½", 8 → "1⅓". */
+/** Bewegungspunkte lesbar (MOVE_SCALE = 1): 12 → "1", 6 → "½", 16 → "1⅓". */
 export function formatMoves(scaled: number): string {
   const whole = Math.floor(scaled / MOVE_SCALE);
   const rest = scaled % MOVE_SCALE;
@@ -52,10 +61,12 @@ export class GameUi {
   private readonly rateEl = $<HTMLInputElement>('rate');
   private readonly rateVal = $('rateval');
   private readonly logEl = $('log');
+  private readonly researchEl = $<HTMLButtonElement>('research');
   private toastTimer = 0;
 
   constructor(h: GameUiHandlers) {
     this.endTurn.addEventListener('click', () => h.onEndTurn());
+    this.researchEl.addEventListener('click', () => h.onOpenTech());
     this.rateEl.addEventListener('input', () => (this.rateVal.textContent = `${this.rateEl.value} %`));
     this.rateEl.addEventListener('change', () => h.onRate(Number(this.rateEl.value)));
     this.logEl.addEventListener('click', (e) => {
@@ -103,6 +114,11 @@ export class GameUi {
     }
   }
 
+  setResearch(summary: string, missing: boolean): void {
+    this.researchEl.textContent = `🔬 ${summary}`;
+    this.researchEl.classList.toggle('pulse', missing);
+  }
+
   hideEvents(): void {
     this.logEl.hidden = true;
   }
@@ -115,7 +131,8 @@ export class GameUi {
     this.logEl.innerHTML =
       `<header><strong>Diese Runde</strong><button type="button" class="x" data-close>✕</button></header>` +
       events
-        .map((e) => `<button type="button" class="event" ${e.tile >= 0 ? `data-tile="${e.tile}"` : ''}>${escapeHtml(e.text)}</button>`)
+        // Ereignisse ohne Feld (Forschung) öffnen beim Klick den Technologiebaum (tile = -1).
+        .map((e) => `<button type="button" class="event" data-tile="${e.tile}">${escapeHtml(e.text)}</button>`)
         .join('');
     this.logEl.hidden = false;
   }
@@ -126,7 +143,9 @@ export class GameUi {
 
   /** Zeigt die ausgewählte Einheit und den Rest ihres Stapels. */
   /** foundBlocker: null = Stadtgründung möglich, sonst Begründung. */
-  showUnits(stack: UnitView[], selected: UnitView | null, human: number, foundBlocker: string | null = 'unbekannt'): void {
+  showUnits(
+    stack: UnitView[], selected: UnitView | null, human: number, foundBlocker: string | null = 'unbekannt', jobs: JobOption[] = [],
+  ): void {
     if (!selected) {
       this.unitPanel.hidden = true;
       return;
@@ -138,6 +157,8 @@ export class GameUi {
         ? t.combat ? 'befestigt' : 'schläft'
         : selected.orders === Orders.Goto
           ? 'unterwegs'
+          : selected.orders === Orders.Work && selected.job
+            ? `arbeitet: ${JOB_NAMES[selected.job.kind]} (${selected.job.progress}/${selected.job.turns})`
           : selected.orders === Orders.Skip
             ? 'wartet diese Runde'
             : selected.moves > 0
@@ -157,6 +178,15 @@ export class GameUi {
           btn('disband', 'Auflösen', 'Entf'),
         ].join('')
       : '';
+    const jobButtons =
+      own && jobs.length
+        ? jobs
+            .map(
+              (j) => `<button type="button" data-action="job:${j.job}" data-unit-id="${id}" ${j.blocker ? 'disabled' : ''}
+                title="${escapeHtml(j.blocker ?? `${j.turns} Runden`)}">${JOB_ICONS[j.job]} ${JOB_NAMES[j.job]}</button>`,
+            )
+            .join('')
+        : '';
     const others = stack.filter((u) => u.id !== id);
     const chips = others
       .map((u) => {
@@ -180,6 +210,8 @@ export class GameUi {
         </div>
       </div>
       ${actions ? `<div class="unit-actions">${actions}</div>` : ''}
+      ${jobButtons ? `<div class="unit-actions jobs">${jobButtons}</div>` : ''}
+      ${own && t.canWork && !jobs.length ? '<p class="hint">Noch keine Aufträge – erforsche z. B. Ackerbau, Bergbau oder Rad (T).</p>' : ''}
       ${chips ? `<div class="unit-stack"><small>Auf diesem Feld:</small> ${chips}</div>` : ''}`;
   }
 

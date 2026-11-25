@@ -132,6 +132,20 @@ export class GameRenderer {
     this.dirty = true;
   }
 
+  /** Felder haben sich verändert (Verbesserung, Straße, Rodung) → betroffene Zeilen neu zeichnen. */
+  refreshTiles(tiles: number[]): void {
+    if (!this.map || !this.view || !tiles.length) return;
+    const fog = this.revealAll ? null : this.fog;
+    const rows = new Set<number>();
+    for (const t of tiles) {
+      const r = (t / this.map.width) | 0;
+      // Straßen der Nachbarn zeigen zu diesem Feld → Nachbarzeilen mit neu zeichnen.
+      for (const rr of [r - 1, r, r + 1]) if (rr >= 0 && rr < this.map.height) rows.add(rr);
+    }
+    for (const r of rows) rebuildRow(this.view, this.map, r, fog, this.icons);
+    this.dirty = true;
+  }
+
   /** Debug: ganze Karte ohne Nebel zeigen. */
   toggleRevealAll(): boolean {
     this.revealAll = !this.revealAll;

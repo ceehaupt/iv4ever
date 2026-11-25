@@ -3,7 +3,7 @@
  * Bewegungspunkte werden intern mit MOVE_SCALE multipliziert, damit spätere Straßen
  * (Bruchteile eines Punktes) ohne Gleitkomma auskommen.
  */
-export const MOVE_SCALE = 6;
+export const MOVE_SCALE = 12;
 
 export const UnitTypeId = {
   Settler: 0,

@@ -53,10 +53,13 @@ Grafik, Texte und Balancing sind eigene Entwürfe (siehe `CLAUDE.md`, Abschnitt 
 - Speicherformat v2 mit Migration von v1
 - Regeln dokumentiert in `docs/REGELN.md`
 
-### M4 – Forschung & Ausbau
-- Eigener Technologiebaum Antike–Mittelalter (~30 Technologien), Daten als JSON-artige Tabellen
-- Arbeiter: Farm, Mine, Straße, Sägewerk, Weide u. ä.; Straßen beschleunigen Bewegung, verbinden Städte (Handelsnetz)
-- Gebäude und Wunder (eigene Auswahl/Effekte)
+### M4 – Forschung & Ausbau ✅
+- Eigener Technologiebaum: 30 Technologien in 7 Stufen, Forschungsziel mit automatischem Weg, Ansparen ohne Ziel
+- Arbeiter: Straße, Farm, Mine, Weide, Jagdlager, Plantage, Sägewerk, Steinbruch, Roden; Ressourcen wirken erst verbessert
+- Straßen verbilligen Bewegung (⅓, mit Ingenieurwesen ¼) und bilden mit Flüssen das Handelsnetz (+2 Handel, Luxusgüter zählen nur angebunden)
+- 13 neue Gebäude, 7 eigene Weltwunder (einmalig, Bauliste der anderen wird bereinigt)
+- Technologie-Übersicht (T), Arbeiteraufträge im Einheitenpanel, Ausbau in der Feldinfo
+- Speicherformat v3 mit Migration (Bewegung jetzt in Zwölfteln)
 
 ### M5 – Militär & Kampf
 - Einheitenklassen (Nahkampf, Fernkampf, beritten, Belagerung, Schiffe)
