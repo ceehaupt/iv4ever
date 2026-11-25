@@ -103,10 +103,15 @@ Grafik, Texte und Balancing sind eigene Entwürfe (siehe `CLAUDE.md`, Abschnitt 
 - Eisenbahn (Straßen ⅙), Navigation (alle Schiffe hochseetauglich)
 - Projektsieg über das Großprojekt „Aufbruch“ (Startrampe, Sternenantrieb, Habitatmodul); Speicherformat v6
 
-### M9 – Präsentation
-- Eigene Grafik (Sprite-Atlas, Animationen), Wasser-/Licht-Effekte, Sound/Musik (eigene oder lizenzfreie)
-- Einstellungen, Tutorial, Enzyklopädie mit eigenen Texten, Barrierefreiheit (Tastatur, Kontrast)
-- Bundle-Optimierung (Pixi-Teilimporte, Lazy Loading)
+### M9 – Präsentation ✅
+- Eigene Einheiten-Piktogramme (Canvas-Pfade, 16 Motive) statt Emojis
+- Kampfeffekte: Blitzring und aufsteigende Schadenszahlen; Animationsgeschwindigkeit schnell/normal/aus
+- Klang ohne Audiodateien: synthetisierte Effekte (Klick, Bewegung, Kampf, Gründung, Runde, Forschung, Sieg, Fehler)
+  und generative Hintergrundmusik (WebAudio)
+- Einstellungen (Lautstärken, Musik, Animationen, hoher Kontrast, große Schrift, Farben für Farbsehschwäche), gespeichert im Browser
+- Tutorial mit 7 Schritten, die sich am Spielstand erledigen; Handbuch (F1) mit allen Inhalten aus den Regeltabellen
+- Barrierefreiheit: Fokusrahmen, ARIA-Rollen für Dialoge und Meldungen, reduzierte Bewegung wird respektiert
+- Bundle: Erststart ≈ 150 KB gzip; WebGPU-/Canvas-Renderer und Handbuch werden nur bei Bedarf geladen
 
 ### M10 – optional: Multiplayer
 - Hotseat → Online (deterministischer Lockstep, Befehle statt Zustand übertragen)

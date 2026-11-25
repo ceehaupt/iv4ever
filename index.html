@@ -20,6 +20,8 @@
       <span class="sep"></span>
       <button id="save" type="button" title="Strg/⌘ + S">Speichern</button>
       <button id="load" type="button">Laden ▾</button>
+      <button id="handbookbtn" type="button" title="Handbuch (F1)" aria-label="Handbuch">📖</button>
+      <button id="settingsbtn" type="button" title="Einstellungen" aria-label="Einstellungen">⚙️</button>
       <span id="stats"></span>
     </header>
 
@@ -44,23 +46,29 @@
 
     <aside id="log" class="panel" hidden></aside>
 
-    <div id="techpanel" hidden></div>
+    <div id="techpanel" hidden role="dialog" aria-label="Technologien"></div>
 
-    <div id="diplopanel" class="overlay" hidden></div>
+    <div id="diplopanel" class="overlay" hidden role="dialog" aria-label="Diplomatie"></div>
 
-    <div id="doctrinepanel" class="overlay" hidden></div>
+    <div id="doctrinepanel" class="overlay" hidden role="dialog" aria-label="Leitbilder"></div>
 
-    <div id="victory" class="overlay" hidden></div>
+    <div id="victory" class="overlay" hidden role="dialog" aria-label="Spielende"></div>
+
+    <div id="settingspanel" class="overlay" hidden></div>
+
+    <div id="handbook" class="overlay" hidden></div>
+
+    <aside id="tutorial" class="panel" hidden role="status" aria-live="polite"></aside>
 
     <canvas id="minimap" class="panel"></canvas>
 
-    <div id="toast" class="panel" hidden></div>
+    <div id="toast" class="panel" hidden role="status" aria-live="polite"></div>
 
     <div id="combat" class="panel" hidden></div>
 
     <footer id="help" class="panel">
       Ziehen / WASD: Karte · Rad: Zoom · Klick: wählen · Rechtsklick oder M: bewegen/angreifen · Leertaste: überspringen ·
-      F: befestigen · B: Stadt gründen · Tab: nächste Einheit · Enter: Runde beenden · T: Technologien · D: Diplomatie · P: Leitbilder · H: zur Einheit · G/R: Gitter/Ressourcen
+      F: befestigen · B: Stadt gründen · Tab: nächste Einheit · Enter: Runde beenden · T: Technologien · D: Diplomatie · P: Leitbilder · F1: Handbuch · H: zur Einheit · G/R: Gitter/Ressourcen
     </footer>
 
     <script type="module" src="/src/main.ts"></script>

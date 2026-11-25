@@ -7,6 +7,7 @@ import { buildMapView, changedRows, destroyMapView, type Fog, type MapView, rebu
 import { BACKGROUND } from './palette';
 import { centerX, centerY, HEX, liftOf, pickTile, topPoly, worldSize } from './projection';
 import { TOKEN_SIZE, tokenPos, UnitLayer } from './unitLayer';
+import { EffectsLayer } from './effects';
 
 export interface RendererEvents {
   /** Feld unter dem Mauszeiger (-1 = keins) und Bildschirmposition für Hinweise. */
@@ -48,6 +49,7 @@ export class GameRenderer {
   private readonly pathLabels = new Container();
   private units!: UnitLayer;
   private readonly cities = new CityLayer();
+  readonly effects = new EffectsLayer();
   private view: MapView | null = null;
   private map: GameMap | null = null;
   private fog: Fog = null;
@@ -93,7 +95,9 @@ export class GameRenderer {
     this.units = new UnitLayer(createUnitAtlas());
     this.app.stage.addChild(this.world);
     // Reihenfolge: (Karte) · Grenzen/Häuser · Einheiten · Stadtnamen · Stadtfelder · Markierungen
-    this.world.addChild(this.cities.ground, this.units.root, this.cities.labels, this.cities.work, this.overlay, this.pathLabels);
+    this.world.addChild(
+      this.cities.ground, this.units.root, this.cities.labels, this.cities.work, this.overlay, this.pathLabels, this.effects.root,
+    );
     this.host.appendChild(this.app.canvas);
     this.bindInput();
     window.addEventListener('resize', () => {
@@ -176,6 +180,25 @@ export class GameRenderer {
     this.dirty = true;
   }
 
+  /** Kampf anzeigen: Schaden schwebt über beiden Feldern auf. */
+  showCombat(from: number, tile: number, dmgAtt: number, dmgDef: number): void {
+    if (!this.map) return;
+    const now = performance.now();
+    const p = tokenPos(this.map, tile);
+    const q = tokenPos(this.map, from);
+    this.effects.flash(p.x, p.y, 0xff5a4a, now);
+    if (dmgDef) this.effects.floatText(p.x, p.y - 22, `−${dmgDef}`, 0xff6a5a, now);
+    if (dmgAtt) this.effects.floatText(q.x, q.y - 22, `−${dmgAtt}`, 0xffb05a, now);
+    this.dirty = true;
+  }
+
+  /** Alles neu zeichnen, was Spielerfarben nutzt (z. B. nach Farbschema-Wechsel). */
+  redrawColors(units: UnitView[], human: number, cities: CityView[], tileOwner: Int16Array, camps: readonly number[]): void {
+    this.units.setUnits(units, human, [], performance.now());
+    this.cities.update(cities, tileOwner, camps);
+    this.dirty = true;
+  }
+
   setSelectedUnit(unitId: number, tile: number): void {
     this.units.setSelected(unitId);
     this.selectedUnitTile = tile;
@@ -248,6 +271,10 @@ export class GameRenderer {
     this.applyKeyboard(dt);
     if (this.units.animating) {
       this.units.tick(performance.now());
+      this.dirty = true;
+    }
+    if (this.effects.active) {
+      this.effects.tick(performance.now());
       this.dirty = true;
     }
     if (this.dirty || this.overlayDirty) {

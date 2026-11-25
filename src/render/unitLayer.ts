@@ -11,7 +11,11 @@ import { centerX, centerY, liftOf } from './projection';
 export const TOKEN_SIZE = 30;
 /** Plakette schwebt etwas über der Feldmitte (Billboard). */
 export const TOKEN_RAISE = 13;
-const STEP_MS = 140;
+/** Dauer eines Animationsschritts (Einstellung „Animationen“: schnell/normal/aus). */
+let STEP_MS = 140;
+export function setAnimationSpeed(speed: 'fast' | 'normal' | 'off'): void {
+  STEP_MS = speed === 'fast' ? 60 : speed === 'off' ? 0 : 140;
+}
 
 export function tokenPos(map: GameMap, tile: number): { x: number; y: number } {
   const c = tile % map.width;
@@ -65,7 +69,7 @@ export class UnitLayer {
     if (this.map) {
       for (const m of moves) {
         const u = units.find((x) => x.id === m.unit);
-        if (!u || m.steps.length < 2) continue;
+        if (!u || m.steps.length < 2 || STEP_MS === 0) continue;
         const points = m.steps.map((t) => tokenPos(this.map!, t));
         const tokens = this.copies.map((copy) => {
           const t = this.makeToken(u, 1);

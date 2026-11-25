@@ -33,8 +33,19 @@ export function setBarbarianId(id: number): void {
   barbarianId = id;
 }
 
+/** Farbschema mit besser unterscheidbaren Farben für Farbsehschwäche (an Okabe-Ito angelehnt, erweitert). */
+export const COLORBLIND_COLORS: readonly number[] = [
+  0xe69f00, 0x56b4e9, 0x009e73, 0xf0e442, 0x0072b2, 0xd55e00, 0xcc79a7, 0xffffff, 0x8a6d3b, 0x9aa0a6,
+];
+let colorblind = false;
+export function setColorblind(on: boolean): void {
+  colorblind = on;
+}
+
 export function playerColor(owner: number): number {
-  return owner === barbarianId ? BARBARIAN_COLOR : PLAYER_COLORS[owner % PLAYER_COLORS.length];
+  if (owner === barbarianId) return BARBARIAN_COLOR;
+  const pal = colorblind ? COLORBLIND_COLORS : PLAYER_COLORS;
+  return pal[owner % pal.length];
 }
 
 /** Oberflächenfarbe eines Feldes ohne Schattierung (für Minimap und Renderer). */

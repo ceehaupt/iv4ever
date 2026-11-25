@@ -1,6 +1,7 @@
 import { Rectangle, Texture } from 'pixi.js';
 import { RESOURCES } from '../sim/rules/resources';
 import { UNIT_TYPES } from '../sim/rules/units';
+import { drawUnitGlyph } from './unitIcons';
 
 const CELL = 64;
 const RING = ['#7bd35a', '#c07cf0', '#ef6b5b']; // Bonus, Luxus, Strategisch
@@ -82,10 +83,10 @@ export function createUnitAtlas(): UnitAtlas {
   ctx.font = `${CELL * 0.62}px ${EMOJI_FONT}`;
   ctx.fillText('🛡️', x, y + CELL * 0.04);
 
-  ctx.font = `${CELL * 0.5}px ${EMOJI_FONT}`;
+  // Eigene Piktogramme statt Emojis (M9).
   UNIT_TYPES.forEach((t, k) => {
     [x, y] = at(3 + k);
-    ctx.fillText(t.icon, x, y + CELL * 0.04);
+    drawUnitGlyph(ctx, t.key, x, y, CELL * 0.62);
   });
 
   const tex = slice(canvas, cols, count);

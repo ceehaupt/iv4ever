@@ -17,6 +17,11 @@ import { ALL_JOBS, jobBlocker, jobTech, jobTurns } from './sim/work';
 import { TechPanel } from './ui/techPanel';
 import { DiploPanel } from './ui/diploPanel';
 import { DoctrinePanel } from './ui/doctrinePanel';
+import { SoundEngine } from './audio/sound';
+import { loadSettings, saveSettings, type Settings, SettingsPanel } from './ui/settings';
+import { Tutorial } from './ui/tutorial';
+import { setAnimationSpeed } from './render/unitLayer';
+import { setColorblind } from './render/palette';
 import { VICTORY_NAMES } from './sim/victory';
 import { GameUi, type JobOption, type UnitAction } from './ui/gameUi';
 import { Hud } from './ui/hud';
@@ -131,6 +136,53 @@ const renderer = new GameRenderer(document.getElementById('game')!, {
   },
 });
 await renderer.init();
+
+// --- Klang, Einstellungen, Tutorial, Handbuch (M9) ------------------------------------
+const sound = new SoundEngine();
+let settings = loadSettings();
+function applySettings(s: Settings): void {
+  settings = s;
+  sound.apply(s);
+  setAnimationSpeed(s.animations);
+  renderer.effects.enabled = s.animations !== 'off';
+  document.body.classList.toggle('high-contrast', s.highContrast);
+  document.body.classList.toggle('large-text', s.largeText);
+  setColorblind(s.colorblind);
+  if (view) {
+    renderer.redrawColors(view.units, view.human, view.cities, view.tileOwner, view.camps);
+    minimap.update(fogForUi(), view.units, view.tileOwner, view.cities);
+  }
+  if (s.tutorial && view && tutorialIdle) {
+    tutorialIdle = false;
+    tutorial.begin(view);
+  }
+}
+let tutorialIdle = true;
+const tutorial = new Tutorial(() => {
+  tutorialIdle = true;
+  settings = { ...settings, tutorial: false };
+  saveSettings(settings);
+});
+const settingsPanel = new SettingsPanel(settings, applySettings);
+document.getElementById('settingsbtn')!.addEventListener('click', () => settingsPanel.toggle());
+const handbookEl = document.getElementById('handbook')!;
+async function toggleHandbook(): Promise<void> {
+  if (!handbookEl.hidden) {
+    handbookEl.hidden = true;
+    return;
+  }
+  const { openHandbook } = await import('./ui/handbook');
+  openHandbook(handbookEl);
+}
+document.getElementById('handbookbtn')!.addEventListener('click', () => void toggleHandbook());
+// Audio darf erst nach einer Nutzereingabe starten; Klicks auf Knöpfe klingen leise.
+const unlockAudio = () => sound.unlock();
+window.addEventListener('pointerdown', unlockAudio, { once: true });
+window.addEventListener('keydown', unlockAudio, { once: true });
+document.addEventListener('click', (e) => {
+  if ((e.target as HTMLElement).closest('button')) sound.play('click');
+});
+applySettings(settings);
 
 // --- Hilfen ------------------------------------------------------------------
 
@@ -550,7 +602,19 @@ worker.onmessage = (e: MessageEvent<FromWorker>) => {
       diploPanel.update(view.diplomacy, view.victory);
       doctrinePanel.update(view.doctrines.active, view.doctrines.upheaval, view.research.known);
       ui.setDiplomacy(view.diplomacy.pending.length);
+      if (view.victory.winner && !victoryShown) sound.play('victory');
       showVictory(view.victory);
+      // Klang und Effekte zur Rückmeldung
+      if (msg.combats.length) {
+        sound.play('hit');
+        for (const c of msg.combats) renderer.showCombat(c.from, c.tile, c.dmgAtt, c.dmgDef);
+      } else if (msg.foundedCity !== undefined) sound.play('found');
+      else if (msg.reason === 'turn') sound.play(msg.events.some((e) => e.text.startsWith('Erforscht')) ? 'tech' : 'turn');
+      else if (msg.moves.some((m) => m.owner === view!.human)) sound.play('move');
+      if (msg.reason === 'new' && settings.tutorial && tutorialIdle) {
+        tutorialIdle = false;
+        tutorial.begin(view);
+      } else tutorial.update(view);
       if (msg.reason === 'command' && msg.events.length) ui.toast(msg.events[msg.events.length - 1].text);
       ui.setResearch(TechPanel.summary(view.research), view.research.current < 0);
       setBarbarianId(view.barbarian);
@@ -608,6 +672,7 @@ worker.onmessage = (e: MessageEvent<FromWorker>) => {
       ui.showSaves(msg.saves);
       break;
     case 'notice':
+      if (msg.level === 'error') sound.play('error');
       ui.toast(msg.text, msg.level);
       if (msg.level === 'error') {
         busy = false;
@@ -624,6 +689,11 @@ hud.onNewMap = (options) => send({ type: 'newGame', options });
 
 window.addEventListener('keydown', (e) => {
   if (isTyping(e)) return;
+  if (e.key === 'F1' || e.key === '?') {
+    e.preventDefault();
+    void toggleHandbook();
+    return;
+  }
   if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 's') {
     e.preventDefault();
     save();

@@ -27,6 +27,7 @@ npm run dev        # http://localhost:5173
 | `T` | Technologien (Forschungsziel wählen) |
 | `D` | Diplomatie, Handel und Siegfortschritt |
 | `P` | Leitbilder (Politik) |
+| `F1` / `?` | Handbuch |
 | `R` (Händler) | Handelsroute errichten |
 | `Enter` | Runde beenden |
 | `Entf` | Einheit auflösen |
@@ -39,6 +40,7 @@ npm run dev        # http://localhost:5173
 | Minimap klicken/ziehen | Springen |
 
 Gleicher Seed + gleiche Einstellungen = gleiche Karte. Die Welt ist ost-west umlaufend.
+Einstellungen (⚙): Klang, Animationen, Kontrast, Schriftgröße, Farben für Farbsehschwäche, Tutorial.
 Speicherstände liegen in IndexedDB des Browsers (Schnellspeicherung + Autosave jede Runde).
 
 ## Stand und Planung
