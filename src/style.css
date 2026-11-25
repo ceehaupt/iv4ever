@@ -1,0 +1,171 @@
+:root {
+  --bg: #0a1020;
+  --panel: rgb(12 20 36 / 0.82);
+  --border: rgb(255 255 255 / 0.12);
+  --text: #e8edf5;
+  --muted: #9aa7bb;
+  --accent: #ffd54a;
+  font: 14px/1.4 system-ui, -apple-system, 'Segoe UI', sans-serif;
+  color: var(--text);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+  background: var(--bg);
+}
+
+#game {
+  position: fixed;
+  inset: 0;
+}
+
+#game canvas {
+  display: block;
+}
+
+.panel {
+  position: fixed;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  backdrop-filter: blur(6px);
+  box-shadow: 0 4px 18px rgb(0 0 0 / 0.35);
+}
+
+#topbar {
+  top: 12px;
+  left: 12px;
+  right: 12px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+  padding: 8px 12px;
+}
+
+.brand {
+  letter-spacing: 0.08em;
+  color: var(--accent);
+}
+
+#topbar label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--muted);
+}
+
+select,
+input,
+button {
+  font: inherit;
+  color: var(--text);
+  background: rgb(255 255 255 / 0.06);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  padding: 3px 8px;
+}
+
+button {
+  cursor: pointer;
+}
+
+button:hover {
+  background: rgb(255 255 255 / 0.14);
+}
+
+#stats {
+  margin-left: auto;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  font-size: 12px;
+}
+
+#info {
+  left: 12px;
+  bottom: 52px;
+  min-width: 220px;
+  max-width: 340px;
+  padding: 10px 14px;
+}
+
+#info h2 {
+  margin: 0 0 6px;
+  font-size: 15px;
+}
+
+#info .yields {
+  display: flex;
+  gap: 14px;
+  margin-bottom: 6px;
+  font-variant-numeric: tabular-nums;
+}
+
+#info dl {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 2px 12px;
+  margin: 0;
+  color: var(--muted);
+}
+
+#info dd {
+  margin: 0;
+  color: var(--text);
+}
+
+#info small {
+  color: var(--muted);
+}
+
+#info .swatch {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  margin-right: 6px;
+  border-radius: 2px;
+  vertical-align: -1px;
+}
+
+#info .hint {
+  margin: 6px 0 0;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+#minimap {
+  right: 12px;
+  bottom: 52px;
+  cursor: pointer;
+}
+
+#help {
+  left: 12px;
+  right: 12px;
+  bottom: 12px;
+  padding: 5px 12px;
+  color: var(--muted);
+  font-size: 12px;
+  text-align: center;
+}
+
+@media (max-width: 640px) {
+  #help {
+    display: none;
+  }
+  #info,
+  #minimap {
+    bottom: 12px;
+  }
+  #minimap {
+    max-width: 45vw;
+    height: auto !important;
+  }
+}

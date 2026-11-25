@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>iv4ever</title>
+  </head>
+  <body>
+    <div id="game"></div>
+
+    <header id="topbar" class="panel">
+      <strong class="brand">iv4ever</strong>
+      <label>Größe <select id="size"></select></label>
+      <label>Typ <select id="script"></select></label>
+      <label>Meer <select id="sea"></select></label>
+      <label>Klima <select id="climate"></select></label>
+      <label>Seed <input id="seed" type="text" inputmode="numeric" size="8" /></label>
+      <button id="newmap" type="button">Neue Karte</button>
+      <span id="stats"></span>
+    </header>
+
+    <aside id="info" class="panel" hidden></aside>
+
+    <canvas id="minimap" class="panel"></canvas>
+
+    <footer id="help" class="panel">
+      Ziehen / WASD: bewegen · Rad / Pinch / +−: zoomen · Klick: Feld wählen · H: zum Start · G: Gitter · R: Ressourcen · N: neue Karte
+    </footer>
+
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
