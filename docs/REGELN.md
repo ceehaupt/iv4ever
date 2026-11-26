@@ -90,8 +90,10 @@ Je Bereich gilt ein Leitbild; ein Wechsel kostet eine Runde **Umbruch** (keine F
 
 ## Handelsrouten und Ereignisse
 
-- Ein **Händler** in einer mindestens 6 Felder entfernten Stadt errichtet eine Route von der nächsten eigenen Stadt dorthin
-  (je Stadt höchstens 2). Ertrag: 2 + 1 je 8 Felder + 1 ins Ausland (+ Leitbild/Globalisierung); die Zielstadt erhält +1.
+- Ein **Händler** in oder neben einer mindestens 6 Felder entfernten Stadt errichtet eine Route von der nächsten eigenen Stadt
+  dorthin (je Stadt höchstens 2). Ertrag: 2 + 1 je 8 Felder + 1 ins Ausland (+ Leitbild/Globalisierung); die Zielstadt erhält +1.
+- Händler dürfen im Frieden **fremdes Gebiet betreten** (auch ohne offene Grenzen), fremde Städte aber nicht – die Route
+  zu einer fremden Stadt entsteht vom Nachbarfeld aus. Im Krieg gilt das nicht.
 - **Zufallsereignisse**: 4 % je Runde und Volk (ab Runde 10) – gute Ernte, Goldader, Seuche (Aquädukt/Krankenhaus schützen),
   Erfinder, Waldbrand, Flüchtlinge.
 
@@ -112,7 +114,7 @@ Je Bereich gilt ein Leitbild; ein Wechsel kostet eine Runde **Umbruch** (keine F
 
 - **Eroberung**: alle anderen Völker vernichtet.
 - **Vorherrschaft**: mindestens 45 % des Landes und 50 % der Weltbevölkerung.
-- **Kultur**: drei eigene Städte mit je mindestens 1500 Kultur.
+- **Kultur**: drei eigene Städte mit je mindestens 2400 Kultur.
 - **Projekt**: alle drei Teile des Großprojekts „Aufbruch“ (Startrampe, Sternenantrieb, Habitatmodul) in eigenen Städten.
 - **Punkte**: Beim Rundenlimit (Standard 300) gewinnt die höchste Punktzahl
   (Bevölkerung ×3, Land ÷3, Technologien ×6, Wunder ×20, Kultur ÷50).

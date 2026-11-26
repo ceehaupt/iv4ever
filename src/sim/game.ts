@@ -195,10 +195,11 @@ export function newPlayer(id: number, n: number, name: string, human: boolean): 
 
 export function createGame(world: GeneratedWorld, options: MapGenOptions): GameState {
   const n = world.map.width * world.map.height;
-  const humans = Math.max(1, Math.min(world.starts.length, options.humans ?? 1));
+  // humans: 0 = reine KI-Partie (automatische Testpartien), sonst mindestens ein Mensch.
+  const humans = options.humans === 0 ? 0 : Math.max(1, Math.min(world.starts.length, options.humans ?? 1));
   const players = world.starts.map((_, id) => {
     if (id < humans) return newPlayer(id, n, humans > 1 ? `Spieler ${id + 1}` : 'Du', true);
-    const persona = personaFor(options.seed, id - 1);
+    const persona = personaFor(options.seed, humans === 0 ? id : id - 1);
     return { ...newPlayer(id, n, persona.people, false), persona };
   });
   const barbarian = players.length;
@@ -310,6 +311,13 @@ export function transportsOf(state: GameState, owner: number): Map<number, Unit>
 }
 
 /** Kostenfunktion aus Sicht eines Spielers: eigenes Wissen, sichtbare fremde Einheiten blockieren. */
+/** Händler reisen im Frieden durch fremdes Gebiet (nicht in fremde Städte; die Route entsteht vom Nachbarfeld aus). */
+function traderMayEnter(state: GameState, u: Unit, tile: number): boolean {
+  if (!UNIT_TYPES[u.type].trade) return false;
+  const owner = state.tileOwner[tile];
+  return owner >= 0 && owner !== u.owner && !relation(state, u.owner, owner).war && !state.players[owner].barbarian;
+}
+
 function costFor(state: GameState, u: Unit, occ: Int16Array) {
   const p = state.players[u.owner];
   return unitCost({
@@ -318,7 +326,7 @@ function costFor(state: GameState, u: Unit, occ: Int16Array) {
     isKnown: (i) => p.explored[i] === 1,
     isBlocked: (i) =>
       (occ[i] >= 0 && occ[i] !== u.owner && p.visible[i] === 1) ||
-      (p.explored[i] === 1 && !mayEnterTerritory(state, u.owner, state.tileOwner[i])),
+      (p.explored[i] === 1 && !mayEnterTerritory(state, u.owner, state.tileOwner[i]) && !traderMayEnter(state, u, i)),
     ownCities: ownCityTiles(state, u.owner),
     transports: new Set(transportsOf(state, u.owner).keys()),
     roadCost: roadCostFor(state, u.owner),
@@ -330,7 +338,7 @@ function costFor(state: GameState, u: Unit, occ: Int16Array) {
 function canEnter(state: GameState, u: Unit, tile: number, occ: Int16Array): boolean {
   const m = state.map;
   if (occ[tile] >= 0 && occ[tile] !== u.owner) return false;
-  if (!mayEnterTerritory(state, u.owner, state.tileOwner[tile])) return false;
+  if (!mayEnterTerritory(state, u.owner, state.tileOwner[tile]) && !traderMayEnter(state, u, tile)) return false;
   if (UNIT_TYPES[u.type].naval) {
     return sailable(m, u.type, tile, ownCityTiles(state, u.owner), state.players[u.owner].techs[TechId.Navigation] === 1);
   }
@@ -585,8 +593,11 @@ function unitCommand(state: GameState, player: number, cmd: Extract<Command, { u
     }
     case 'establishRoute': {
       if (!UNIT_TYPES[u.type].trade) throw new CommandError('Nur Händler errichten Handelsrouten');
-      const target = cityAt(state, u.tile);
-      if (!target) throw new CommandError('Händler muss in einer Stadt stehen');
+      // Zielstadt: die Stadt, in der der Händler steht, sonst eine angrenzende (fremde Städte darf er nicht betreten).
+      const target = cityAt(state, u.tile) ??
+        state.cities.filter((c) => tileDistance(state.map, c.tile, u.tile) === 1 && (c.owner === player || !relation(state, player, c.owner).war))
+          .sort((a, b) => Number(b.owner !== player) - Number(a.owner !== player))[0];
+      if (!target) throw new CommandError('Händler muss in oder neben einer Stadt stehen');
       const home = state.cities
         .filter((c) => c.owner === player && c.id !== target.id)
         .sort((a, b) => tileDistance(state.map, a.tile, target.tile) - tileDistance(state.map, b.tile, target.tile))[0];

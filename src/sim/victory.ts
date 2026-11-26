@@ -6,7 +6,7 @@ import { BUILDINGS } from './rules/buildings';
  * Siegbedingungen (eigener Entwurf):
  * - Eroberung: alle anderen Zivilisationen vernichtet.
  * - Vorherrschaft: ≥ 45 % des Landes und ≥ 50 % der Weltbevölkerung.
- * - Kultur: drei Städte mit je ≥ 1500 Kultur.
+ * - Kultur: drei Städte mit je ≥ CULTURE_PER_CITY Kultur.
  * - Punkte: bei Erreichen des Rundenlimits gewinnt die höchste Punktzahl.
  * - Projekt (ab M8): Abschluss des Großprojekts.
  */
@@ -25,7 +25,7 @@ export interface Victory {
 export const DOMINATION_LAND = 0.45;
 export const DOMINATION_POP = 0.5;
 export const CULTURE_CITIES = 3;
-export const CULTURE_PER_CITY = 1500;
+export const CULTURE_PER_CITY = 2400;
 export const DEFAULT_TURN_LIMIT = 300;
 
 export interface Progress {

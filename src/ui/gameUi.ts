@@ -184,7 +184,7 @@ export class GameUi {
             ? btn('fortify', t.strength > 0 ? 'Befestigen' : 'Schlafen', 'F')
             : btn('wake', 'Aufwecken', 'F'),
           btn('skip', 'Überspringen', 'Leer', selected.moves > 0),
-          ...(t.trade ? [btn('route', 'Handelsroute', 'R', true, 'In einer mindestens 6 Felder entfernten Stadt: Route zur nächsten eigenen Stadt')] : []),
+          ...(t.trade ? [btn('route', 'Handelsroute', 'R', true, 'In oder neben einer mindestens 6 Felder entfernten Stadt: Route zur nächsten eigenen Stadt')] : []),
           ...(t.cargo ? [btn('load', `Einladen (${cargo.length}/${t.cargo})`, 'L',
             stack.some((x) => x.owner === human && !UNIT_TYPES[x.type].naval && !x.carriedBy) && cargo.length < t.cargo,
             'Landeinheiten auf diesem Feld an Bord nehmen')] : []),

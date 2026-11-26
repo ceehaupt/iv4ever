@@ -58,7 +58,9 @@ npm test           # Unit-Tests (Simulation, Relay-Server, Doku aktuell)
 npm run test:e2e   # Playwright: Oberfläche, Online-Spiel, Determinismus in Chromium/Firefox/WebKit
 ```
 
-Einmalig vorher: `npx playwright install chromium firefox webkit`. Die GitHub Action führt alles bei jedem Push aus.
+Einmalig vorher: `npx playwright install chromium firefox webkit`.
+
+Automatische Testpartien fürs Balancing: `npm run autoplay` (Parameter und Auswertung in `docs/BALANCING.md`). Die GitHub Action führt alles bei jedem Push aus.
 
 ## Stand und Planung
 

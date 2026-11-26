@@ -11,7 +11,8 @@
     "test": "vitest run",
     "server": "node server/relay.mjs",
     "docs": "UPDATE_DOCS=1 vitest run src/sim/rules/catalog.test.ts",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "autoplay": "AUTOPLAY=1 vitest run src/tools/autoplay.test.ts"
   },
   "dependencies": {
     "pixi.js": "^8.23.0"

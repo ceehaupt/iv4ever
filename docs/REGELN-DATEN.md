@@ -136,9 +136,9 @@ Automatisch aus `src/sim/rules/` erzeugt (`npm run docs`). Nicht von Hand bearbe
 | ⛵ Hafen der Händler | 130 | Seefahrt | Weltwunder: +4 Handel hier, +1 Handel in allen eigenen Küstenstädten. |
 | 🧱 Wall der Ahnen | 170 | Burgenbau | Weltwunder: +50 % Verteidigung in allen eigenen Städten (wirkt mit dem Kampfsystem). |
 | 🦉 Akademie der Weisen | 180 | Philosophie | Weltwunder: Spezialisten in allen eigenen Städten +1 Handel, +3 Kultur. |
-| 🚀 Startrampe | 450 | Raketentechnik | Großprojekt „Aufbruch“, Teil 1 von 3. Alle drei Teile = Projektsieg. |
-| ☄️ Sternenantrieb | 600 | Computer | Großprojekt „Aufbruch“, Teil 2 von 3. |
-| 🛰️ Habitatmodul | 700 | Raumfahrt | Großprojekt „Aufbruch“, Teil 3 von 3. |
+| 🚀 Startrampe | 700 | Raketentechnik | Großprojekt „Aufbruch“, Teil 1 von 3. Alle drei Teile = Projektsieg. |
+| ☄️ Sternenantrieb | 900 | Computer | Großprojekt „Aufbruch“, Teil 2 von 3. |
+| 🛰️ Habitatmodul | 1100 | Raumfahrt | Großprojekt „Aufbruch“, Teil 3 von 3. |
 | 🎡 Weltausstellung | 380 | Industrialisierung | Weltwunder: +6 Kultur, +1 Stimmung in allen eigenen Städten. |
 | 💡 Leuchtfeuer des Wissens | 420 | Bildungswesen | Weltwunder: +100 % Forschung in dieser Stadt, +4 Kultur. |
 

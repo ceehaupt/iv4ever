@@ -267,8 +267,7 @@ function freeRouteSlots(state: GameState, pid: number): number {
 function trade(state: GameState, u: Unit, out: Out): void {
   const pid = u.owner;
   const p = state.players[pid];
-  const here = cityAt(state, u.tile);
-  if (here && run(state, pid, { type: 'establishRoute', unit: u.id }, out)) return;
+  if (run(state, pid, { type: 'establishRoute', unit: u.id }, out)) return;
   if (u.orders === Orders.Goto && u.aiTarget !== undefined) return;
   const own = state.cities.filter((c) => c.owner === pid);
   const candidates = state.cities
@@ -284,9 +283,14 @@ function trade(state: GameState, u: Unit, out: Out): void {
     .filter((x): x is { c: City; v: number } => x !== null)
     .sort((a, b) => b.v - a.v);
   for (const { c } of candidates.slice(0, 4)) {
-    if (moveTo(state, u, c.tile, out)) {
-      u.aiTarget = c.tile;
-      if (u.tile === c.tile) run(state, pid, { type: 'establishRoute', unit: u.id }, out);
+    // Eigene Städte betreten, an fremde Städte nur heran (Nachbarfeld).
+    const dest = c.owner === pid ? c.tile : tilesAround(state.map, c.tile, 1)
+      .filter((t) => t !== c.tile && !isWater(state.map.terrain[t]) && state.map.relief[t] !== Relief.Mountain && !state.units.some((o) => o.tile === t && o.owner !== pid))
+      .sort((a, b) => tileDistance(state.map, u.tile, a) - tileDistance(state.map, u.tile, b))[0];
+    if (dest === undefined) continue;
+    if (moveTo(state, u, dest, out)) {
+      u.aiTarget = dest;
+      if (u.tile === dest) run(state, pid, { type: 'establishRoute', unit: u.id }, out);
       return;
     }
   }
