@@ -1,5 +1,6 @@
 import { foundBlocker, foundReligion, missionize, type Religion, religionTurn, stateReligion, TENETS, type TenetKey } from './religion';
 import { environmentTurn } from './environment';
+import { frontierTiles } from './explore';
 import { airStrike, rebase } from './air';
 import {
   assignTiles, availableItems, type BuildItem, type City, cityAt, cityReport, foundCity, foundingBlocker, knowsFn,
@@ -41,6 +42,8 @@ export const Orders = {
   Goto: 3,
   /** Arbeiter bei der Arbeit (Auftrag in job). */
   Work: 4,
+  /** Erkundet selbstständig, bis nichts mehr erreichbar ist oder Feinde auftauchen. */
+  Explore: 5,
 } as const;
 
 export interface Unit {
@@ -151,6 +154,7 @@ export type Command =
   | { type: 'fortify'; unit: number }
   | { type: 'skip'; unit: number }
   | { type: 'wake'; unit: number }
+  | { type: 'explore'; unit: number }
   | { type: 'disband'; unit: number }
   | { type: 'found'; unit: number }
   | { type: 'build'; city: number; item: BuildItem; append: boolean }
@@ -436,6 +440,68 @@ function continueMove(state: GameState, u: Unit): MoveEvent | null {
   return steps.length > 1 ? { unit: u.id, owner: u.owner, steps } : null;
 }
 
+/** Wie viele Randfelder je Zug als Ziel geprüft werden (das nächste erreichbare gewinnt). */
+const EXPLORE_CANDIDATES = 8;
+/** Erkunder halten an, wenn ein sichtbarer Gegner höchstens so weit entfernt steht. */
+export const EXPLORE_DANGER_RADIUS = 2;
+
+function exploreTargetPath(state: GameState, u: Unit, occ: Int16Array): number[] | null {
+  const m = state.map;
+  const naval = UNIT_TYPES[u.type].naval === true;
+  const passable = naval
+    ? (t: number) => isWater(m.terrain[t])
+    : (t: number) => !isWater(m.terrain[t]) && Number.isFinite(tileMoveCost(m.terrain[t], m.relief[t], m.feature[t]));
+  for (const t of frontierTiles(m, state.players[u.owner].explored, u.tile, passable, EXPLORE_CANDIDATES)) {
+    const path = planPath(state, u, t, occ);
+    if (path) return path;
+  }
+  return null;
+}
+
+/** Sichtbare gegnerische Einheit (Krieg oder Plünderer) in der Nähe? */
+function exploreDanger(state: GameState, u: Unit): boolean {
+  const p = state.players[u.owner];
+  return state.units.some((o) =>
+    o.owner !== u.owner && p.visible[o.tile] === 1 && tileDistance(state.map, u.tile, o.tile) <= EXPLORE_DANGER_RADIUS &&
+    (state.players[o.owner].barbarian || relation(state, u.owner, o.owner).war));
+}
+
+/**
+ * Erkunden fortsetzen: zum nächsten erreichbaren Randfeld ziehen, bei Ankunft ein neues wählen.
+ * Endet (Befehl aufgehoben, Meldung) bei Gegnern in der Nähe oder wenn nichts mehr zu erkunden ist.
+ * checkDanger = false beim Erteilen: wer trotz Gegnern losschickt, will das so.
+ */
+function continueExplore(state: GameState, u: Unit, events: TurnEvent[], checkDanger: boolean): MoveEvent | null {
+  const steps = [u.tile];
+  const name = UNIT_TYPES[u.type].name;
+  const stop = (text: string) => {
+    u.orders = Orders.None;
+    u.path = null;
+    events.push({ player: u.owner, text: `${name}: ${text}`, tile: u.tile });
+  };
+  for (let leg = 0; leg < 6 && u.moves > 0 && u.orders === Orders.Explore; leg++) {
+    if (u.carriedBy) {
+      stop('Erkundung beendet – an Bord gegangen');
+      break;
+    }
+    if ((checkDanger || leg > 0) && exploreDanger(state, u)) {
+      stop('Erkundung unterbrochen – Gegner in der Nähe');
+      break;
+    }
+    if (!u.path?.length) {
+      u.path = exploreTargetPath(state, u, occupancy(state));
+      if (!u.path) {
+        stop('nichts mehr zu erkunden');
+        break;
+      }
+    }
+    const ev = continueMove(state, u);
+    if (!ev) break;
+    steps.push(...ev.steps.slice(1));
+  }
+  return steps.length > 1 ? { unit: u.id, owner: u.owner, steps } : null;
+}
+
 export interface CommandResult {
   moves: MoveEvent[];
   /** Neu gegründete Stadt (für die Oberfläche: Stadtansicht öffnen). */
@@ -642,6 +708,17 @@ function unitCommand(state: GameState, player: number, cmd: Extract<Command, { u
     case 'skip':
       u.orders = Orders.Skip;
       return { moves: [] };
+    case 'explore': {
+      if (UNIT_TYPES[u.type].air) throw new CommandError('Flugzeuge können nicht erkunden');
+      if (u.carriedBy) throw new CommandError('Erst an Land gehen');
+      if (!exploreTargetPath(state, u, occupancy(state))) throw new CommandError('Von hier aus gibt es nichts mehr zu erkunden');
+      u.orders = Orders.Explore;
+      u.path = null;
+      u.job = null;
+      const events: TurnEvent[] = [];
+      const ev = continueExplore(state, u, events, false);
+      return { moves: ev ? [ev] : [], events };
+    }
     case 'wake':
       u.orders = Orders.None;
       u.path = null;
@@ -739,6 +816,9 @@ export function endTurn(state: GameState): { moves: MoveEvent[]; events: TurnEve
   for (const u of state.units) {
     if (u.orders === Orders.Goto && u.path) {
       const ev = continueMove(state, u);
+      if (ev) events.push(ev);
+    } else if (u.orders === Orders.Explore) {
+      const ev = continueExplore(state, u, turnEvents, true);
       if (ev) events.push(ev);
     }
   }

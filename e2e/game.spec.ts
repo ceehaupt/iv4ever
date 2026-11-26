@@ -29,6 +29,20 @@ test('Stadt gründen und Runde beenden', async ({ page }) => {
   await expect(page.locator('#turn')).toHaveText('Runde 2', { timeout: 20_000 });
 });
 
+test('Späher erkundet automatisch', async ({ page }) => {
+  await newGame(page);
+  await page.locator('#game').click({ position: { x: 5, y: 5 } }).catch(() => {});
+  await page.keyboard.press('Escape');
+  for (let k = 0; k < 3; k++) {
+    await page.keyboard.press('Tab');
+    if ((await page.locator('#unitpanel').textContent())?.includes('Späher')) break;
+  }
+  await expect(page.locator('#unitpanel')).toContainText('Späher');
+  await page.locator('#unitpanel button[data-action="explore"]').click();
+  await expect(page.locator('#unitpanel')).toContainText('erkundet');
+  await page.screenshot({ path: 'test-results/explore.png' });
+});
+
 test('Schnellspeichern und Laden', async ({ page }) => {
   await newGame(page);
   await page.keyboard.press('Enter');

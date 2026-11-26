@@ -785,6 +785,9 @@ function runAction(action: UnitAction, unitId: number): void {
     case 'wake':
       command({ type: 'command', command: { type: 'wake', unit: u.id } });
       break;
+    case 'explore':
+      command({ type: 'command', command: { type: 'explore', unit: u.id } });
+      break;
     case 'skip':
       command({ type: 'command', command: { type: 'skip', unit: u.id } });
       break;
@@ -1129,10 +1132,13 @@ window.addEventListener('keydown', (e) => {
       if (own) runAction('disband', u.id);
       break;
     case 'fortify':
-      if (own) runAction(u.orders === Orders.Fortify || u.orders === Orders.Goto ? 'wake' : 'fortify', u.id);
+      if (own) runAction(u.orders === Orders.Fortify || u.orders === Orders.Goto || u.orders === Orders.Explore ? 'wake' : 'fortify', u.id);
       break;
     case 'moveMode':
       if (own) runAction('moveMode', u.id);
+      break;
+    case 'explore':
+      if (own && !UNIT_TYPES[u.type].air) runAction('explore', u.id);
       break;
     case 'found':
       if (own) runAction('found', u.id);
@@ -1189,7 +1195,7 @@ function renderKeyHints(): void {
   const k = (a: KeyAction) => keymap.label(a);
   document.getElementById('help')!.textContent =
     `Ziehen / ${k('panUp')}${k('panLeft')}${k('panDown')}${k('panRight')}: Karte · Rad: Zoom · Klick: wählen · Rechtsklick oder ${k('moveMode')}: bewegen/angreifen · ` +
-    `${k('skip')}: überspringen · ${k('fortify')}: befestigen · ${k('found')}: Stadt gründen · ${k('nextUnit')}: nächste Einheit · ${k('endTurn')}: Runde beenden · ` +
+    `${k('skip')}: überspringen · ${k('fortify')}: befestigen · ${k('explore')}: erkunden · ${k('found')}: Stadt gründen · ${k('nextUnit')}: nächste Einheit · ${k('endTurn')}: Runde beenden · ` +
     `${k('techs')}: Technologien · ${k('diplomacy')}: Diplomatie · ${k('doctrines')}: Leitbilder · ${k('handbook')}: Handbuch · ${k('cursorMode')}: Kartencursor · Tasten ändern: ⚙`;
   document.getElementById('diplobtn')!.title = `Diplomatie und Siegbedingungen (${k('diplomacy')})`;
   document.getElementById('research')!.title = `Technologien (${k('techs')})`;

@@ -2,7 +2,7 @@
 // Eine Taste ist z. B. "b", "Shift+R", "Enter", "ArrowUp" (KeyboardEvent.key, Buchstaben klein; Umschalt als Präfix).
 
 export type KeyAction =
-  | 'endTurn' | 'skip' | 'nextUnit' | 'disband' | 'fortify' | 'moveMode' | 'found' | 'load' | 'route' | 'spread' | 'center'
+  | 'endTurn' | 'skip' | 'nextUnit' | 'disband' | 'fortify' | 'moveMode' | 'found' | 'load' | 'route' | 'spread' | 'explore' | 'center'
   | 'grid' | 'resources' | 'techs' | 'diplomacy' | 'doctrines' | 'newMap' | 'handbook'
   | 'panUp' | 'panDown' | 'panLeft' | 'panRight' | 'cursorMode';
 
@@ -18,6 +18,7 @@ export const KEY_ACTIONS: { id: KeyAction; label: string; group: string }[] = [
   { id: 'skip', label: 'Einheit überspringen', group: 'Einheiten' },
   { id: 'fortify', label: 'Befestigen / Aufwecken', group: 'Einheiten' },
   { id: 'moveMode', label: 'Bewegen (dann Feld wählen)', group: 'Einheiten' },
+  { id: 'explore', label: 'Automatisch erkunden', group: 'Einheiten' },
   { id: 'found', label: 'Stadt gründen', group: 'Einheiten' },
   { id: 'load', label: 'Auf Schiff laden', group: 'Einheiten' },
   { id: 'route', label: 'Handelsroute', group: 'Einheiten' },
@@ -44,6 +45,7 @@ export const DEFAULT_KEYS: Record<KeyAction, string[]> = {
   load: ['l'],
   route: ['r'],
   spread: ['v'],
+  explore: ['e'],
   center: ['h'],
   grid: ['g'],
   resources: ['Shift+R'],

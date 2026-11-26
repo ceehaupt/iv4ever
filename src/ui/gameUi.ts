@@ -8,7 +8,7 @@ import type { SaveMeta } from '../sim/save';
 import { CLASS_NAMES, MOVE_SCALE, PROMOTIONS, UNIT_TYPES } from '../sim/rules/units';
 
 export type UnitAction =
-  | 'fortify' | 'skip' | 'wake' | 'disband' | 'found' | 'moveMode' | 'load' | 'route' | 'spread' | `job:${JobKind}` | `promote:${number}`;
+  | 'fortify' | 'skip' | 'wake' | 'explore' | 'disband' | 'found' | 'moveMode' | 'load' | 'route' | 'spread' | `job:${JobKind}` | `promote:${number}`;
 
 /** Arbeiteraufträge, die der Spieler grundsätzlich kennt, mit Grund, falls hier nicht möglich. */
 export interface JobOption {
@@ -185,6 +185,8 @@ export class GameUi {
         ? t.strength > 0 ? 'befestigt' : 'schläft'
         : selected.orders === Orders.Goto
           ? 'unterwegs'
+          : selected.orders === Orders.Explore
+            ? 'erkundet'
           : selected.orders === Orders.Work && selected.job
             ? `arbeitet: ${JOB_NAMES[selected.job.kind]} (${selected.job.progress}/${selected.job.turns})`
           : selected.orders === Orders.Skip
@@ -204,6 +206,8 @@ export class GameUi {
             ? btn('fortify', t.strength > 0 ? 'Befestigen' : 'Schlafen', 'F')
             : btn('wake', 'Aufwecken', 'F'),
           btn('skip', 'Überspringen', 'Leer', selected.moves > 0),
+          ...(t.air || selected.orders === Orders.Explore ? [] : [btn('explore', 'Erkunden', 'E', true,
+            'Zieht jede Runde selbst ins Unbekannte; hält an, wenn Gegner auftauchen oder nichts mehr zu entdecken ist')]),
           ...(t.missionary ? [btn('spread', 'Religion verbreiten', 'V', true, 'In einer eigenen oder neben einer fremden Stadt: Stadt folgt eurer Staatsreligion')] : []),
           ...(t.trade ? [btn('route', 'Handelsroute', 'R', true, 'In oder neben einer mindestens 6 Felder entfernten Stadt: Route zur nächsten eigenen Stadt')] : []),
           ...(t.cargo ? [btn('load', `Einladen (${cargo.length}/${t.cargo})`, 'L',

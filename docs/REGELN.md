@@ -53,6 +53,9 @@ Werte aller Einheiten: [`REGELN-DATEN.md`](REGELN-DATEN.md#einheiten). Start mit
 - Bewegung intern in Zwölfteln (Straßen ⅓, mit Ingenieurwesen ¼, Eisenbahn ⅙).
 - Mit der letzten Bewegung darf jedes betretbare Feld noch betreten werden (die Runde ist danach vorbei).
 - Stapel: unbegrenzt viele eigene Einheiten pro Feld; fremde Einheiten und Städte blockieren.
+- **Erkunden (E):** Jede Einheit außer Flugzeugen zieht auf Befehl jede Runde selbst zum nächsten erreichbaren Feld am Rand des Bekannten
+  (Landeinheiten über Land, Schiffe übers Wasser). Sie hält an – mit Meldung –, wenn ein sichtbarer Gegner (Kriegsgegner oder Plünderer)
+  höchstens 2 Felder entfernt steht, wenn sie an Bord geht oder wenn nichts mehr zu entdecken ist. Aufwecken (F) beendet den Befehl.
 - Sicht: +1 auf Hügeln; Wald/Dschungel, Hügel und Gebirge verdecken, was dahinter liegt.
 
 ## Religion
