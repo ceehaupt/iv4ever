@@ -51,6 +51,15 @@ Speicherstände liegen in IndexedDB des Browsers (Schnellspeicherung + Autosave 
   mit dem Code bei. Der Gastgeber startet mit den Karteneinstellungen aus seiner Kopfleiste. Alle brauchen dieselbe Spielversion.
   Die Runde endet, wenn alle Menschen „Runde beenden“ gedrückt haben.
 
+## Tests
+
+```bash
+npm test           # Unit-Tests (Simulation, Relay-Server, Doku aktuell)
+npm run test:e2e   # Playwright: Oberfläche, Online-Spiel, Determinismus in Chromium/Firefox/WebKit
+```
+
+Einmalig vorher: `npx playwright install chromium firefox webkit`. Die GitHub Action führt alles bei jedem Push aus.
+
 ## Stand und Planung
 
 Siehe [`docs/ROADMAP.md`](docs/ROADMAP.md), Spielregeln in [`docs/REGELN.md`](docs/REGELN.md).

@@ -1,0 +1,46 @@
+import { expect, type Page, test } from '@playwright/test';
+
+/** Neues Einzelspiel mit festem Seed starten. */
+async function newGame(page: Page, seed = '1234'): Promise<void> {
+  page.on('dialog', (d) => void d.accept());
+  await page.goto('/');
+  await expect(page.locator('#turn')).toHaveText('Runde 1', { timeout: 20_000 });
+  await page.fill('#seed', seed);
+  await page.press('#seed', 'Enter');
+  await expect(page.locator('#turn')).toHaveText('Runde 1', { timeout: 20_000 });
+}
+
+test('Stadt gründen und Runde beenden', async ({ page }) => {
+  await newGame(page);
+  await page.locator('#game').click({ position: { x: 5, y: 5 } }).catch(() => {});
+  await page.keyboard.press('Escape');
+  await page.keyboard.press('Tab'); // erste Einheit = Siedler
+  await expect(page.locator('#unitpanel')).toBeVisible();
+  await expect(page.locator('#unitpanel')).toContainText('Siedler');
+  await page.keyboard.press('b');
+  await expect(page.locator('#citypanel')).toBeVisible({ timeout: 10_000 });
+  await page.keyboard.press('Escape');
+  await page.keyboard.press('Enter');
+  await expect(page.locator('#turn')).toHaveText('Runde 2', { timeout: 20_000 });
+});
+
+test('Schnellspeichern und Laden', async ({ page }) => {
+  await newGame(page);
+  await page.keyboard.press('Enter');
+  await expect(page.locator('#turn')).toHaveText('Runde 2', { timeout: 20_000 });
+  await page.keyboard.press('Control+s');
+  await expect(page.locator('#toast')).toContainText('Gespeichert', { timeout: 10_000 });
+  await page.reload();
+  await expect(page.locator('#turn')).toHaveText('Runde 1', { timeout: 20_000 });
+  await page.click('#load');
+  await page.locator('#saves').getByText('Schnellspeicherung').first().click();
+  await expect(page.locator('#turn')).toHaveText('Runde 2', { timeout: 20_000 });
+});
+
+test('Handbuch öffnet mit F1 und zeigt die Technologien', async ({ page }) => {
+  await newGame(page);
+  await page.keyboard.press('F1');
+  await expect(page.locator('#handbook')).toBeVisible();
+  await page.click('#handbook [data-tab="techs"]');
+  await expect(page.locator('#handbook tbody tr')).toHaveCount(54);
+});

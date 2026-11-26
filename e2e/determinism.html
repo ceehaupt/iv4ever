@@ -1,0 +1,13 @@
+<!doctype html>
+<html lang="de">
+  <head><meta charset="utf-8" /><title>Determinismus</title></head>
+  <body>
+    <p id="out">läuft …</p>
+    <script type="module">
+      import { simRun } from './simrun.ts';
+      const hashes = simRun();
+      window.__hashes = hashes;
+      document.getElementById('out').textContent = hashes.join(' ');
+    </script>
+  </body>
+</html>

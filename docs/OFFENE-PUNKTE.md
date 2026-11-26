@@ -52,10 +52,9 @@ Kennzeichnung: **[Erledigt]** = umgesetzt · **[Fehler]** = Verhalten ist falsch
 
 ## Technik und Tests
 
-- **[Lücke] Keine UI-/Renderer-Tests:** Die 74 Tests decken nur die Simulation (`src/sim`) ab. Hauptthread, Worker-Protokoll,
-  Online-Client und Relay sind ungetestet.
-- **[Lücke]** Kein Determinismus-Test über verschiedene Browser bzw. Plattformen hinweg (wichtig für Online-Lockstep).
-- **[Lücke]** Keine CI; Tests und Build laufen nur lokal.
+- **[Erledigt] Oberflächentests:** Playwright-Tests für Spielstart, Stadtgründung, Rundenwechsel, Speichern/Laden, Handbuch und ein Online-Spiel mit zwei Browsern (inkl. Abgang). Relay-Server mit echten WebSocket-Clients getestet (`src/net/relay.test.ts`).
+- **[Erledigt]** Determinismus über Browser: dieselbe 80-Runden-KI-Partie liefert in Node, Chromium, Firefox und WebKit identische Prüfsummen (`e2e/determinism.spec.ts`).
+- **[Erledigt]** CI per GitHub Action: Unit-Tests, Build und alle Playwright-Tests bei jedem Push.
 - **[Grenze]** Speicherstände liegen nur in der IndexedDB des Browsers: kein Export/Import als Datei, keine Synchronisierung zwischen Geräten.
 - **[Grenze]** Speicher-Migration nur vorwärts (v1 → v6); alte Spielversionen können neue Stände nicht lesen.
 

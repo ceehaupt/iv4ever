@@ -18,6 +18,7 @@ import { generateWorld } from '../sim/mapgen';
 import { fromSaveData, SaveError, type SaveMeta, toSaveData } from '../sim/save';
 import { maxMoves } from '../sim/rules/units';
 import { getSave, listSaves, putSave } from './storage';
+import { stateHash } from '../sim/hash';
 
 /**
  * Die Simulation läuft vollständig hier. Der Hauptthread rendert nur und schickt Befehle,
@@ -35,22 +36,6 @@ let lastEvents: TurnEvent[] = [];
 
 function aliveHumans(s: GameState): number[] {
   return humans.filter((h) => s.players[h]?.alive);
-}
-
-/** Einfache Prüfsumme (FNV-1a) über den spielrelevanten Zustand – erkennt Abweichungen im Online-Spiel. */
-function stateHash(s: GameState): string {
-  const parts = [
-    s.turn, s.rng.getState(),
-    ...s.units.map((u) => `${u.id},${u.owner},${u.type},${u.tile},${u.hp},${u.moves}`),
-    ...s.cities.map((c) => `${c.id},${c.owner},${c.size},${c.foodStored},${c.prodStored},${c.culture}`),
-    ...s.players.map((p) => `${p.gold},${p.research},${p.alive}`),
-  ].join('|');
-  let h = 0x811c9dc5;
-  for (let i = 0; i < parts.length; i++) {
-    h ^= parts.charCodeAt(i);
-    h = Math.imul(h, 0x01000193);
-  }
-  return (h >>> 0).toString(16);
 }
 
 /** Alle Menschen fertig → Runde auswerten (KI, Wirtschaft, Plünderer …). */
