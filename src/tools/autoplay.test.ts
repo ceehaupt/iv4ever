@@ -50,6 +50,8 @@ interface GameStats {
   maxShips: number;
   maxPlanes: number;
   polluted: number;
+  religions: number;
+  religiousCities: number;
   maxPolluted: number;
   airStrikes: number;
   msPerTurn: number;
@@ -131,6 +133,8 @@ function play(opts: MapGenOptions, turns: number): GameStats {
     maxShips,
     maxPlanes,
     polluted: pollutedTiles(s),
+    religions: s.religions.length,
+    religiousCities: s.cities.length ? Math.round((100 * s.cities.filter((c) => c.religion !== undefined).length) / s.cities.length) : 0,
     maxPolluted,
     airStrikes,
     msPerTurn: ms,
@@ -184,6 +188,7 @@ ${games} Partien · ${turns} Runden max. · ${sizeKey} · ${script} · ${difficu
 | Ø offene Grenzen (Ende) | ${mean('openBorders')} |
 | Ø Städte in Übersee | ${mean('overseasCities')} |
 | Ø max. Schiffe gleichzeitig | ${mean('maxShips')} |
+| Ø Religionen / Städte mit Religion | ${mean('religions')} / ${mean('religiousCities')} % |
 | Ø verschmutzte Felder (Ende / max.) | ${mean('polluted')} / ${mean('maxPolluted')} |
 | Ø max. Flugzeuge / Luftangriffe | ${mean('maxPlanes')} / ${mean('airStrikes')} |
 | Abstand Erster/Zweiter (Punkte) | ${mean('scoreSpread')} × |

@@ -32,7 +32,8 @@ Kennzeichnung: **[Erledigt]** = umgesetzt · **[Fehler]** = Verhalten ist falsch
 - **[Erledigt] Balancing:** automatische Testpartien (`npm run autoplay`), erste Runde ausgewertet und angepasst (Kultursieg 2400, Projekt teurer, Händlerregel) – siehe `docs/BALANCING.md`.
 - **[Erledigt]** Luftfahrt: Jagdflugzeug, Bomber, Flugabwehr, Flugzeugträger (Einsätze, Abfangen, Verlegen; KI nutzt sie).
 - **[Grenze]** Keine Atom- oder Spionageeinheiten.
-- **[Grenze]** Keine Religion, kein Stadtstaaten-System, kein Weltkongress bzw. keine diplomatische Abstimmung.
+- **[Erledigt]** Religion: Glaube, Gründung mit Lehre, Ausbreitung durch Druck, Missionare, Staatsreligion in der Diplomatie.
+- **[Grenze]** Kein Stadtstaaten-System, kein Weltkongress bzw. keine diplomatische Abstimmung.
 - **[Erledigt]** Bündnisse (Verteidigung, gemeinsame Sicht) und Forderungen/Tribut. Offen: KIs schließen untereinander selten Bündnisse (Ø 0,5 je Partie), weil offene Grenzen zwischen KIs selten sind – beim nächsten Balancing prüfen.
 - **[Erledigt]** Umwelt: Verschmutzung durch Industrie und Großstädte, Säubern, Recyclinghof (Ökologie), Klimawandel.
 - **[Lücke]** Keine Szenarien und keine Karteneditor-Funktion.

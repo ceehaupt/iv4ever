@@ -259,7 +259,10 @@ const diploPanel = new DiploPanel({
   onRespond: (id, accept) => command({ type: 'command', command: { type: 'respond', proposal: id, accept } }),
   onCancelAlliance: (civ) => command({ type: 'command', command: { type: 'cancelAlliance', target: civ } }),
 });
-const doctrinePanel = new DoctrinePanel((doctrine) => command({ type: 'command', command: { type: 'setDoctrine', doctrine } }));
+const doctrinePanel = new DoctrinePanel(
+  (doctrine) => command({ type: 'command', command: { type: 'setDoctrine', doctrine } }),
+  (tenet) => command({ type: 'command', command: { type: 'foundReligion', tenet } }),
+);
 let victoryShown = false;
 const victoryEl = document.getElementById('victory')!;
 victoryEl.addEventListener('click', (e) => {
@@ -799,6 +802,9 @@ function runAction(action: UnitAction, unitId: number): void {
     case 'route':
       command({ type: 'command', command: { type: 'establishRoute', unit: u.id } });
       break;
+    case 'spread':
+      command({ type: 'command', command: { type: 'spreadReligion', unit: u.id } });
+      break;
     case 'found': {
       const blocker = foundBlocker(u);
       if (blocker) ui.toast(blocker, 'error');
@@ -869,7 +875,7 @@ worker.onmessage = (e: MessageEvent<FromWorker>) => {
       renderer.refreshTiles(changedTiles);
       techPanel.update(view.research);
       diploPanel.update(view.diplomacy, view.victory);
-      doctrinePanel.update(view.doctrines.active, view.doctrines.upheaval, view.research.known);
+      doctrinePanel.update(view.doctrines.active, view.doctrines.upheaval, view.research.known, view.religion);
       ui.setDiplomacy(view.diplomacy.pending.length);
       if (view.victory.winner && !victoryShown) sound.play('victory');
       showVictory(view.victory);
@@ -1119,6 +1125,9 @@ window.addEventListener('keydown', (e) => {
       break;
     case 'route':
       if (own && UNIT_TYPES[u.type].trade) runAction('route', u.id);
+      break;
+    case 'spread':
+      if (own && UNIT_TYPES[u.type].missionary) runAction('spread', u.id);
       break;
     case 'center': {
       const target = u ?? view?.units.find(isOwn);

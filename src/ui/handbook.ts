@@ -8,7 +8,7 @@ type Tab = CatalogTab | 'basics';
 
 const TABS: [Tab, string][] = [
   ['basics', 'Grundlagen'], ['terrain', 'Gelände'], ['resources', 'Ressourcen'], ['units', 'Einheiten'], ['promotions', 'Beförderungen'],
-  ['buildings', 'Gebäude'], ['wonders', 'Wunder & Projekt'], ['techs', 'Technologien'], ['doctrines', 'Leitbilder'],
+  ['buildings', 'Gebäude'], ['wonders', 'Wunder & Projekt'], ['techs', 'Technologien'], ['doctrines', 'Leitbilder'], ['tenets', 'Religion'],
 ];
 
 function table(head: string[], rows: string[][]): string {

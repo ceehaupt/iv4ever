@@ -16,7 +16,7 @@ export function describeTile(map: GameMap, view: GameView, i: number, knows: Kno
   const city = view.cities.find((x) => x.tile === i);
   const owner = view.tileOwner[i];
   const name = (pid: number) => (pid === view.human ? 'dein' : view.players.find((p) => p.id === pid)?.name ?? 'fremd');
-  if (city) parts.unshift(`Stadt ${city.name}, Größe ${city.size}${city.owner === view.human ? '' : `, gehört ${name(city.owner)}`}`);
+  if (city) parts.unshift(`Stadt ${city.name}, Größe ${city.size}${city.owner === view.human ? '' : `, gehört ${name(city.owner)}`}${city.religion ? `, Religion ${city.religion}` : ''}`);
   else if (owner >= 0) parts.push(owner === view.human ? 'eigenes Gebiet' : `Gebiet von ${name(owner)}`);
   const res = RESOURCES[map.resource[i]];
   if (res) parts.push(`${res.name}${resourceActive(map, i, knows) ? '' : ' (noch ohne Wirkung)'}`);

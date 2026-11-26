@@ -73,6 +73,16 @@ export interface ResearchView {
 }
 
 /** Veränderliche Kartenebenen (Verbesserungen, Straßen, Bewuchs), nur für erkundete Felder aktuell. */
+export interface ReligionView {
+  faith: number;
+  faithPerTurn: number;
+  /** null = Gründen möglich, sonst Grund. */
+  foundBlocker: string | null;
+  /** Staatsreligion (Name) oder null. */
+  state: string | null;
+  religions: { id: number; name: string; founder: string; tenet: string; cities: number; own: boolean }[];
+}
+
 export interface MapLayers {
   improvement: Uint8Array;
   road: Uint8Array;
@@ -103,6 +113,9 @@ export interface CityView {
   capital: boolean;
   /** Verteidigungsbonus der Stadt in % (Gebäude, Wunder) – für die Kampfvorhersage. */
   defense: number;
+  /** Religion, der die Stadt folgt (Name), sonst null. */
+  religion: string | null;
+  holy: boolean;
   own?: {
     foodStored: number;
       /** Verschmutzung je Runde (Chance je Punkt 4 %, dass ein Feld verschmutzt). */
@@ -157,6 +170,7 @@ export interface GameView {
   diplomacy: DiplomacyView;
   victory: VictoryView;
   doctrines: { active: number[]; upheaval: number };
+  religion: ReligionView;
 }
 
 export interface CivRelationView {

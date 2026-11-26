@@ -81,6 +81,7 @@ Automatisch aus `src/sim/rules/` erzeugt (`npm run docs`). Nicht von Hand bearbe
 | 🛩️ Bomber | Flugzeug | 200 | 10 | 34 (8) | 1 | Luftfahrt | – |
 | 🎯 Flugabwehr | Nahkampf | 110 | 20 | – | 1 | Luftfahrt | – |
 | 🚢 Flugzeugträger | Schiff | 180 | 14 | – | 5 | Luftfahrt | – |
+| 📿 Missionar | Zivil | 50 | – | – | 2 | Theologie | – |
 
 ## Beförderungen
 
@@ -177,7 +178,7 @@ Automatisch aus `src/sim/rules/` erzeugt (`npm run docs`). Nicht von Hand bearbe
 | Ingenieurwesen | 5 | 165 | Mathematik, Rad | 🚰 Aquädukt<br>✨ Straßen kosten nur noch ¼ Bewegung |
 | Baukunst | 5 | 165 | Steinmetzkunst, Mathematik | 🎯 Langbogenschütze |
 | Gelehrsamkeit | 6 | 240 | Philosophie, Astronomie | 🎓 Universität |
-| Theologie | 6 | 240 | Philosophie, Theaterkunst | ⛪ Kathedrale<br>📜 Tempelpflicht |
+| Theologie | 6 | 240 | Philosophie, Theaterkunst | ⛪ Kathedrale<br>📿 Missionar<br>📜 Tempelpflicht |
 | Burgenbau | 6 | 240 | Eisenverarbeitung, Ingenieurwesen | 🏰 Burg<br>🧱 Wall der Ahnen (Weltwunder)<br>🏗️ Tribok |
 | Lehnswesen | 7 | 330 | Gesetzgebung, Burgenbau | 🗡️ Pikenier<br>🏇 Ritter<br>✨ +1 freie Einheit je Stadt |
 | Bankwesen | 7 | 330 | Gesetzgebung, Gelehrsamkeit | 🏦 Bank<br>📜 Handelsherrschaft |
@@ -227,3 +228,13 @@ Automatisch aus `src/sim/rules/` erzeugt (`npm run docs`). Nicht von Hand bearbe
 | Bildungsideal | Gesellschaft | Bildungswesen | +15 % Forschung. |
 | Freiheitsrechte | Gesellschaft | Verfassung | +1 Stimmung, +25 % Kultur. |
 | Fürsorgestaat | Gesellschaft | Medizin | +2 Versorgung, +1 Stimmung, −10 % Gold. |
+
+## Lehren der Religionen
+
+| Lehre | Wirkung |
+|---|---|
+| Pilgerfahrt | +2 Kultur in jeder Stadt der Religion |
+| Nächstenliebe | +1 Stimmung in jeder Stadt der Religion |
+| Klosterschulen | +10 % Forschung in jeder Stadt der Religion |
+| Gemeinschaft | +1 Versorgung in jeder Stadt der Religion |
+| Zehnt | Der Gründer erhält +1 Gold je Stadt der Religion (auch im Ausland) |

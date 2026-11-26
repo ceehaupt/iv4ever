@@ -1,3 +1,4 @@
+import type { Religion } from './religion';
 import { assignTiles, type City, recomputeOwnership } from './city';
 import type { Camp } from './barbarians';
 import { createDiplomacy, type Diplomacy } from './diplomacy';
@@ -22,8 +23,9 @@ import { Rng } from './rng';
  * 5 – M7: Diplomatie (Beziehungen, Gedächtnis, Angebote), Gewinner
  * 6 – M8: Leitbilder und Umbruch je Spieler, Handelsrouten
  * 7 – Umwelt: Verschmutzung je Feld
+ * 8 – Religion: Religionen, Glaube je Spieler (Stadtreligion steckt in den Städten)
  */
-export const SAVE_VERSION = 7;
+export const SAVE_VERSION = 8;
 
 interface SavedPlayer {
   id: number;
@@ -40,6 +42,7 @@ interface SavedPlayer {
   persona?: Persona;
   doctrines: number[];
   upheaval: number;
+  faith?: number;
 }
 
 export interface SaveData {
@@ -59,6 +62,7 @@ export interface SaveData {
   diplomacy: Diplomacy;
   winner: Victory | null;
   routes: TradeRoute[];
+  religions: Religion[];
   rngState: number;
 }
 
@@ -105,6 +109,7 @@ export function toSaveData(s: GameState): SaveData {
       ...(p.persona ? { persona: { ...p.persona } } : {}),
       doctrines: p.doctrines.slice(),
       upheaval: p.upheaval,
+      faith: p.faith ?? 0,
     })),
     units: s.units.map((u) => ({ ...u, path: u.path ? u.path.slice() : null, promotions: u.promotions.slice() })),
     nextUnitId: s.nextUnitId,
@@ -116,6 +121,7 @@ export function toSaveData(s: GameState): SaveData {
     diplomacy: structuredClone(s.diplomacy),
     winner: s.winner ? { ...s.winner } : null,
     routes: s.routes.map((r) => ({ ...r })),
+    religions: s.religions.map((r) => ({ ...r })),
     rngState: s.rng.getState(),
   };
 }
@@ -174,6 +180,9 @@ function migrate(d: SaveData): SaveData {
   if (d.version === 6) {
     d = { ...d, version: 7, map: { ...d.map, pollution: new Uint8Array(d.map.width * d.map.height) } };
   }
+  if (d.version === 7) {
+    d = { ...d, version: 8, religions: [], players: d.players.map((p) => ({ ...p, faith: 0 })) };
+  }
   return d;
 }
 
@@ -215,6 +224,7 @@ export function fromSaveData(raw: SaveData): GameState {
     diplomacy: d.diplomacy,
     winner: d.winner,
     routes: d.routes,
+    religions: d.religions,
     tileOwner: new Int16Array(n).fill(-1),
     tileCity: new Int32Array(n).fill(-1),
     rng: Rng.fromState(d.rngState),

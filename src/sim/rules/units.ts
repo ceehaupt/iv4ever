@@ -41,6 +41,7 @@ export const UnitTypeId = {
   Bomber: 29,
   AntiAir: 30,
   Carrier: 31,
+  Missionary: 32,
 } as const;
 
 /** Einheitenklassen – bestimmen Boni und Konter. */
@@ -95,6 +96,8 @@ export interface UnitType {
   antiAir?: number;
   /** Stellplätze für Flugzeuge (Flugzeugträger). */
   airCargo?: number;
+  /** Verbreitet die Staatsreligion (Missionar). */
+  missionary?: boolean;
 }
 
 const U = (u: Omit<UnitType, 'ranged' | 'range' | 'canFound' | 'canWork' | 'popCost' | 'tech' | 'resources'> &
@@ -174,6 +177,8 @@ export const UNIT_TYPES: readonly UnitType[] = [
     tech: T.Aviation, antiAir: 2 }),
   U({ key: 'carrier', name: 'Flugzeugträger', icon: '🚢', cls: 'naval', moves: 5, strength: 14, sight: 3, cost: 180,
     tech: T.Aviation, naval: true, ocean: true, airCargo: 3 }),
+  U({ key: 'missionary', name: 'Missionar', icon: '📿', cls: 'civil', moves: 2, strength: 0, sight: 1, cost: 50,
+    tech: T.Theology, missionary: true }),
 ];
 
 export function isAir(type: number): boolean {

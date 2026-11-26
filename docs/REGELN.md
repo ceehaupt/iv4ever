@@ -55,6 +55,21 @@ Werte aller Einheiten: [`REGELN-DATEN.md`](REGELN-DATEN.md#einheiten). Start mit
 - Stapel: unbegrenzt viele eigene Einheiten pro Feld; fremde Einheiten und Städte blockieren.
 - Sicht: +1 auf Hügeln; Wald/Dschungel, Hügel und Gebirge verdecken, was dahinter liegt.
 
+## Religion
+
+- **Glaube:** Schrein +1, Kathedrale +2, Ewige Flamme +2 je Runde. Mit **40 Glauben** und **Mystik** gründet ein Volk eine
+  Religion (jedes Volk höchstens eine; insgesamt halb so viele wie Völker, mindestens 2, höchstens 5). Gegründet wird im Fenster
+  **Leitbilder und Religion** (P); heilige Stadt ist die Stadt mit dem meisten Glauben.
+- **Lehre** (beim Gründen gewählt, wirkt in jeder Stadt der Religion, auch bei anderen Völkern): Pilgerfahrt +2 Kultur,
+  Nächstenliebe +1 Stimmung, Klosterschulen +10 % Forschung, Gemeinschaft +1 Versorgung, Zehnt +1 Gold je Stadt der Religion für den Gründer.
+- **Ausbreitung:** Jede Stadt übt im Umkreis von 10 Feldern Glaubensdruck aus (heilige Stadt dreifach, Handelsroute +2);
+  bestehender Druck verfällt um 10 % je Runde. Ab Druck 20, und wenn er den der bisherigen Religion um mehr als 20 % übersteigt,
+  tritt die Stadt über. Heilige Städte wechseln nie.
+- **Missionar** (Theologie, nur mit Staatsreligion): bekehrt in einer eigenen oder neben einer fremden Stadt (nicht im Krieg)
+  sofort (Taste V); er verbraucht sich dabei und darf wie Händler im Frieden fremdes Gebiet betreten.
+- **Staatsreligion** = Religion der Hauptstadt. Gleiche Staatsreligion verbessert die Haltung zweier Völker um 1, verschiedene verschlechtert sie um 1.
+- Die KI baut Glaubensgebäude, solange noch Religionen frei sind, gründet sofort und schickt Missionare.
+
 ## Umwelt
 
 - **Verschmutzung je Stadt und Runde:** Fabrik +2, Kraftwerk +3, ab Größe 13 je angefangene 8 Einwohner +1; der

@@ -1,3 +1,4 @@
+import { foundBlocker, foundReligion, missionize, type Religion, religionTurn, stateReligion, TENETS, type TenetKey } from './religion';
 import { environmentTurn } from './environment';
 import { airStrike, rebase } from './air';
 import {
@@ -93,6 +94,8 @@ export interface Player {
   doctrines: number[];
   /** Verbleibende Runden Umbruch nach einem Leitbildwechsel. */
   upheaval: number;
+  /** Angesammelter Glaube (Religion gründen). */
+  faith?: number;
 }
 
 /** Wirtschaftsbilanz eines Spielers pro Runde. */
@@ -129,6 +132,8 @@ export interface GameState {
   winner: Victory | null;
   /** Handelsrouten zwischen Städten. */
   routes: TradeRoute[];
+  /** Gegründete Religionen. */
+  religions: Religion[];
   rng: Rng;
 }
 
@@ -162,6 +167,8 @@ export type Command =
   | { type: 'respond'; proposal: number; accept: boolean }
   | { type: 'cancelAlliance'; target: number }
   | { type: 'airStrike'; unit: number; target: number }
+  | { type: 'spreadReligion'; unit: number }
+  | { type: 'foundReligion'; tenet: TenetKey }
   | { type: 'rebase'; unit: number; target: number }
   | { type: 'setDoctrine'; doctrine: number }
   | { type: 'establishRoute'; unit: number };
@@ -221,6 +228,7 @@ export function createGame(world: GeneratedWorld, options: MapGenOptions): GameS
     diplomacy: createDiplomacy(),
     winner: null,
     routes: [],
+    religions: [],
     players,
     units: [],
     nextUnitId: 1,
@@ -336,7 +344,8 @@ export function transportsOf(state: GameState, owner: number): Map<number, Unit>
 /** Kostenfunktion aus Sicht eines Spielers: eigenes Wissen, sichtbare fremde Einheiten blockieren. */
 /** Händler reisen im Frieden durch fremdes Gebiet (nicht in fremde Städte; die Route entsteht vom Nachbarfeld aus). */
 function traderMayEnter(state: GameState, u: Unit, tile: number): boolean {
-  if (!UNIT_TYPES[u.type].trade) return false;
+  // Gilt für Händler und Missionare.
+  if (!UNIT_TYPES[u.type].trade && !UNIT_TYPES[u.type].missionary) return false;
   const owner = state.tileOwner[tile];
   return owner >= 0 && owner !== u.owner && !relation(state, u.owner, owner).war && !state.players[owner].barbarian;
 }
@@ -503,6 +512,14 @@ export function applyCommand(state: GameState, player: number, cmd: Command): Co
       events.push({ player, text: `${target.name}: „${verdict.reason}“ – ${verdict.accept ? 'angenommen' : 'abgelehnt'}`, tile: -1 });
       return { moves: [], events, reply: { accepted: verdict.accept, text: verdict.reason } };
     }
+    case 'foundReligion': {
+      const blocker = foundBlocker(state, player);
+      if (blocker) throw new CommandError(blocker);
+      if (!TENETS.some((t) => t.key === cmd.tenet)) throw new CommandError('Unbekannte Lehre');
+      const events: TurnEvent[] = [];
+      foundReligion(state, player, cmd.tenet, events);
+      return { moves: [], events };
+    }
     case 'cancelAlliance': {
       if (!relation(state, player, cmd.target).alliance) throw new CommandError('Kein Bündnis');
       const events: TurnEvent[] = [];
@@ -638,6 +655,22 @@ function unitCommand(state: GameState, player: number, cmd: Extract<Command, { u
       refreshVision(state, player);
       return { moves: [] };
     }
+    case 'spreadReligion': {
+      if (!UNIT_TYPES[u.type].missionary) throw new CommandError('Nur Missionare verbreiten eine Religion');
+      const religion = stateReligion(state, player);
+      if (religion === undefined) throw new CommandError('Euer Volk hat keine Staatsreligion');
+      // In einer eigenen Stadt oder neben einer fremden (fremde Städte darf man nicht betreten).
+      const target = cityAt(state, u.tile) ??
+        state.cities.filter((c) => tileDistance(state.map, c.tile, u.tile) === 1 && c.owner !== player && !relation(state, player, c.owner).war)[0];
+      if (!target) throw new CommandError('Missionar muss in einer eigenen oder neben einer fremden Stadt stehen');
+      if (target.religion === religion) throw new CommandError(`${target.name} folgt dieser Religion schon`);
+      if (state.religions.some((r) => r.holyCity === target.id)) throw new CommandError('Heilige Städte lassen sich nicht bekehren');
+      const events: TurnEvent[] = [];
+      missionize(state, target, religion, events);
+      if (target.owner !== player) events.push({ player, text: `${target.name} folgt jetzt eurer Religion`, tile: target.tile });
+      state.units = state.units.filter((o) => o !== u);
+      return { moves: [], events };
+    }
     case 'establishRoute': {
       if (!UNIT_TYPES[u.type].trade) throw new CommandError('Nur Händler errichten Handelsrouten');
       // Zielstadt: die Stadt, in der der Händler steht, sonst eine angrenzende (fremde Städte darf er nicht betreten).
@@ -689,6 +722,7 @@ export function endTurn(state: GameState): { moves: MoveEvent[]; events: TurnEve
   barbarianTurn(state, turnEvents, combats, events);
   randomEvents(state, turnEvents);
   environmentTurn(state, turnEvents);
+  religionTurn(state, turnEvents);
   for (const p of state.players) if (p.upheaval > 0) p.upheaval--;
   // Routen zu verlorenen oder zerstörten Städten verfallen.
   state.routes = state.routes.filter((r) => {

@@ -21,6 +21,7 @@ import { maxMoves } from '../sim/rules/units';
 import { getSave, listSaves, putSave } from './storage';
 import { stateHash } from '../sim/hash';
 import { cityPollution } from '../sim/environment';
+import { faithPerTurn, foundBlocker, religionById, stateReligion, tenetOf } from '../sim/religion';
 
 /**
  * Die Simulation läuft vollständig hier. Der Hauptthread rendert nur und schickt Befehle,
@@ -77,6 +78,8 @@ function cityView(s: GameState, c: City, explored: Uint8Array): CityView | null 
   const base = {
     id: c.id, owner: c.owner, name: c.name, tile: c.tile, size: c.size, capital: c.buildings.includes(BuildingId.Palace),
     defense: cityDefenseAt(s, c.tile) ?? 0,
+    religion: religionById(s, c.religion)?.name ?? null,
+    holy: s.religions.some((r) => r.holyCity === c.id),
   };
   if (c.owner !== viewer) return explored[c.tile] ? base : null;
   const report = cityReport(s, c);
@@ -179,6 +182,16 @@ function sendView(
     camps: s.camps.filter((c) => p.explored[c.tile]).map((c) => c.tile),
     barbarian: s.barbarian,
     doctrines: { active: pl.doctrines.slice(), upheaval: pl.upheaval },
+    religion: {
+      faith: pl.faith ?? 0,
+      faithPerTurn: faithPerTurn(s, viewer),
+      foundBlocker: foundBlocker(s, viewer),
+      state: religionById(s, stateReligion(s, viewer))?.name ?? null,
+      religions: s.religions.map((r) => ({
+        id: r.id, name: r.name, founder: r.founder === viewer ? 'du' : s.players[r.founder].name, tenet: `${tenetOf(r).name}: ${tenetOf(r).description}`,
+        cities: s.cities.filter((c) => c.religion === r.id).length, own: r.founder === viewer,
+      })),
+    },
     diplomacy: {
       civs: s.players
         .filter((o) => o.id !== viewer && !o.barbarian && o.alive && relation(s, viewer, o.id).met)

@@ -7,8 +7,9 @@ import { RESOURCE_KIND_NAME, RESOURCES } from './resources';
 import { TECHS, techCost } from './techs';
 import { FEATURE, RELIEF, TERRAIN } from './terrain';
 import { CLASS_NAMES, PROMOTIONS, UNIT_TYPES } from './units';
+import { TENETS } from '../religion';
 
-export type CatalogTab = 'terrain' | 'resources' | 'units' | 'promotions' | 'buildings' | 'wonders' | 'techs' | 'doctrines';
+export type CatalogTab = 'terrain' | 'resources' | 'units' | 'promotions' | 'buildings' | 'wonders' | 'techs' | 'doctrines' | 'tenets';
 
 export interface CatalogTable {
   title: string;
@@ -95,6 +96,12 @@ export function catalog(tab: CatalogTab): CatalogTable {
         head: ['Technologie', 'Stufe', 'Kosten', 'Voraussetzungen', 'Schaltet frei'],
         rows: TECHS.map((t, id) => [t.name, String(t.tier), String(techCost(id)), t.prereqs.map((p) => TECHS[p].name).join(', ') || '–', techUnlocks(id).join('\n') || '–']),
       };
+    case 'tenets':
+      return {
+        title: 'Lehren der Religionen',
+        head: ['Lehre', 'Wirkung'],
+        rows: TENETS.map((t) => [t.name, t.description]),
+      };
     case 'doctrines':
       return {
         title: 'Leitbilder',
@@ -104,7 +111,7 @@ export function catalog(tab: CatalogTab): CatalogTable {
   }
 }
 
-export const CATALOG_TABS: CatalogTab[] = ['terrain', 'resources', 'units', 'promotions', 'buildings', 'wonders', 'techs', 'doctrines'];
+export const CATALOG_TABS: CatalogTab[] = ['terrain', 'resources', 'units', 'promotions', 'buildings', 'wonders', 'techs', 'doctrines', 'tenets'];
 
 const mdCell = (c: string) => c.replace(/\|/g, '\\|').replace(/\n/g, '<br>');
 

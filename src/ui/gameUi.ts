@@ -8,7 +8,7 @@ import type { SaveMeta } from '../sim/save';
 import { CLASS_NAMES, MOVE_SCALE, PROMOTIONS, UNIT_TYPES } from '../sim/rules/units';
 
 export type UnitAction =
-  | 'fortify' | 'skip' | 'wake' | 'disband' | 'found' | 'moveMode' | 'load' | 'route' | `job:${JobKind}` | `promote:${number}`;
+  | 'fortify' | 'skip' | 'wake' | 'disband' | 'found' | 'moveMode' | 'load' | 'route' | 'spread' | `job:${JobKind}` | `promote:${number}`;
 
 /** Arbeiteraufträge, die der Spieler grundsätzlich kennt, mit Grund, falls hier nicht möglich. */
 export interface JobOption {
@@ -204,6 +204,7 @@ export class GameUi {
             ? btn('fortify', t.strength > 0 ? 'Befestigen' : 'Schlafen', 'F')
             : btn('wake', 'Aufwecken', 'F'),
           btn('skip', 'Überspringen', 'Leer', selected.moves > 0),
+          ...(t.missionary ? [btn('spread', 'Religion verbreiten', 'V', true, 'In einer eigenen oder neben einer fremden Stadt: Stadt folgt eurer Staatsreligion')] : []),
           ...(t.trade ? [btn('route', 'Handelsroute', 'R', true, 'In oder neben einer mindestens 6 Felder entfernten Stadt: Route zur nächsten eigenen Stadt')] : []),
           ...(t.cargo ? [btn('load', `Einladen (${cargo.length}/${t.cargo})`, 'L',
             stack.some((x) => x.owner === human && !UNIT_TYPES[x.type].naval && !x.carriedBy) && cargo.length < t.cargo,

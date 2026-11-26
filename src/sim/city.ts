@@ -1,3 +1,4 @@
+import { religionEffect, stateReligion } from './religion';
 import type { GameState } from './game';
 import { forEachNeighbor, tileDistance, tilesAround } from './hex';
 import { hasFreshWater, type GameMap, type Knows, resourceActive, tileYields, touchesRiver } from './map';
@@ -39,6 +40,10 @@ export interface City {
   worked: number[];
   /** Vom Spieler festgelegte Felder – werden bei der Automatik nicht verändert. */
   locked: number[];
+  /** Religion, der die Stadt folgt (ID in state.religions). */
+  religion?: number;
+  /** Glaubensdruck je Religion. */
+  pressure?: Record<number, number>;
 }
 
 export interface CityReport {
@@ -158,6 +163,8 @@ export function availableItems(state: GameState, c: City, ctx: PlayerContext = p
   const coastalCity = isCoastal(state.map, c.tile);
   UNIT_TYPES.forEach((u, id) => {
     if (u.tech !== null && !knows(u.tech)) return;
+    // Missionare verbreiten die Staatsreligion – ohne eine gibt es keine.
+    if (u.missionary && stateReligion(state, c.owner) === undefined) return;
     if (u.naval && !coastalCity) return;
     if (u.resources.some((r) => !ctx.strategic.has(r))) return;
     items.push({ kind: 'unit', id });
@@ -448,6 +455,12 @@ export function cityReport(state: GameState, c: City, ctx: PlayerContext = playe
     flatResearch += b.research ?? 0;
     y.trade += b.trade ?? 0;
   }
+  // Lehre der Religion, der die Stadt folgt.
+  const rel = religionEffect(state, c);
+  culture += rel.culture;
+  mood += rel.mood;
+  supply += rel.supply;
+  researchPct += rel.researchPct;
   const unhappy = Math.max(0, c.size - mood);
   const unrest = unhappy > 0 && unhappy * 2 >= c.size;
   const efficiency = unrest ? 0 : Math.max(0, 1 - 0.1 * unhappy);

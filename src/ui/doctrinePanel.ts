@@ -1,5 +1,7 @@
 import { CATEGORY_NAMES, DOCTRINES, type DoctrineCategory } from '../sim/rules/doctrines';
 import { TECHS } from '../sim/rules/techs';
+import type { ReligionView } from '../protocol';
+import { FAITH_TO_FOUND, TENETS, type TenetKey } from '../sim/religion';
 
 /** Leitbilder (P): je Bereich ein aktives Leitbild; Wechsel kostet eine Runde Umbruch. */
 export class DoctrinePanel {
@@ -7,12 +9,18 @@ export class DoctrinePanel {
   private active: number[] = [];
   private upheaval = 0;
   private known: number[] = [];
+  private religion: ReligionView | null = null;
 
-  constructor(onChoose: (doctrine: number) => void) {
+  constructor(onChoose: (doctrine: number) => void, onFoundReligion: (tenet: TenetKey) => void) {
     this.el.addEventListener('click', (e) => {
       const t = e.target as HTMLElement;
       if (t === this.el || t.closest('[data-close]')) {
         this.hide();
+        return;
+      }
+      if (t.closest('[data-act="found-religion"]')) {
+        const tenet = (this.el.querySelector('#tenet') as HTMLSelectElement).value as TenetKey;
+        onFoundReligion(tenet);
         return;
       }
       const b = t.closest<HTMLElement>('[data-doctrine]');
@@ -35,11 +43,29 @@ export class DoctrinePanel {
     this.el.hidden = true;
   }
 
-  update(active: number[], upheaval: number, known: number[]): void {
+  update(active: number[], upheaval: number, known: number[], religion: ReligionView): void {
     this.active = active;
     this.upheaval = upheaval;
     this.known = known;
+    this.religion = religion;
     if (this.open) this.render();
+  }
+
+  private religionSection(): string {
+    const r = this.religion;
+    if (!r) return '';
+    const list = r.religions.length
+      ? `<ul>${r.religions.map((x) => `<li><b>${x.name}</b> (gegründet von ${x.founder}) – ${x.tenet} · ${x.cities} ${x.cities === 1 ? 'Stadt' : 'Städte'}</li>`).join('')}</ul>`
+      : '<p class="hint">Noch keine Religion gegründet.</p>';
+    const found = r.foundBlocker === null
+      ? `<div class="row"><label>Lehre <select id="tenet">${TENETS.map((t) => `<option value="${t.key}">${t.name} – ${t.description}</option>`).join('')}</select></label>
+         <button type="button" data-act="found-religion">Religion gründen</button></div>`
+      : `<p class="hint">Religion gründen: ${r.foundBlocker}</p>`;
+    return `<section class="religion"><h3>Religion</h3>
+      <p>Glaube: <b>${r.faith}</b> (+${r.faithPerTurn}/Runde aus Schrein, Kathedrale, Ewiger Flamme) · ${FAITH_TO_FOUND} zum Gründen ·
+        Staatsreligion: <b>${r.state ?? 'keine'}</b></p>
+      ${found}${list}
+      <p class="hint">Städte breiten ihre Religion im Umkreis aus; Missionare (Theologie) bekehren eine Stadt sofort.</p></section>`;
   }
 
   private render(): void {
@@ -61,8 +87,9 @@ export class DoctrinePanel {
       })
       .join('');
     this.el.innerHTML = `<div class="tech-box panel doctrine-box">
-      <header><h2>Leitbilder</h2><span>${this.upheaval ? 'Umbruch – nächste Runde wieder wählbar' : 'Ein Wechsel kostet eine Runde Umbruch'}</span>
+      <header><h2>Leitbilder und Religion</h2><span>${this.upheaval ? 'Umbruch – nächste Runde wieder wählbar' : 'Ein Wechsel kostet eine Runde Umbruch'}</span>
       <button type="button" class="x" data-close title="Schließen (P / Esc)">✕</button></header>
-      <div class="tiers doctrines">${cols}</div></div>`;
+      <div class="tiers doctrines">${cols}</div>
+      ${this.religionSection()}</div>`;
   }
 }

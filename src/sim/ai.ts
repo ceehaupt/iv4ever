@@ -4,6 +4,7 @@ import { economy, type GameState, Orders, type Player, ROUTE_MIN_DISTANCE, ROUTE
 import { isMilitary, landmasses, moveTo, type Out, power, run } from './aiCommon';
 import { navalTurn } from './aiNaval';
 import { cityPollution } from './environment';
+import { FAITH_BUILDINGS, foundBlocker, maxReligions, stateReligion, type TenetKey } from './religion';
 import { airBuildWish, airTurn } from './aiAir';
 import { forEachNeighbor, tileDistance, tilesAround } from './hex';
 import { siteScore } from './gen/starts';
@@ -74,6 +75,8 @@ interface Situation {
   queuedWorkers: number;
   merchants: number;
   queuedMerchants: number;
+  /** Missionare (unterwegs oder in Bau). */
+  missionaries: number;
   enemiesNear: (tile: number, radius: number) => number;
 }
 
@@ -90,6 +93,8 @@ function situation(state: GameState, pid: number): Situation {
     queuedWorkers: cities.filter((c) => c.queue.some((q) => q.kind === 'unit' && q.id === UnitTypeId.Worker)).length,
     merchants: own.filter((u) => UNIT_TYPES[u.type].trade).length,
     queuedMerchants: cities.filter((c) => c.queue.some((q) => q.kind === 'unit' && UNIT_TYPES[q.id].trade)).length,
+    missionaries: own.filter((u) => UNIT_TYPES[u.type].missionary).length +
+      cities.filter((c) => c.queue.some((q) => q.kind === 'unit' && UNIT_TYPES[q.id].missionary)).length,
     enemiesNear: (tile, radius) =>
       enemyUnits.filter((u) => hostile(pid, u.owner) && tileDistance(state.map, u.tile, tile) <= radius).length,
   };
@@ -134,6 +139,9 @@ function buildingValue(id: number, c: City, persona: Persona, ctx: PlayerContext
   if (b.wonder) v = v * 0.6 + persona.builder * 10 + (state.rng.next() < 0.3 ? 4 : 0);
   if (b.noUpkeep) v += ctx.connected.size > 3 ? 5 : 1;
   if (b.project) v += 40 * (0.5 + persona.science);
+  // Glaubensgebäude: wertvoll, solange noch eine Religion zu gründen ist.
+  const faith = FAITH_BUILDINGS[id] ?? 0;
+  if (faith) v += faith * (state.religions.length < maxReligions(state) && !state.religions.some((r) => r.founder === c.owner) ? 6 : 1);
   // Recyclinghof: lohnt sich, je mehr die Stadt verschmutzt.
   if ((b.pollution ?? 0) < 0) v += Math.min(-(b.pollution ?? 0), cityPollution(c)) * 12;
   return v / Math.max(20, b.cost) * 40;
@@ -163,6 +171,11 @@ function chooseBuild(state: GameState, c: City, persona: Persona, sit: Situation
   if (sit.cities.length >= 2 && sit.merchants + sit.queuedMerchants === 0 && freeRouteSlots(state, c.owner) > 0 &&
     state.rng.next() < 0.25 + persona.builder * 0.25) {
     const m = items.find((i) => i.kind === 'unit' && UNIT_TYPES[i.id].trade);
+    if (m) return m;
+  }
+  // 4d. Missionar, wenn es Städte zu bekehren gibt (einer gleichzeitig)
+  if (sit.missionaries === 0 && missionTarget(state, c.owner, c.tile) && state.rng.next() < 0.2 + persona.builder * 0.2) {
+    const m = items.find((i) => i.kind === 'unit' && UNIT_TYPES[i.id].missionary);
     if (m) return m;
   }
   // 4c. Luftwaffe (im Krieg): Jäger zur Abwehr, Bomber für Angriffe, Flugabwehr bei feindlichen Flugzeugen
@@ -264,6 +277,42 @@ function settle(state: GameState, u: Unit, out: Out, claimed: Set<number>, mass:
   if (!moveTo(state, u, u.aiTarget, out)) u.aiTarget = undefined;
   else if (u.tile === u.aiTarget && u.moves > 0) run(state, u.owner, { type: 'found', unit: u.id }, out);
   return false;
+}
+
+// --- Religion ----------------------------------------------------------------------
+
+function tenetFor(persona: Persona): TenetKey {
+  if (persona.builder >= 0.6) return 'pilgrimage';
+  if (persona.science >= 0.6) return 'scholars';
+  if (persona.aggression >= 0.6) return 'tithe';
+  return persona.expansion >= 0.6 ? 'fellowship' : 'charity';
+}
+
+/** Nächste Stadt, die ein Missionar bekehren sollte: eigene zuerst, dann befreundete fremde in der Nähe. */
+function missionTarget(state: GameState, pid: number, from: number): City | undefined {
+  const religion = stateReligion(state, pid);
+  if (religion === undefined) return undefined;
+  const holy = new Set(state.religions.map((r) => r.holyCity));
+  const p = state.players[pid];
+  const ok = (c: City) => c.religion !== religion && !holy.has(c.id) && p.explored[c.tile] &&
+    (c.owner === pid || (!hostile(pid, c.owner) && tileDistance(state.map, from, c.tile) <= 12));
+  const list = state.cities.filter(ok).sort((a, b) =>
+    Number(a.owner !== pid) - Number(b.owner !== pid) || tileDistance(state.map, from, a.tile) - tileDistance(state.map, from, b.tile));
+  return list[0];
+}
+
+function mission(state: GameState, u: Unit, out: Out): void {
+  if (run(state, u.owner, { type: 'spreadReligion', unit: u.id }, out)) return;
+  const target = missionTarget(state, u.owner, u.tile);
+  if (!target) {
+    run(state, u.owner, { type: 'fortify', unit: u.id }, out);
+    return;
+  }
+  const dest = target.owner === u.owner ? target.tile : tilesAround(state.map, target.tile, 1)
+    .filter((t) => t !== target.tile && !isWater(state.map.terrain[t]) && state.map.relief[t] !== Relief.Mountain && !state.units.some((o) => o.tile === t && o.owner !== u.owner))
+    .sort((a, b) => tileDistance(state.map, u.tile, a) - tileDistance(state.map, u.tile, b))[0];
+  if (dest === undefined) return;
+  if (moveTo(state, u, dest, out) && u.tile === dest) run(state, u.owner, { type: 'spreadReligion', unit: u.id }, out);
 }
 
 // --- Händler -----------------------------------------------------------------------
@@ -564,6 +613,7 @@ export function aiTurn(state: GameState, out: Out): void {
   for (const p of state.players) {
     if (p.human || p.barbarian || !p.alive || !p.persona) continue;
     chooseResearch(state, p, out);
+    if (!foundBlocker(state, p.id)) run(state, p.id, { type: 'foundReligion', tenet: tenetFor(p.persona) }, out);
     chooseDoctrines(state, p, out);
     const sit = situation(state, p.id);
     manageCities(state, p, sit, out);
@@ -579,6 +629,7 @@ export function aiTurn(state: GameState, out: Out): void {
       } else if (u.type === UnitTypeId.Worker) work(state, u, out, roads, claimedJobs);
       else if (u.type === UnitTypeId.Scout) explore(state, u, out);
       else if (UNIT_TYPES[u.type].trade) trade(state, u, out);
+      else if (UNIT_TYPES[u.type].missionary) mission(state, u, out);
     }
     const sit2 = situation(state, p.id);
     const reserved = navalTurn(state, p, out, stranded, garrisonOf(state, p, sit2), isOffensive(state, p, sit2));

@@ -1,3 +1,4 @@
+import { religionAttitude } from './religion';
 import type { TurnEvent } from './city';
 import type { GameState, Player } from './game';
 import { TECHS, techCost } from './rules/techs';
@@ -102,6 +103,7 @@ export function attitude(state: GameState, from: number, to: number): number {
   else v += Math.min(3, Math.floor((state.turn - r.since) / 15));
   if (r.openBorders) v += 2;
   if (r.alliance) v += 2;
+  v += religionAttitude(state, from, to);
   const persona = state.players[from].persona;
   if (persona) v -= Math.round(persona.aggression * 2);
   return Math.max(-10, Math.min(10, v));
