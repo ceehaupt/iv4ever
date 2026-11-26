@@ -175,7 +175,11 @@ function migrate(d: SaveData): SaveData {
 export function fromSaveData(raw: SaveData): GameState {
   if (!raw || typeof raw !== 'object') throw new SaveError('Speicherstand ist beschädigt');
   if (typeof raw.version !== 'number' || raw.version < 1 || raw.version > SAVE_VERSION) {
-    throw new SaveError(`Speicherstand-Version ${raw.version} wird nicht unterstützt (erwartet ≤ ${SAVE_VERSION})`);
+    throw new SaveError(
+      typeof raw.version === 'number' && raw.version > SAVE_VERSION
+        ? `Dieser Spielstand stammt aus einer neueren Spielversion (Format ${raw.version}, dieses Spiel kennt bis ${SAVE_VERSION}). Bitte das Spiel aktualisieren.`
+        : `Speicherstand-Version ${raw.version} wird nicht unterstützt (erwartet ≤ ${SAVE_VERSION})`,
+    );
   }
   const d = migrate(raw);
   const n = d.map.width * d.map.height;

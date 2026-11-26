@@ -245,6 +245,14 @@ export function handOverToAi(state: GameState, id: number): void {
   p.name = `${p.name} (KI)`;
 }
 
+/** Ein Mensch kehrt ins Online-Spiel zurück und übernimmt sein Volk wieder von der KI. */
+export function handBackToHuman(state: GameState, id: number): void {
+  const p = state.players[id];
+  if (!p || p.human || p.barbarian) return;
+  p.human = true;
+  p.name = p.name.replace(/ \(KI\)$/, '');
+}
+
 export function addUnit(state: GameState, owner: number, type: number, tile: number, xp = 0): Unit {
   const u: Unit = {
     id: state.nextUnitId++, type, owner, tile, moves: unitMaxMoves(type, []), orders: Orders.None, path: null,

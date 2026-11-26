@@ -44,3 +44,17 @@ test('Handbuch öffnet mit F1 und zeigt die Technologien', async ({ page }) => {
   await page.click('#handbook [data-tab="techs"]');
   await expect(page.locator('#handbook tbody tr')).toHaveCount(54);
 });
+
+test('Spielstand als Datei exportieren und wieder importieren', async ({ page }) => {
+  await newGame(page);
+  await page.keyboard.press('Enter');
+  await expect(page.locator('#turn')).toHaveText('Runde 2', { timeout: 20_000 });
+  await page.click('#load');
+  const [download] = await Promise.all([page.waitForEvent('download'), page.click('[data-file="export"]')]);
+  const file = await download.path();
+  await page.keyboard.press('Enter');
+  await expect(page.locator('#turn')).toHaveText('Runde 3', { timeout: 20_000 });
+  await page.click('#load');
+  await page.setInputFiles('[data-file="import"]', file);
+  await expect(page.locator('#turn')).toHaveText('Runde 2', { timeout: 20_000 });
+});

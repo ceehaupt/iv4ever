@@ -194,8 +194,10 @@ Kosten, Voraussetzungen und Wirkungen: [`REGELN-DATEN.md`](REGELN-DATEN.md#gebä
 ## Mehrspieler
 
 - **Hotseat:** 2–4 Menschen am selben Gerät; zwischen den Zügen verdeckt ein Übergabebildschirm die Karte. Speichern und Laden möglich.
-- **Online:** deterministischer Lockstep über einen Relay-Server, der nur die Reihenfolge der Aktionen festlegt. Jeder Rechner
-  berechnet die Simulation selbst; eine Prüfsumme je Runde deckt Abweichungen auf. Die Runde endet, wenn alle Menschen
-  „Runde beenden“ gedrückt haben.
-- **Verlässt ein Mensch das Online-Spiel**, übernimmt die KI sein Volk („… (KI)“), an derselben Stelle der Aktionsfolge auf allen Rechnern.
+- **Online (2–8 Menschen):** deterministischer Lockstep über einen Relay-Server, der nur die Reihenfolge der Aktionen festlegt.
+  Jeder Rechner berechnet die Simulation selbst; eine Prüfsumme je Runde deckt Abweichungen auf, dann verteilt der Gastgeber
+  seinen Stand. Die Runde endet, wenn alle Menschen „Runde beenden“ gedrückt haben – oder wenn das Zeitlimit des Gastgebers abläuft.
+- **Verbindungsabbruch:** Nach einer Kulanzzeit (Standard 30 s) übernimmt die KI das Volk („… (KI)“), an derselben Stelle der
+  Aktionsfolge auf allen Rechnern. Beim Wiedereinstieg spielt der Mensch wieder selbst.
+- **Speichern:** Im Online-Spiel speichert der Gastgeber; fortgesetzt wird in einem neuen Raum, fehlende Menschen spielt die KI.
 - Angebote zwischen Menschen (Frieden, offene Grenzen, Handel) müssen vom Gegenüber angenommen werden.

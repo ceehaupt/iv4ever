@@ -9,15 +9,14 @@ Kennzeichnung: **[Erledigt]** = umgesetzt · **[Fehler]** = Verhalten ist falsch
 ## Online-Mehrspieler
 
 - **[Erledigt] Verlassen blockiert das Spiel.** Der Relay reiht das Verlassen als Aktion ein; auf allen Rechnern übernimmt an derselben Stelle die KI.
-- **[Grenze] Kein Wiedereinstieg** nach einem Verbindungsabbruch. Der Server speichert keinen Verlauf und ordnet einen Platz nicht neu zu.
-- **[Grenze] Kein Speichern/Laden** im Online-Spiel.
-- **[Grenze] Desync wird nur gemeldet**, nicht behoben. Es gibt weder einen Abgleich noch ein Zurücksetzen auf einen gemeinsamen Stand.
-- **[Grenze] Keine Versionsprüfung.** Alle brauchen dieselbe Spielversion, geprüft wird das aber nicht. Unterschiedliche Stände führen zu Desync.
-- **[Grenze] Relay ohne Absicherung:** keine Authentifizierung, kein TLS (nur `ws://`), keine Ratenbegrenzung, Nachrichten werden nicht
-  geprüft. Räume liegen nur im Speicher. Gedacht für LAN bzw. vertrauenswürdige Mitspieler, nicht für einen öffentlichen Server.
+- **[Erledigt] Wiedereinstieg** mit Token und Kulanzzeit; der Server spielt alle Aktionen nach, die KI gibt den Platz zurück.
+- **[Erledigt] Speichern/Fortsetzen online:** Gastgeber speichert, Fortsetzen in neuem Raum (fehlende Menschen → KI).
+- **[Erledigt] Reparatur bei Desync:** Der Gastgeber verteilt automatisch seinen Stand, alle spielen spätere Aktionen erneut an.
+- **[Erledigt] Versionsprüfung** (Paketversion + Git-Stand); fremde Versionen können nicht beitreten.
+- **[Erledigt] Relay abgesichert:** Nachrichtenprüfung, Größen- und Ratenlimit, Raumlimit, Tokens; TLS über Reverse-Proxy (`docs/SERVER.md`).
 - **[Grenze] Lockstep vertraut den Clients:** Jeder Client kennt den vollen Zustand. Schummeln (Nebel auslesen) ist technisch möglich.
-- **[Grenze]** Höchstens 4 Menschen. Der Gastgeber ist fest Platz 0; verlässt er die Lobby, gibt es keinen neuen Gastgeber.
-- **[Lücke]** Kein Chat und kein Zeitlimit pro Runde.
+- **[Erledigt]** Bis zu 8 Menschen online.
+- **[Erledigt]** Chat im Spiel und Zeitlimit je Runde (vom Gastgeber gewählt, vom Server durchgesetzt).
 
 ## Computerspieler (KI)
 
@@ -52,8 +51,8 @@ Kennzeichnung: **[Erledigt]** = umgesetzt · **[Fehler]** = Verhalten ist falsch
 - **[Erledigt] Oberflächentests:** Playwright-Tests für Spielstart, Stadtgründung, Rundenwechsel, Speichern/Laden, Handbuch und ein Online-Spiel mit zwei Browsern (inkl. Abgang). Relay-Server mit echten WebSocket-Clients getestet (`src/net/relay.test.ts`).
 - **[Erledigt]** Determinismus über Browser: dieselbe 80-Runden-KI-Partie liefert in Node, Chromium, Firefox und WebKit identische Prüfsummen (`e2e/determinism.spec.ts`).
 - **[Erledigt]** CI per GitHub Action: Unit-Tests, Build und alle Playwright-Tests bei jedem Push.
-- **[Grenze]** Speicherstände liegen nur in der IndexedDB des Browsers: kein Export/Import als Datei, keine Synchronisierung zwischen Geräten.
-- **[Grenze]** Speicher-Migration nur vorwärts (v1 → v6); alte Spielversionen können neue Stände nicht lesen.
+- **[Erledigt]** Speicherstände als Datei exportieren und importieren (auch für andere Geräte).
+- **[Grenze]** Speicher-Migration nur vorwärts; ein Spielstand aus einer neueren Version wird jetzt mit klarer Meldung abgelehnt.
 
 ## Dokumentation
 

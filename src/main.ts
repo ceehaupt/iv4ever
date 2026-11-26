@@ -20,7 +20,8 @@ import { DoctrinePanel } from './ui/doctrinePanel';
 import { SoundEngine } from './audio/sound';
 import { loadSettings, saveSettings, type Settings, SettingsPanel } from './ui/settings';
 import { Tutorial } from './ui/tutorial';
-import { OnlineClient } from './net/online';
+import { clearSession, OnlineClient, savedSession } from './net/online';
+import type { SaveMeta } from './sim/save';
 import { setAnimationSpeed } from './render/unitLayer';
 import { setColorblind } from './render/palette';
 import { VICTORY_NAMES } from './sim/victory';
@@ -41,49 +42,87 @@ const send = (msg: ToWorker) => {
   else worker.postMessage(msg);
 };
 
-// --- Online (M10) ----------------------------------------------------------------------
+// --- Online ---------------------------------------------------------------------------
 const onlineEl = document.getElementById('onlinepanel')!;
-let onlineHost = false;
-let lobbyPlayers: { seat: number; name: string }[] = [];
+let lobbyPlayers: { seat: number; name: string; connected: boolean }[] = [];
+/** Spielstände für „Online-Spiel fortsetzen“ (aus der letzten Liste des Workers). */
+let knownSaves: SaveMeta[] = [];
+/** Aktionsnummer zum Zeitpunkt der Stand-Anfrage für eine Reparatur. */
+let resyncUpto = -1;
+let startTurnSeconds = 0;
+let turnDeadline = 0;
+
 const online = new OnlineClient({
-  onJoined: (room, _seat, host) => {
-    onlineHost = host;
+  onJoined: (room) => {
     renderOnline(`Raum <b>${room}</b> – Code an Mitspieler weitergeben.`);
   },
   onLobby: (players) => {
     lobbyPlayers = players;
     renderOnline();
   },
-  onStart: (options) => {
+  onStart: (options, _names, save) => {
     onlineGame = true;
     onlineEl.hidden = true;
-    worker.postMessage({ type: 'newGame', options: { ...options, seat: online.seat } });
+    chat.show();
+    if (save) worker.postMessage({ type: 'loadData', data: save, online: { seat: online.seat, humans: options.humans } });
+    else worker.postMessage({ type: 'newGame', options: { ...options, seat: online.seat } });
   },
   onAction: (seat, action) => worker.postMessage({ type: 'remote', player: seat, action }),
-  onDesync: (turn) => ui.toast(`Achtung: Spielstände weichen in Runde ${turn} voneinander ab (Desync)`, 'error'),
-  onLeft: (name) => ui.toast(`${name} hat das Spiel verlassen`, 'error'),
+  onReplay: (acts) => worker.postMessage({ type: 'remoteBatch', actions: acts.map((a) => ({ player: a.seat, action: a.action })) }),
+  onResync: (save) => {
+    worker.postMessage({ type: 'loadData', data: save, online: { seat: online.seat } });
+    ui.toast('Spielstand mit dem Gastgeber abgeglichen');
+  },
+  onDesync: (turn) => {
+    if (online.host) {
+      // Der Gastgeber repariert automatisch: sein Stand gilt für alle.
+      resyncUpto = online.lastSeq;
+      worker.postMessage({ type: 'snapshot', purpose: 'resync' });
+      ui.toast(`Spielstände weichen in Runde ${turn} ab – Stand des Gastgebers wird verteilt …`, 'error');
+    } else ui.toast(`Spielstände weichen in Runde ${turn} ab – der Gastgeber gleicht ab …`, 'error');
+  },
+  onLeft: (name, final) =>
+    ui.toast(final ? `${name} hat das Spiel verlassen – die KI übernimmt` : `${name} hat die Verbindung verloren …`, 'error'),
+  onBack: (name) => ui.toast(`${name} ist wieder da`),
+  onChat: (name, text, own) => chat.add(name, text, own),
+  onTimer: (deadline) => {
+    turnDeadline = deadline;
+    updateTimer();
+  },
   onError: (text) => {
     ui.toast(text, 'error');
-    renderOnline();
+    if (!onlineGame) renderOnline(text);
   },
 });
+
 let onlineStatus = '';
+const esc = (t: string) => t.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
 function renderOnline(status?: string): void {
   if (status !== undefined) onlineStatus = status;
-  const inRoom = !!online.room;
-  const url = (document.getElementById('onlineurl') as HTMLInputElement | null)?.value ?? `ws://${location.hostname || 'localhost'}:8787`;
-  const name = (document.getElementById('onlinename') as HTMLInputElement | null)?.value ?? 'Spieler';
+  const inRoom = !!online.room && !onlineGame;
+  const session = savedSession();
+  const url = (document.getElementById('onlineurl') as HTMLInputElement | null)?.value ?? session?.url ?? `ws://${location.hostname || 'localhost'}:8787`;
+  const name = (document.getElementById('onlinename') as HTMLInputElement | null)?.value ?? session?.name ?? 'Spieler';
+  const host = inRoom && online.host;
   onlineEl.innerHTML = `<div class="panel settings-box" role="dialog" aria-label="Online-Spiel">
     <header><h2>Online-Spiel</h2><button type="button" class="x" data-close aria-label="Schließen">✕</button></header>
     <section>
-      <label>Server <input id="onlineurl" value="${url}" ${inRoom ? 'disabled' : ''} /></label>
-      <label>Name <input id="onlinename" value="${name}" maxlength="24" ${inRoom ? 'disabled' : ''} /></label>
+      <label>Server <input id="onlineurl" value="${esc(url)}" ${inRoom ? 'disabled' : ''} /></label>
+      <label>Name <input id="onlinename" value="${esc(name)}" maxlength="24" ${inRoom ? 'disabled' : ''} /></label>
       ${inRoom ? '' : `<div class="row"><button type="button" data-act="create">Raum erstellen</button>
-        <input id="onlineroom" placeholder="Code" size="6" /> <button type="button" data-act="join">Beitreten</button></div>`}
-      <p class="hint">${onlineStatus || 'Server starten mit <code>npm run server</code>. Alle Spieler brauchen dieselbe Spielversion.'}</p>
+        <input id="onlineroom" placeholder="Code" size="6" aria-label="Raumcode" /> <button type="button" data-act="join">Beitreten</button></div>
+        ${session ? `<div class="row"><button type="button" data-act="rejoin">Wieder beitreten (Raum ${esc(session.room)})</button>
+          <button type="button" data-act="forget">Vergessen</button></div>` : ''}`}
+      <p class="hint">${onlineStatus || `Server starten mit <code>npm run server</code>. Alle brauchen dieselbe Spielversion (${esc(online.version)}).`}</p>
     </section>
-    ${inRoom ? `<section><h3>Spieler</h3><ol>${lobbyPlayers.map((p) => `<li>${p.name}${p.seat === online.seat ? ' (du)' : ''}</li>`).join('')}</ol>
-      ${onlineHost ? '<button type="button" data-act="start">Spiel starten (Einstellungen aus der Kopfleiste)</button>' : '<p class="hint">Warte auf den Start durch den Gastgeber …</p>'}</section>` : ''}
+    ${inRoom ? `<section><h3>Spieler</h3><ol>${lobbyPlayers.map((p) => `<li>${esc(p.name)}${p.seat === online.seat ? ' (du)' : ''}</li>`).join('')}</ol>
+      ${host ? `<label>Zeitlimit je Runde <select id="onlinetimer">
+          ${[[0, 'aus'], [60, '1 Minute'], [120, '2 Minuten'], [300, '5 Minuten'], [600, '10 Minuten']].map(([v, l]) => `<option value="${v}">${l}</option>`).join('')}
+        </select></label>
+        <label>Spielstand fortsetzen <select id="onlinesave"><option value="">– neues Spiel (Einstellungen aus der Kopfleiste) –</option>
+          ${knownSaves.map((sv) => `<option value="${esc(sv.slot)}">${esc(sv.label)} · Runde ${sv.turn}</option>`).join('')}</select></label>
+        <button type="button" data-act="start">Spiel starten</button>`
+        : '<p class="hint">Warte auf den Start durch den Gastgeber …</p>'}</section>` : ''}
   </div>`;
   onlineEl.hidden = false;
 }
@@ -94,19 +133,67 @@ onlineEl.addEventListener('click', async (e) => {
     return;
   }
   const act = t.closest<HTMLElement>('[data-act]')?.dataset.act;
+  if (!act) return;
   const url = (document.getElementById('onlineurl') as HTMLInputElement).value;
   const name = (document.getElementById('onlinename') as HTMLInputElement).value || 'Spieler';
   try {
     if (act === 'create' || act === 'join') {
-      await online.connect(url);
-      if (act === 'create') online.create(name);
-      else online.join((document.getElementById('onlineroom') as HTMLInputElement).value.trim(), name);
+      await online.connect(url, name);
+      if (act === 'create') {
+        online.create();
+        worker.postMessage({ type: 'listSaves' });
+      } else online.join((document.getElementById('onlineroom') as HTMLInputElement).value.trim());
+    } else if (act === 'rejoin') {
+      const session = savedSession();
+      if (session) await online.rejoin(session);
+    } else if (act === 'forget') {
+      clearSession();
+      renderOnline('');
     } else if (act === 'start') {
-      online.start(hud.currentOptions());
+      startTurnSeconds = Number((document.getElementById('onlinetimer') as HTMLSelectElement).value);
+      const slot = (document.getElementById('onlinesave') as HTMLSelectElement).value;
+      if (slot) worker.postMessage({ type: 'snapshot', purpose: 'start', slot });
+      else online.start(hud.currentOptions(), undefined, startTurnSeconds);
     }
   } catch (err) {
     renderOnline(err instanceof Error ? err.message : String(err));
   }
+});
+
+/** Restzeit der Runde (Zeitlimit) neben der Rundenanzeige. */
+const timerEl = document.getElementById('turntimer')!;
+function updateTimer(): void {
+  const left = Math.max(0, Math.ceil((turnDeadline - Date.now()) / 1000));
+  timerEl.hidden = !onlineGame || !turnDeadline;
+  timerEl.textContent = `⏱ ${Math.floor(left / 60)}:${String(left % 60).padStart(2, '0')}`;
+  timerEl.classList.toggle('low', left <= 15);
+}
+setInterval(updateTimer, 1000);
+
+/** Chat im Online-Spiel. */
+const chat = {
+  el: document.getElementById('chat')!,
+  log: document.getElementById('chatlog')!,
+  show() {
+    this.el.hidden = false;
+  },
+  add(name: string, text: string, own: boolean) {
+    const li = document.createElement('li');
+    const who = document.createElement('b');
+    who.textContent = own ? 'Du' : name;
+    li.append(who, `: ${text}`);
+    this.log.append(li);
+    while (this.log.children.length > 50) this.log.firstElementChild?.remove();
+    this.log.scrollTop = this.log.scrollHeight;
+    if (!own) sound.play('click');
+  },
+};
+document.getElementById('chatform')!.addEventListener('submit', (e) => {
+  e.preventDefault();
+  const input = document.getElementById('chatinput') as HTMLInputElement;
+  const text = input.value.trim();
+  if (text) online.chat(text);
+  input.value = '';
 });
 
 // --- Hotseat-Übergabe ------------------------------------------------------------------
@@ -138,6 +225,16 @@ const ui = new GameUi({
   onOpenLoad: () => send({ type: 'listSaves' }),
   onLoad: (slot) => {
     if (confirmDiscard()) send({ type: 'load', slot });
+  },
+  onExport: () => {
+    if (view) worker.postMessage({ type: 'snapshot', purpose: 'export' });
+  },
+  onImport: (text) => {
+    if (onlineGame) {
+      ui.toast('Im Online-Spiel nicht möglich – Fortsetzen über „Online …“', 'error');
+      return;
+    }
+    if (confirmDiscard()) worker.postMessage({ type: 'loadData', data: text });
   },
   onRate: (rate) => send({ type: 'command', command: { type: 'setRate', rate } }),
   onEventClick: (tile) => {
@@ -652,9 +749,26 @@ function endTurn(): void {
   command({ type: 'endTurn' });
 }
 
+/** Spielstand als Datei anbieten (Export). */
+function downloadSave(data: string, turn: number): void {
+  const url = URL.createObjectURL(new Blob([data], { type: 'application/json' }));
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `iv4ever-runde-${turn}.json`;
+  document.body.append(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
 function save(): void {
   if (onlineGame) {
-    ui.toast('Im Online-Spiel nicht verfügbar', 'error');
+    // Im Online-Spiel speichert der Gastgeber; fortsetzen über „Online …“ → „Spielstand fortsetzen“.
+    if (!online.host) {
+      ui.toast('Im Online-Spiel speichert der Gastgeber', 'error');
+      return;
+    }
+    if (view) worker.postMessage({ type: 'save', slot: `online-${online.room}`, label: `Online ${online.room}` });
     return;
   }
   if (view) send({ type: 'save', slot: 'quick', label: 'Schnellspeicherung' });
@@ -768,7 +882,14 @@ worker.onmessage = (e: MessageEvent<FromWorker>) => {
       break;
     }
     case 'saves':
-      ui.showSaves(msg.saves);
+      knownSaves = msg.saves;
+      if (!onlineEl.hidden) renderOnline();
+      else ui.showSaves(msg.saves);
+      break;
+    case 'snapshot':
+      if (msg.purpose === 'start') online.start(hud.currentOptions(), msg.data, startTurnSeconds);
+      else if (msg.purpose === 'resync') online.resync(msg.data, resyncUpto);
+      else downloadSave(msg.data, msg.turn);
       break;
     case 'hash':
       if (onlineGame) online.hash(msg.turn, msg.hash);
@@ -792,6 +913,8 @@ hud.onNewMap = (options) => {
   }
   onlineGame = false;
   online.close();
+  chat.el.hidden = true;
+  turnDeadline = 0;
   worker.postMessage({ type: 'newGame', options });
 };
 

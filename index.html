@@ -33,7 +33,7 @@
     <section id="unitpanel" class="panel" hidden></section>
 
     <section id="turnpanel" class="panel">
-      <div><strong id="turn">Runde –</strong> <small id="ready"></small></div>
+      <div><strong id="turn">Runde –</strong> <span id="turntimer" hidden title="Restzeit der Runde (Zeitlimit des Gastgebers)"></span> <small id="ready"></small></div>
       <div id="economy"></div>
       <button id="research" type="button" class="research" title="Technologien (T)">🔬</button>
       <button id="diplobtn" type="button" class="research" title="Diplomatie und Siegbedingungen (D)">🤝 Diplomatie</button>
@@ -68,6 +68,11 @@
     <canvas id="minimap" class="panel"></canvas>
 
     <div id="toast" class="panel" hidden role="status" aria-live="polite"></div>
+
+    <aside id="chat" class="panel" hidden aria-label="Chat">
+      <ol id="chatlog" aria-live="polite"></ol>
+      <form id="chatform"><input id="chatinput" maxlength="300" autocomplete="off" placeholder="Nachricht …" aria-label="Chatnachricht" /> <button type="submit">Senden</button></form>
+    </aside>
 
     <div id="combat" class="panel" hidden></div>
 

@@ -32,7 +32,12 @@ export type RemoteAction =
   | { kind: 'command'; command: Command }
   | { kind: 'endTurn' }
   /** Vom Server erzeugt, wenn ein Mensch die Verbindung verliert: Die KI übernimmt seinen Platz. */
-  | { kind: 'leave' };
+  | { kind: 'leave' }
+  /** Vom Server erzeugt, wenn er zurückkehrt: Er übernimmt sein Volk wieder. */
+  | { kind: 'rejoin' };
+
+/** Wofür ein Spielstand als Text gebraucht wird. */
+export type SnapshotPurpose = 'resync' | 'export' | 'start';
 
 /** Einheit, wie der menschliche Spieler sie sieht. */
 export interface UnitView {
@@ -188,6 +193,15 @@ export type ToWorker =
   | { type: 'load'; slot: string }
   | { type: 'listSaves' }
   | { type: 'remote'; player: number; action: RemoteAction }
+  /** Mehrere Online-Aktionen auf einmal (Wiedereinstieg, nach Reparatur) – nur eine Ansicht am Ende. */
+  | { type: 'remoteBatch'; actions: { player: number; action: RemoteAction }[] }
+  /**
+   * Spielstand aus Text laden (Datei-Import, Online-Fortsetzen, Reparatur). Online: eigener Platz; Menschen-Plätze ab
+   * `humans` (nicht besetzt) übernimmt die KI.
+   */
+  | { type: 'loadData'; data: string; online?: { seat: number; humans?: number } }
+  /** Spielstand als Text anfordern – aktueller Stand oder ein gespeicherter Platz (`slot`). */
+  | { type: 'snapshot'; purpose: SnapshotPurpose; slot?: string }
   /** Nur Entwicklung: Plünderer neben ein Feld setzen. */
   | { type: 'debugRaider'; tile: number };
 
@@ -205,4 +219,5 @@ export type FromWorker =
     }
   | { type: 'saves'; saves: SaveMeta[] }
   | { type: 'hash'; turn: number; hash: string }
+  | { type: 'snapshot'; purpose: SnapshotPurpose; data: string; turn: number }
   | { type: 'notice'; text: string; level: 'info' | 'error' };

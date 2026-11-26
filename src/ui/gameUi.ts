@@ -24,6 +24,10 @@ export interface GameUiHandlers {
   onSave(): void;
   onOpenLoad(): void;
   onLoad(slot: string): void;
+  /** Aktuelles Spiel als Datei herunterladen. */
+  onExport(): void;
+  /** Spielstand aus einer Datei laden (Text). */
+  onImport(text: string): void;
   onRate(rate: number): void;
   onEventClick(tile: number): void;
   onOpenTech(): void;
@@ -91,10 +95,24 @@ export class GameUi {
       else h.onSelectUnit(unit);
     });
     this.savesPanel.addEventListener('click', (e) => {
-      const el = (e.target as HTMLElement).closest<HTMLElement>('[data-slot]');
+      const t = e.target as HTMLElement;
+      if (t.closest('[data-file="export"]')) {
+        this.savesPanel.hidden = true;
+        h.onExport();
+        return;
+      }
+      const el = t.closest<HTMLElement>('[data-slot]');
       if (!el) return;
       this.savesPanel.hidden = true;
       h.onLoad(el.dataset.slot!);
+    });
+    this.savesPanel.addEventListener('change', async (e) => {
+      const input = e.target as HTMLInputElement;
+      const file = input.files?.[0];
+      if (!file) return;
+      this.savesPanel.hidden = true;
+      h.onImport(await file.text());
+      input.value = '';
     });
   }
 
@@ -250,6 +268,9 @@ export class GameUi {
           )
           .join('')
       : '<p>Keine Speicherstände vorhanden.</p>';
+    this.savesPanel.insertAdjacentHTML('beforeend', `<div class="file-row">
+      <button type="button" data-file="export">💾 Aktuelles Spiel als Datei sichern</button>
+      <label class="filebtn">📂 Spielstand aus Datei laden <input type="file" accept=".json,application/json" data-file="import" /></label></div>`);
     this.savesPanel.hidden = false;
   }
 

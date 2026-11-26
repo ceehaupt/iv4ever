@@ -1,7 +1,7 @@
-import type { CityView, FromWorker, GameView, NewGameOptions, ToWorker, ViewReason } from '../protocol';
+import type { CityView, FromWorker, GameView, NewGameOptions, RemoteAction, ToWorker, ViewReason } from '../protocol';
 import { availableItems, buildCost, type City, cityReport, cultureToNextRadius, foodToGrow, type TurnEvent, workableTiles } from '../sim/city';
 import {
-  addUnit, applyCommand, canPromote, CommandError, createGame, currentResearch, economy, endTurn, type GameState, handOverToAi,
+  addUnit, applyCommand, canPromote, CommandError, createGame, currentResearch, economy, endTurn, type GameState, handBackToHuman, handOverToAi,
   type MoveEvent, refreshVision,
 } from '../sim/game';
 import { promotionChoices, UnitTypeId, xpForNext } from '../sim/rules/units';
@@ -15,7 +15,8 @@ import { jobTurns } from '../sim/work';
 import { BuildingId } from '../sim/rules/buildings';
 import { cloneMap, mapTransferables } from '../sim/map';
 import { generateWorld } from '../sim/mapgen';
-import { fromSaveData, SaveError, type SaveMeta, toSaveData } from '../sim/save';
+import { fromSaveData, type SaveData, SaveError, type SaveMeta, toSaveData } from '../sim/save';
+import { decodeSave, encodeSave } from '../sim/saveCodec';
 import { maxMoves } from '../sim/rules/units';
 import { getSave, listSaves, putSave } from './storage';
 import { stateHash } from '../sim/hash';
@@ -45,6 +46,7 @@ async function finishRound(s: GameState): Promise<void> {
   lastEvents = res.events;
   const alive = aliveHumans(s);
   if (mode !== 'online') viewer = alive[0] ?? viewer;
+  if (replaying) return;
   sendView(s, mode === 'hotseat' && alive.length > 1 ? 'handoff' : 'turn', res.moves, res.events, undefined, res.combats);
   post({ type: 'hash', turn: s.turn, hash: stateHash(s) });
   if (mode === 'online') return;
@@ -217,6 +219,43 @@ function saveMeta(s: GameState, slot: string, label: string): SaveMeta {
   };
 }
 
+/** Während des Nachspielens (Wiedereinstieg) keine Ansichten und Prüfsummen schicken. */
+let replaying = false;
+
+/** Eine Online-Aktion anwenden – auf allen Rechnern in derselben Reihenfolge. */
+async function applyRemote(s: GameState, player: number, action: RemoteAction, quiet: boolean): Promise<void> {
+  if (action.kind === 'leave' || action.kind === 'rejoin') {
+    if (action.kind === 'leave') {
+      handOverToAi(s, player);
+      ended.delete(player);
+    } else handBackToHuman(s, player);
+    humans = s.players.filter((p) => p.human).map((p) => p.id);
+    if (!quiet) {
+      notice(action.kind === 'leave'
+        ? `${s.players[player].name} übernimmt den Platz eines Spielers, der das Spiel verlassen hat`
+        : `${s.players[player].name} ist zurück und spielt wieder selbst`);
+    }
+    // Haben alle Verbliebenen die Runde schon beendet, geht es jetzt weiter.
+    if (action.kind === 'leave' && aliveHumans(s).every((h) => ended.has(h))) await finishRound(s);
+    else if (!quiet) sendView(s, ended.has(viewer) ? 'waiting' : 'command');
+    return;
+  }
+  if (action.kind === 'endTurn') {
+    ended.add(player);
+    if (aliveHumans(s).every((h) => ended.has(h))) await finishRound(s);
+    else if (player === viewer && !quiet) sendView(s, 'waiting');
+    return;
+  }
+  try {
+    const res = applyCommand(s, player, action.command);
+    if (!quiet) sendView(s, 'command', res.moves, res.events ?? [], player === viewer ? res.foundedCity : undefined, res.combats ?? []);
+  } catch (e) {
+    // Ungültige Befehle sind auf allen Rechnern gleich ungültig – nur der Absender erfährt davon.
+    if (!(e instanceof CommandError)) throw e;
+    if (player === viewer && !quiet) notice(e.message, 'error');
+  }
+}
+
 async function handle(msg: ToWorker): Promise<void> {
   switch (msg.type) {
     case 'newGame': {
@@ -259,30 +298,55 @@ async function handle(msg: ToWorker): Promise<void> {
     case 'remote': {
       // Online: Befehle aller Spieler in der vom Server festgelegten Reihenfolge.
       if (!state) return;
-      if (msg.action.kind === 'leave') {
-        handOverToAi(state, msg.player);
-        humans = humans.filter((h) => h !== msg.player);
-        ended.delete(msg.player);
-        notice(`${state.players[msg.player].name} übernimmt den Platz eines Spielers, der das Spiel verlassen hat`);
-        // Haben alle Verbliebenen die Runde schon beendet, geht es jetzt weiter.
-        if (aliveHumans(state).every((h) => ended.has(h))) await finishRound(state);
-        else sendView(state, ended.has(viewer) ? 'waiting' : 'command');
-        break;
-      }
-      if (msg.action.kind === 'endTurn') {
-        ended.add(msg.player);
-        if (aliveHumans(state).every((h) => ended.has(h))) await finishRound(state);
-        else if (msg.player === viewer) sendView(state, 'waiting');
-        break;
-      }
+      await applyRemote(state, msg.player, msg.action, false);
+      break;
+    }
+    case 'remoteBatch': {
+      if (!state) return;
+      replaying = true;
       try {
-        const res = applyCommand(state, msg.player, msg.action.command);
-        sendView(state, 'command', res.moves, res.events ?? [], msg.player === viewer ? res.foundedCity : undefined, res.combats ?? []);
-      } catch (e) {
-        // Ungültige Befehle sind auf allen Rechnern gleich ungültig – nur der Absender erfährt davon.
-        if (!(e instanceof CommandError)) throw e;
-        if (msg.player === viewer) notice(e.message, 'error');
+        for (const a of msg.actions) await applyRemote(state, a.player, a.action, true);
+      } finally {
+        replaying = false;
       }
+      sendView(state, ended.has(viewer) ? 'waiting' : 'load');
+      break;
+    }
+    case 'loadData': {
+      try {
+        const loaded = fromSaveData(decodeSave(msg.data));
+        for (const p of loaded.players) refreshVision(loaded, p.id);
+        state = loaded;
+        ended.clear();
+        lastEvents = [];
+        if (msg.online) {
+          mode = 'online';
+          loaded.options = { ...loaded.options, mode: 'online' };
+          // Online fortsetzen mit weniger Menschen als im Spielstand: freie Plätze übernimmt die KI.
+          const seats = msg.online.humans;
+          if (seats !== undefined) for (const p of loaded.players) if (p.human && p.id >= seats) handOverToAi(loaded, p.id);
+          viewer = msg.online.seat;
+        } else {
+          mode = loaded.options.mode === 'online' ? 'single' : (loaded.options.mode ?? 'single');
+        }
+        humans = loaded.players.filter((p) => p.human).map((p) => p.id);
+        if (!msg.online) viewer = humans[0] ?? 0;
+        sendMap(loaded, 0);
+        sendView(loaded, mode === 'hotseat' ? 'handoff' : 'load');
+      } catch (e) {
+        notice(e instanceof SaveError || e instanceof Error ? `Laden fehlgeschlagen: ${e.message}` : 'Laden fehlgeschlagen', 'error');
+      }
+      break;
+    }
+    case 'snapshot': {
+      let data: SaveData | null | undefined;
+      if (msg.slot) data = await getSave(msg.slot);
+      else if (state) data = toSaveData(state);
+      if (!data) {
+        notice('Kein Spielstand vorhanden', 'error');
+        return;
+      }
+      post({ type: 'snapshot', purpose: msg.purpose, data: encodeSave(data), turn: data.turn });
       break;
     }
     case 'save': {

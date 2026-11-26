@@ -13,7 +13,7 @@ export default defineConfig({
   use: { baseURL: 'http://localhost:5199', trace: 'retain-on-failure' },
   webServer: [
     { command: 'npx vite --port 5199 --strictPort', url: 'http://localhost:5199', reuseExistingServer: !process.env.CI },
-    { command: `node server/relay.mjs`, env: { PORT: String(RELAY_PORT) }, port: RELAY_PORT, reuseExistingServer: !process.env.CI },
+    { command: `node server/relay.mjs`, env: { PORT: String(RELAY_PORT), GRACE_MS: '3000' }, port: RELAY_PORT, reuseExistingServer: !process.env.CI },
   ],
   projects: [
     { name: 'chromium', use: { ...devices['Desktop Chrome'] } },

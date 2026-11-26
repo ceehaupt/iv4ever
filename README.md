@@ -41,15 +41,22 @@ npm run dev        # http://localhost:5173
 
 Gleicher Seed + gleiche Einstellungen = gleiche Karte. Die Welt ist ost-west umlaufend.
 Einstellungen (⚙): Klang, Animationen, Kontrast, Schriftgröße, Farben für Farbsehschwäche, Tutorial.
-Speicherstände liegen in IndexedDB des Browsers (Schnellspeicherung + Autosave jede Runde).
 
 ## Mehrspieler
 
 - **Hotseat**: In der Kopfleiste „Modus: Hotseat (2–4)“ wählen und „Neues Spiel“. Zwischen den Zügen verdeckt ein Übergabebildschirm die Karte.
-- **Online**: Einer startet den Relay-Server (`npm run server`, Port 8787, über `PORT` änderbar). Alle wählen „Modus: Online …“ →
-  „Neues Spiel“, tragen die Serveradresse ein (z. B. `ws://192.168.1.10:8787`), der Gastgeber erstellt einen Raum, die anderen treten
-  mit dem Code bei. Der Gastgeber startet mit den Karteneinstellungen aus seiner Kopfleiste. Alle brauchen dieselbe Spielversion.
-  Die Runde endet, wenn alle Menschen „Runde beenden“ gedrückt haben.
+- **Online** (2–8 Menschen): Einer startet den Relay-Server (`npm run server`, Port 8787, über `PORT` änderbar). Alle wählen
+  „Modus: Online …“ → „Neues Spiel“, tragen die Serveradresse ein (z. B. `ws://192.168.1.10:8787`), der Gastgeber erstellt einen
+  Raum, die anderen treten mit dem Code bei. Der Gastgeber startet mit den Karteneinstellungen aus seiner Kopfleiste oder setzt
+  einen gespeicherten Spielstand fort; optional mit Zeitlimit je Runde. Alle brauchen dieselbe Spielversion.
+  Die Runde endet, wenn alle Menschen „Runde beenden“ gedrückt haben. Chat unten links.
+- **Verbindung weg?** „Online …“ → „Wieder beitreten“. Wer länger fehlt, wird von der KI vertreten und bekommt seinen Platz zurück.
+- Details zu Server, Sicherheit und TLS: [`docs/SERVER.md`](docs/SERVER.md).
+
+## Spielstände
+
+Speicherstände liegen in der IndexedDB des Browsers (Schnellspeicherung + Autosave jede Runde). Über „Laden ▾“ lässt sich
+das aktuelle Spiel als Datei sichern und eine Spielstanddatei laden – auch auf einem anderen Gerät.
 
 ## Tests
 
