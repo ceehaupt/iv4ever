@@ -565,14 +565,34 @@ button.research.pulse {
   position: relative;
   width: min(1400px, 100%);
   max-height: calc(100vh - 32px);
-  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
   padding: 12px 16px;
 }
 
 .tech-box header {
+  flex: none;
   display: flex;
   align-items: center;
   gap: 16px;
+  padding-bottom: 8px;
+  margin-bottom: 4px;
+  border-bottom: 1px solid var(--border);
+}
+
+/* Der Baum scrollt in beide Richtungen; Kopf und Hinweis bleiben stehen. */
+.tech-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  cursor: grab;
+  padding-bottom: 4px;
+}
+
+.tech-scroll.dragging {
+  cursor: grabbing;
+  user-select: none;
 }
 
 .tech-box h2 {
@@ -586,6 +606,7 @@ button.research.pulse {
 }
 
 .tech-box .hint {
+  flex: none;
   margin: 4px 0 10px;
   color: var(--muted);
   font-size: 12px;
@@ -598,7 +619,12 @@ button.research.pulse {
 }
 
 .tier h3 {
+  position: sticky;
+  top: 0;
+  z-index: 2;
   margin: 0 0 6px;
+  padding: 2px 0 4px;
+  background: #0c1424;
   font-size: 12px;
   color: var(--muted);
   font-weight: normal;
@@ -630,14 +656,14 @@ button.tech .unlocks {
 }
 
 button.tech.known {
-  background: rgb(61 220 106 / 0.12);
+  background-image: linear-gradient(rgb(61 220 106 / 0.12), rgb(61 220 106 / 0.12));
   border-color: rgb(61 220 106 / 0.45);
   cursor: default;
 }
 
 button.tech.current {
   border-color: var(--accent);
-  background: rgb(255 213 74 / 0.18);
+  background-image: linear-gradient(rgb(255 213 74 / 0.18), rgb(255 213 74 / 0.18));
 }
 
 button.tech.path {
@@ -646,6 +672,92 @@ button.tech.path {
 
 button.tech.locked {
   opacity: 0.55;
+}
+
+button.tech .reqs {
+  font-size: 11px;
+  line-height: 1.35;
+  color: var(--muted);
+}
+
+button.tech .reqs .req.met {
+  color: rgb(61 220 106);
+}
+
+button.tech .reqs.none {
+  font-style: italic;
+  opacity: 0.8;
+}
+
+.tech-box .tiers {
+  position: relative;
+  column-gap: 28px;
+}
+
+/* Gleichmäßiger Abstand zwischen allen Kacheln einer Stufe; darin läuft eine Linie durch. */
+.tech-box .tier {
+  gap: 16px;
+}
+
+.tech-links {
+  position: absolute;
+  left: 0;
+  top: 0;
+  pointer-events: none;
+  overflow: visible;
+}
+
+.tech-links path {
+  fill: none;
+  stroke: rgb(150 185 230 / 0.55);
+  stroke-width: 1.8;
+  stroke-linejoin: round;
+  transition: opacity 0.12s;
+}
+
+.tech-links path.met {
+  stroke: rgb(61 220 106 / 0.75);
+}
+
+/* Ohne Überfahren keine Linien; beim Überfahren nur der Weg dorthin und die direkten Folgestufen. */
+.tech-links path {
+  display: none;
+}
+
+.tech-links.has-hl path.hl-req,
+.tech-links.has-hl path.hl-dep {
+  display: inline;
+}
+
+.tech-links path.hl-req {
+  stroke: rgb(92 178 255);
+  stroke-width: 3;
+}
+
+.tech-links path.hl-dep {
+  stroke: rgb(186 120 255);
+  stroke-width: 3;
+}
+
+/* Karten deckend, damit die Verbindungslinien darunter nicht durch den Text scheinen. */
+.tech-box button.tech {
+  position: relative;
+  z-index: 1;
+  background-color: #0e1628;
+}
+
+button.tech.hl-req {
+  border-color: rgb(92 178 255 / 0.9);
+  box-shadow: 0 0 0 1px rgb(92 178 255 / 0.5);
+}
+
+button.tech.hl-dep {
+  border-color: rgb(186 120 255 / 0.9);
+  box-shadow: 0 0 0 1px rgb(186 120 255 / 0.5);
+}
+
+button.tech.hl-self {
+  border-color: var(--text);
 }
 
 @media (max-width: 900px) {

@@ -174,20 +174,20 @@ Automatisch aus `src/sim/rules/` erzeugt (`npm run docs`). Nicht von Hand bearbe
 | Astronomie | 5 | 165 | Kalender, Mathematik | 🔭 Himmelswarte (Weltwunder)<br>🚢 Karavelle |
 | Philosophie | 4 | 110 | Schrift, Mystik | 🦉 Akademie der Weisen (Weltwunder) |
 | Theaterkunst | 5 | 165 | Mystik, Währung | 🎭 Theater<br>🏟️ Großes Amphitheater (Weltwunder) |
-| Gesetzgebung | 5 | 165 | Schrift, Währung | ⚖️ Gerichtsgebäude<br>📜 Bürgerrepublik |
+| Gesetzgebung | 5 | 165 | Währung | ⚖️ Gerichtsgebäude<br>📜 Bürgerrepublik |
 | Ingenieurwesen | 5 | 165 | Mathematik, Rad | 🚰 Aquädukt<br>✨ Straßen kosten nur noch ¼ Bewegung |
-| Baukunst | 5 | 165 | Steinmetzkunst, Mathematik | 🎯 Langbogenschütze |
+| Baukunst | 5 | 165 | Mathematik | 🎯 Langbogenschütze |
 | Gelehrsamkeit | 6 | 240 | Philosophie, Astronomie | 🎓 Universität |
 | Theologie | 6 | 240 | Philosophie, Theaterkunst | ⛪ Kathedrale<br>📿 Missionar<br>📜 Tempelpflicht |
 | Burgenbau | 6 | 240 | Eisenverarbeitung, Ingenieurwesen | 🏰 Burg<br>🧱 Wall der Ahnen (Weltwunder)<br>🏗️ Tribok |
 | Lehnswesen | 7 | 330 | Gesetzgebung, Burgenbau | 🗡️ Pikenier<br>🏇 Ritter<br>✨ +1 freie Einheit je Stadt |
 | Bankwesen | 7 | 330 | Gesetzgebung, Gelehrsamkeit | 🏦 Bank<br>📜 Handelsherrschaft |
 | Buchdruck | 7 | 330 | Gelehrsamkeit, Theologie | 🖨️ Druckerei |
-| Schießpulver | 7 | 330 | Eisenverarbeitung, Burgenbau | 💂 Musketier |
+| Schießpulver | 7 | 330 | Burgenbau | 💂 Musketier |
 | Navigation | 6 | 240 | Seefahrt, Astronomie | ⛴️ Fregatte<br>✨ Alle Schiffe dürfen auf den Ozean |
 | Ökonomie | 8 | 430 | Bankwesen, Buchdruck | 📈 Börse<br>📜 Freier Markt |
 | Verfassung | 8 | 430 | Gesetzgebung, Buchdruck | 📜 Volksherrschaft<br>📜 Freiheitsrechte |
-| Physik | 8 | 430 | Astronomie, Buchdruck | – |
+| Physik | 8 | 430 | Buchdruck | – |
 | Metallurgie | 8 | 430 | Schießpulver | 💣 Kanone |
 | Militärtradition | 8 | 430 | Schießpulver, Lehnswesen | 🐴 Kavallerie |
 | Bildungswesen | 9 | 540 | Verfassung, Physik | 💡 Leuchtfeuer des Wissens (Weltwunder)<br>📜 Bildungsideal |
@@ -203,8 +203,8 @@ Automatisch aus `src/sim/rules/` erzeugt (`npm run docs`). Nicht von Hand bearbe
 | Funktechnik | 12 | 950 | Elektrizität | 📡 Sendeturm |
 | Motorisierung | 13 | 1120 | Verbrennungsmotor, Präzisionswaffen | 🪖 Infanterie<br>🛡 Panzer |
 | Raketentechnik | 13 | 1120 | Verbrennungsmotor, Funktechnik | 🚀 Startrampe |
-| Computer | 14 | 1300 | Funktechnik, Raketentechnik | 🧪 Labor<br>☄️ Sternenantrieb |
-| Raumfahrt | 15 | 1500 | Raketentechnik, Computer | 🛰️ Habitatmodul |
+| Computer | 14 | 1300 | Raketentechnik | 🧪 Labor<br>☄️ Sternenantrieb |
+| Raumfahrt | 15 | 1500 | Computer | 🛰️ Habitatmodul |
 | Globalisierung | 15 | 1500 | Computer, Ideologien | ✨ +1 Handel je Handelsroute |
 | Luftfahrt | 13 | 1120 | Verbrennungsmotor, Funktechnik | ✈️ Jagdflugzeug<br>🛩️ Bomber<br>🎯 Flugabwehr<br>🚢 Flugzeugträger |
 | Ökologie | 12 | 950 | Elektrizität, Medizin | ♻️ Recyclinghof<br>✨ Arbeiter säubern in 2 statt 4 Runden |
