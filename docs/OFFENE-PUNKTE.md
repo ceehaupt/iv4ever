@@ -32,8 +32,7 @@ Kennzeichnung: **[Erledigt]** = umgesetzt · **[Fehler]** = Verhalten ist falsch
 - **[Erledigt] Balancing:** automatische Testpartien (`npm run autoplay`), erste Runde ausgewertet und angepasst (Kultursieg 2400, Projekt teurer, Händlerregel) – siehe `docs/BALANCING.md`.
 - **[Grenze]** Keine Luft-, Atom- oder Spionageeinheiten; die späten Zeitalter enden bei Panzern, Zerstörern und Transportern.
 - **[Grenze]** Keine Religion, kein Stadtstaaten-System, kein Weltkongress bzw. keine diplomatische Abstimmung.
-- **[Grenze]** Diplomatie kennt nur Frieden/Krieg, offene Grenzen und Handel (Gold/Technologien): keine Bündnisse, kein Tausch von
-  Städten oder Ressourcen, keine Forderungen bzw. Tribute.
+- **[Erledigt]** Bündnisse (Verteidigung, gemeinsame Sicht) und Forderungen/Tribut. Offen: KIs schließen untereinander selten Bündnisse (Ø 0,5 je Partie), weil offene Grenzen zwischen KIs selten sind – beim nächsten Balancing prüfen.
 - **[Grenze]** Keine Umweltfolgen (Verschmutzung, Klima) durch Fabriken und Kraftwerke.
 - **[Lücke]** Keine Szenarien und keine Karteneditor-Funktion.
 

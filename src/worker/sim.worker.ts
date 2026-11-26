@@ -8,7 +8,7 @@ import { promotionChoices, UnitTypeId, xpForNext } from '../sim/rules/units';
 import { tilesAround } from '../sim/hex';
 import { isWater, Relief } from '../sim/rules/terrain';
 import { type CombatEvent, cityDefenseAt } from '../sim/war';
-import { attitude, attitudeLabel, canGive, militaryPower, relation } from '../sim/diplomacy';
+import { attitude, attitudeLabel, canGive, militaryPower, type Proposal, relation, type TradeItem } from '../sim/diplomacy';
 import { DEFAULT_TURN_LIMIT, progress, score } from '../sim/victory';
 import { TECHS } from '../sim/rules/techs';
 import { jobTurns } from '../sim/work';
@@ -182,13 +182,13 @@ function sendView(
           const techs = (giver: number, receiver: number) =>
             TECHS.map((_, id) => id).filter((id) => canGive(s, giver, receiver, { kind: 'tech', tech: id }));
           return {
-            id: o.id, name: o.name, leader: o.persona?.leader ?? '', war: r.war, openBorders: r.openBorders,
+            id: o.id, name: o.name, leader: o.persona?.leader ?? '', war: r.war, openBorders: r.openBorders, alliance: !!r.alliance,
             attitude: att, attitudeLabel: attitudeLabel(att),
             powerRatio: militaryPower(s, o.id) / Math.max(1, militaryPower(s, viewer)), gold: o.gold,
             techsToGet: techs(o.id, viewer), techsToGive: techs(viewer, o.id),
           };
         }),
-      pending: s.diplomacy.pending.filter((x) => x.to === viewer).map((x) => ({ id: x.id, from: x.from, kind: x.proposal.kind })),
+      pending: s.diplomacy.pending.filter((x) => x.to === viewer).map((x) => ({ id: x.id, from: x.from, kind: x.proposal.kind, text: proposalText(x.proposal) })),
     },
     victory: {
       progress: progress(s, viewer),
@@ -207,6 +207,24 @@ function sendView(
   post({ type: 'view', view, moves: visibleMoves, events: ownEvents, combats: visibleCombats, reason, foundedCity }, [
     fog.buffer, tileOwner.buffer, layers.improvement.buffer, layers.road.buffer, layers.feature.buffer,
   ]);
+}
+
+const itemText = (i: TradeItem) => (i.kind === 'gold' ? `${i.amount} Gold` : TECHS[i.tech].name);
+
+/** Lesbarer Inhalt eines Angebots (aus Sicht des Empfängers). */
+function proposalText(p: Proposal): string {
+  switch (p.kind) {
+    case 'peace':
+      return 'bietet Frieden an.';
+    case 'openBorders':
+      return 'bietet offene Grenzen an.';
+    case 'alliance':
+      return 'bietet ein Verteidigungsbündnis an (gemeinsame Sicht, Beistand bei Angriffen).';
+    case 'demand':
+      return `fordert ${p.get.map(itemText).join(' und ')} – ohne Gegenleistung.`;
+    case 'trade':
+      return `bietet ${p.give.map(itemText).join(' und ') || 'nichts'} für ${p.get.map(itemText).join(' und ') || 'nichts'}.`;
+  }
 }
 
 function saveMeta(s: GameState, slot: string, label: string): SaveMeta {

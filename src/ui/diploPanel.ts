@@ -9,6 +9,7 @@ export interface DiploHandlers {
   onDeclareWar(civ: number): void;
   onPropose(civ: number, proposal: Proposal): void;
   onRespond(proposal: number, accept: boolean): void;
+  onCancelAlliance(civ: number): void;
 }
 
 const pct = (v: number) => `${Math.round(v * 100)} %`;
@@ -44,7 +45,16 @@ export class DiploPanel {
           h.onPropose(civ, { kind: 'openBorders' });
           break;
         case 'trade':
-          this.proposeTrade(civ);
+          this.proposeTrade(civ, false);
+          break;
+        case 'demand':
+          this.proposeTrade(civ, true);
+          break;
+        case 'alliance':
+          h.onPropose(civ, { kind: 'alliance' });
+          break;
+        case 'cancel-alliance':
+          if (window.confirm('Bündnis wirklich kündigen? Der Partner wird das nicht vergessen.')) h.onCancelAlliance(civ);
           break;
         case 'accept':
         case 'decline':
@@ -76,7 +86,8 @@ export class DiploPanel {
     if (this.open) this.render();
   }
 
-  private proposeTrade(civ: number): void {
+  /** Handel vorschlagen bzw. (demand) nur fordern – dann zählt nur „Ich bekomme“. */
+  private proposeTrade(civ: number, demand: boolean): void {
     const form = this.el.querySelector<HTMLElement>(`[data-trade="${civ}"]`);
     if (!form) return;
     const val = (sel: string) => (form.querySelector(sel) as HTMLInputElement | HTMLSelectElement).value;
@@ -90,6 +101,10 @@ export class DiploPanel {
     };
     const give = items('.give-gold', '.give-tech');
     const get = items('.get-gold', '.get-tech');
+    if (demand) {
+      if (get.length) this.h.onPropose(civ, { kind: 'demand', get });
+      return;
+    }
     if (!give.length && !get.length) return;
     this.h.onPropose(civ, { kind: 'trade', give, get });
   }
@@ -101,7 +116,7 @@ export class DiploPanel {
     const pending = d.pending
       .map((p) => {
         const civ = d.civs.find((c) => c.id === p.from);
-        return `<div class="pending"><span>${civ?.name ?? 'Jemand'} bietet ${p.kind === 'peace' ? 'Frieden' : 'ein Abkommen'} an.</span>
+        return `<div class="pending"><span>${civ?.name ?? 'Jemand'} ${p.text}</span>
           <button type="button" data-act="accept" data-id="${p.id}">Annehmen</button>
           <button type="button" data-act="decline" data-id="${p.id}">Ablehnen</button></div>`;
       })
@@ -115,19 +130,24 @@ export class DiploPanel {
           <header>
             <span class="swatch" style="background:${toCss(playerColor(c.id))}"></span>
             <strong>${c.name}</strong> <small>${c.leader}</small>
-            <span class="status ${c.war ? 'war' : 'peace'}">${c.war ? 'Krieg' : c.openBorders ? 'Frieden · offene Grenzen' : 'Frieden'}</span>
+            <span class="status ${c.war ? 'war' : 'peace'}">${c.war ? 'Krieg' : c.alliance ? 'Bündnis' : c.openBorders ? 'Frieden · offene Grenzen' : 'Frieden'}</span>
           </header>
           <div class="facts">Haltung: <b>${c.attitudeLabel}</b> (${c.attitude >= 0 ? '+' : ''}${c.attitude}) · Militär: ${powerLabel(c.powerRatio)} · Gold: ${c.gold}</div>
           <div class="actions">
             ${c.war
               ? `<button type="button" data-act="peace" data-civ="${c.id}">Frieden anbieten</button>`
-              : `<button type="button" data-act="war" data-civ="${c.id}" class="danger">Krieg erklären</button>
-                 ${c.openBorders ? '' : `<button type="button" data-act="borders" data-civ="${c.id}">Offene Grenzen anbieten</button>`}`}
+              : c.alliance
+                ? `<button type="button" data-act="cancel-alliance" data-civ="${c.id}" class="danger">Bündnis kündigen</button>`
+                : `<button type="button" data-act="war" data-civ="${c.id}" class="danger">Krieg erklären</button>
+                 ${c.openBorders
+                    ? `<button type="button" data-act="alliance" data-civ="${c.id}">Bündnis anbieten</button>`
+                    : `<button type="button" data-act="borders" data-civ="${c.id}">Offene Grenzen anbieten</button>`}`}
           </div>
           ${c.war ? '' : `<div class="trade" data-trade="${c.id}">
             <label>Ich gebe <input class="give-gold" type="number" min="0" step="5" value="0" /> 💰 <select class="give-tech">${techOptions(c.techsToGive)}</select></label>
             <label>Ich bekomme <input class="get-gold" type="number" min="0" step="5" value="0" /> 💰 <select class="get-tech">${techOptions(c.techsToGet)}</select></label>
             <button type="button" data-act="trade" data-civ="${c.id}">Handel vorschlagen</button>
+            <button type="button" data-act="demand" data-civ="${c.id}" title="Nur „Ich bekomme“ zählt – ohne Gegenleistung. Wer sich weigert, ist verärgert; Kriegerische greifen dann eher zu den Waffen.">Fordern</button>
           </div>`}
         </article>`)
           .join('')
@@ -136,7 +156,7 @@ export class DiploPanel {
     const ranking = v.ranking.map((r, k) => `<li${r.name === 'Du' ? ' class="me"' : ''}>${k + 1}. ${r.name} – ${r.score}</li>`).join('');
     this.el.innerHTML = `
       <div class="diplo-box panel">
-        <header><h2>Diplomatie</h2><button type="button" class="x" data-close title="Schließen (D / Esc)">✕</button></header>
+        <header><h2>Diplomatie</h2><button type="button" class="x" data-close title="Schließen (Esc)">✕</button></header>
         ${pending ? `<section class="pendings">${pending}</section>` : ''}
         <section class="civs">${civs}</section>
         <section class="victory">

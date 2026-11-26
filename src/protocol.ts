@@ -159,6 +159,7 @@ export interface CivRelationView {
   leader: string;
   war: boolean;
   openBorders: boolean;
+  alliance: boolean;
   attitude: number;
   attitudeLabel: string;
   /** Militärische Stärke im Verhältnis zur eigenen (1 = gleich). */
@@ -171,7 +172,8 @@ export interface CivRelationView {
 
 export interface DiplomacyView {
   civs: CivRelationView[];
-  pending: { id: number; from: number; kind: string }[];
+  /** Offene Angebote an den Betrachter, mit lesbarem Inhalt. */
+  pending: { id: number; from: number; kind: string; text: string }[];
 }
 
 export interface VictoryView {

@@ -257,6 +257,7 @@ const diploPanel = new DiploPanel({
   onDeclareWar: (civ) => command({ type: 'command', command: { type: 'declareWar', target: civ } }),
   onPropose: (civ, proposal) => command({ type: 'command', command: { type: 'propose', target: civ, proposal } }),
   onRespond: (id, accept) => command({ type: 'command', command: { type: 'respond', proposal: id, accept } }),
+  onCancelAlliance: (civ) => command({ type: 'command', command: { type: 'cancelAlliance', target: civ } }),
 });
 const doctrinePanel = new DoctrinePanel((doctrine) => command({ type: 'command', command: { type: 'setDoctrine', doctrine } }));
 let victoryShown = false;

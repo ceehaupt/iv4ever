@@ -41,6 +41,10 @@ interface GameStats {
   captures: number;
   eliminated: number;
   routes: number;
+  /** Bündnisse am Ende der Partie. */
+  alliances: number;
+  alliancesFormed: number;
+  openBorders: number;
   overseasCities: number;
   maxShips: number;
   msPerTurn: number;
@@ -60,6 +64,7 @@ function play(opts: MapGenOptions, turns: number): GameStats {
   const civs = () => s.players.filter((p) => !p.barbarian);
   let wars = 0;
   let captures = 0;
+  let alliancesFormed = 0;
   let maxShips = 0;
   const tierTurn: Record<number, number> = { 5: -1, 10: -1, 15: -1 };
   const t0 = performance.now();
@@ -69,6 +74,7 @@ function play(opts: MapGenOptions, turns: number): GameStats {
     played++;
     for (const e of res.events) {
       // Ereignisse werden je Spieler gemeldet; je Ereignis nur einmal zählen (Meldung an den Erklärenden).
+      if (e.text.startsWith('Bündnis zwischen') && e.text.startsWith(`Bündnis zwischen ${s.players[e.player].name}`)) alliancesFormed++;
       if (/erklärt .* den Krieg|Du erklärst/.test(e.text) && e.text.startsWith(s.players[e.player].name)) wars++;
     }
     captures += res.combats.filter((c) => c.capturedCity && !s.players[c.attackerOwner].barbarian).length;
@@ -107,6 +113,9 @@ function play(opts: MapGenOptions, turns: number): GameStats {
     captures,
     eliminated: civs().length - alive.length,
     routes: s.routes.length,
+    alliances: Object.values(s.diplomacy.relations).filter((r) => r.alliance).length,
+    alliancesFormed,
+    openBorders: Object.values(s.diplomacy.relations).filter((r) => r.openBorders).length,
     overseasCities: overseas,
     maxShips,
     msPerTurn: ms,
@@ -156,6 +165,8 @@ ${games} Partien · ${turns} Runden max. · ${sizeKey} · ${script} · ${difficu
 | Ø eroberte Städte je Partie | ${mean('captures')} |
 | Ø vernichtete Völker | ${mean('eliminated')} |
 | Ø Handelsrouten (Ende) | ${mean('routes')} |
+| Ø Bündnisse (Ende / geschlossen) | ${mean('alliances')} / ${mean('alliancesFormed')} |
+| Ø offene Grenzen (Ende) | ${mean('openBorders')} |
 | Ø Städte in Übersee | ${mean('overseasCities')} |
 | Ø max. Schiffe gleichzeitig | ${mean('maxShips')} |
 | Abstand Erster/Zweiter (Punkte) | ${mean('scoreSpread')} × |

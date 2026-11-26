@@ -21,7 +21,7 @@ import { applyJob, jobBlocker, jobTurns } from './work';
 import { sailable, unitCost } from './naval';
 import { aiTurn } from './ai';
 import {
-  aiDiplomacy, canGive, createDiplomacy, declareWar, type Diplomacy, evaluate, execute, mayEnterTerritory, type Proposal, relation,
+  aiDiplomacy, alliesOf, canGive, cancelAlliance, createDiplomacy, declareWar, refusedDemand, type Diplomacy, evaluate, execute, mayEnterTerritory, type Proposal, relation,
   updateContacts,
 } from './diplomacy';
 import { checkVictory, type Victory } from './victory';
@@ -156,6 +156,7 @@ export type Command =
   | { type: 'declareWar'; target: number }
   | { type: 'propose'; target: number; proposal: Proposal }
   | { type: 'respond'; proposal: number; accept: boolean }
+  | { type: 'cancelAlliance'; target: number }
   | { type: 'setDoctrine'; doctrine: number }
   | { type: 'establishRoute'; unit: number };
 
@@ -273,16 +274,24 @@ export function findUnit(state: GameState, id: number): Unit | undefined {
 }
 
 /** Sicht eines Spielers neu berechnen und Erkundetes ergänzen. */
+/** Sicht eines Spielers neu berechnen – Verbündete teilen ihre Sicht, daher auch deren Sicht aktualisieren. */
 export function refreshVision(state: GameState, playerId: number): void {
+  const allies = alliesOf(state, playerId);
+  computeVision(state, playerId, allies);
+  for (const a of allies) computeVision(state, a, alliesOf(state, a));
+}
+
+function computeVision(state: GameState, playerId: number, allies: number[]): void {
   const p = state.players[playerId];
+  const sources = new Set([playerId, ...allies]);
   p.visible.fill(0);
   for (const u of state.units) {
-    if (u.owner === playerId) markVisible(state.map, u.tile, UNIT_TYPES[u.type].sight, p.visible);
+    if (sources.has(u.owner)) markVisible(state.map, u.tile, UNIT_TYPES[u.type].sight, p.visible);
   }
   for (const c of state.cities) {
-    if (c.owner === playerId) markVisible(state.map, c.tile, CITY_SIGHT, p.visible);
+    if (sources.has(c.owner)) markVisible(state.map, c.tile, CITY_SIGHT, p.visible);
   }
-  for (let i = 0; i < p.visible.length; i++) if (state.tileOwner[i] === playerId) p.visible[i] = 1;
+  for (let i = 0; i < p.visible.length; i++) if (sources.has(state.tileOwner[i])) p.visible[i] = 1;
   for (let i = 0; i < p.visible.length; i++) if (p.visible[i]) p.explored[i] = 1;
 }
 
@@ -463,6 +472,7 @@ export function applyCommand(state: GameState, player: number, cmd: Command): Co
       const r = relation(state, player, cmd.target);
       if (!r.met) throw new CommandError('Ihr kennt euch noch nicht');
       if (r.war) throw new CommandError('Ihr seid bereits im Krieg');
+      if (r.alliance) throw new CommandError('Ihr seid verbündet – erst das Bündnis kündigen');
       const events: TurnEvent[] = [];
       declareWar(state, player, cmd.target, events);
       return { moves: [], events };
@@ -487,19 +497,31 @@ export function applyCommand(state: GameState, player: number, cmd: Command): Co
       events.push({ player, text: `${target.name}: „${verdict.reason}“ – ${verdict.accept ? 'angenommen' : 'abgelehnt'}`, tile: -1 });
       return { moves: [], events, reply: { accepted: verdict.accept, text: verdict.reason } };
     }
+    case 'cancelAlliance': {
+      if (!relation(state, player, cmd.target).alliance) throw new CommandError('Kein Bündnis');
+      const events: TurnEvent[] = [];
+      cancelAlliance(state, player, cmd.target, events);
+      refreshVision(state, player);
+      return { moves: [], events };
+    }
     case 'respond': {
       const idx = state.diplomacy.pending.findIndex((p) => p.id === cmd.proposal && p.to === player);
       if (idx < 0) throw new CommandError('Angebot nicht mehr gültig');
       const [prop] = state.diplomacy.pending.splice(idx, 1);
       const events: TurnEvent[] = [];
-      if (cmd.accept && prop.proposal.kind === 'trade') {
+      if (cmd.accept && (prop.proposal.kind === 'trade' || prop.proposal.kind === 'demand')) {
         // Bedingungen können sich seit dem Angebot geändert haben.
-        const ok = prop.proposal.give.every((i) => canGive(state, prop.from, prop.to, i)) &&
-          prop.proposal.get.every((i) => canGive(state, prop.to, prop.from, i));
+        const give = prop.proposal.kind === 'trade' ? prop.proposal.give : [];
+        const ok = give.every((i) => canGive(state, prop.from, prop.to, i)) && prop.proposal.get.every((i) => canGive(state, prop.to, prop.from, i));
         if (!ok) throw new CommandError('Das Angebot kann nicht mehr erfüllt werden');
       }
+      if (cmd.accept && prop.proposal.kind === 'alliance' && relation(state, prop.from, prop.to).war) throw new CommandError('Ihr seid im Krieg');
       if (cmd.accept) execute(state, prop.from, prop.to, prop.proposal, events);
-      else events.push({ player: prop.from, text: `${state.players[player].name} lehnt dein Angebot ab`, tile: -1 });
+      else {
+        events.push({ player: prop.from, text: `${state.players[player].name} lehnt dein Angebot ab`, tile: -1 });
+        if (prop.proposal.kind === 'demand') refusedDemand(state, prop.from, player, events);
+      }
+      if (prop.proposal.kind === 'alliance') for (const x of [prop.from, prop.to]) refreshVision(state, x);
       return { moves: [], events };
     }
     case 'setDoctrine': {

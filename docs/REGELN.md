@@ -110,6 +110,11 @@ Je Bereich gilt ein Leitbild; ein Wechsel kostet eine Runde **Umbruch** (keine F
   offene Grenzen (ab Haltung +1 oder bei friedfertigen Herrschern), Handel mit Gold und Technologien
   (Technologie zählt 1,2 × ihre Kosten; Aufschlag je nach Haltung 0,9 / 1,0 / 1,3; ab −6 kein Handel).
 
+- **Bündnis** (Verteidigungsbündnis, nur mit offenen Grenzen): gemeinsame Sicht; erklärt ein Dritter einem Partner den Krieg,
+  tritt der andere automatisch bei. Verbündeten kann man nicht den Krieg erklären – erst kündigen (Haltung des Partners −3).
+- **Forderung (Tribut):** Gold oder Technologie ohne Gegenleistung. Die KI gibt nur deutlich Stärkeren nach (Haltung −2);
+  wird eine Forderung einer kriegerischen KI abgelehnt, erklärt sie eher den Krieg. Starke kriegerische KIs fordern selbst.
+
 ## Siegbedingungen
 
 - **Eroberung**: alle anderen Völker vernichtet.
