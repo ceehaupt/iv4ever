@@ -1075,3 +1075,97 @@ body.large-text .panel input {
   clip: rect(0 0 0 0);
   white-space: nowrap;
 }
+
+/* --- Karteneditor (editor.html) --- */
+a.btn {
+  font: inherit;
+  color: var(--text);
+  text-decoration: none;
+  background: rgb(255 255 255 / 0.06);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  padding: 3px 8px;
+}
+a.btn:hover {
+  background: rgb(255 255 255 / 0.14);
+}
+button.primary {
+  border-color: var(--accent);
+}
+button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.editor .filebtn {
+  cursor: pointer;
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  padding: 3px 8px;
+}
+.editor .filebtn input {
+  display: none;
+}
+#ed-tools {
+  top: 64px;
+  left: 12px;
+  width: 250px;
+  max-height: calc(100vh - 80px);
+  overflow-y: auto;
+  padding: 8px 12px 12px;
+}
+#ed-tools h3 {
+  margin: 10px 0 4px;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+}
+#ed-tools .tools {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+#ed-tools button[aria-pressed='true'] {
+  border-color: var(--accent);
+  background: rgb(255 213 74 / 0.18);
+}
+#ed-tools select {
+  max-width: 100%;
+}
+#ed-tools .field {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-bottom: 6px;
+  color: var(--muted);
+}
+#ed-tools textarea {
+  font: inherit;
+  color: var(--text);
+  background: rgb(255 255 255 / 0.06);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  resize: vertical;
+}
+#ed-status {
+  right: 12px;
+  bottom: 12px;
+  max-width: 420px;
+  padding: 8px 12px;
+}
+#ed-status ul {
+  margin: 4px 0 0;
+  padding-left: 18px;
+}
+#ed-status .warn {
+  color: #ff9b8a;
+}
+#ed-status .ok {
+  color: #8fe0a0;
+}
+#ed-status .hint,
+#ed-tools .hint {
+  color: var(--muted);
+  font-size: 12px;
+}

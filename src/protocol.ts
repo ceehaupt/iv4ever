@@ -209,6 +209,8 @@ export type ViewReason = 'new' | 'load' | 'command' | 'turn' | 'handoff' | 'wait
 /** Nachrichten Hauptthread → Simulations-Worker. */
 export type ToWorker =
   | { type: 'newGame'; options: NewGameOptions }
+  /** Neues Spiel auf einer Szenario-Karte (Datei aus dem Karteneditor). */
+  | { type: 'newScenario'; data: string; options: NewGameOptions }
   | { type: 'command'; command: Command }
   | { type: 'endTurn' }
   | { type: 'save'; slot: string; label: string }

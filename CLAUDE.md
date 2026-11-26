@@ -31,6 +31,7 @@ Enzyklopädie-Texte, Grafiken, UI-Layout/-Look, Musik, Sounds, Szenarien. Histor
 - `src/protocol.ts` – einzige Schnittstelle Worker ↔ Hauptthread.
 - `src/render/` – PixiJS-Renderer. Projektion/Konstanten in `projection.ts`; Zeichenreihenfolge zeilenweise hinten → vorn.
 - `src/ui/` – DOM-UI (HUD, Minimap).
+- `editor.html` + `src/editor/` – Karteneditor (eigene Seite, nutzt den Renderer); Szenario-Format in `src/sim/scenario.ts`.
 
 ## Performance-Regeln
 

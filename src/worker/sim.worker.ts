@@ -21,6 +21,7 @@ import { maxMoves } from '../sim/rules/units';
 import { getSave, listSaves, putSave } from './storage';
 import { stateHash } from '../sim/hash';
 import { cityPollution } from '../sim/environment';
+import { decodeScenario, ScenarioError, scenarioWorld } from '../sim/scenario';
 import { faithPerTurn, foundBlocker, religionById, stateReligion, tenetOf } from '../sim/religion';
 
 /**
@@ -295,6 +296,27 @@ async function applyRemote(s: GameState, player: number, action: RemoteAction, q
 
 async function handle(msg: ToWorker): Promise<void> {
   switch (msg.type) {
+    case 'newScenario': {
+      try {
+        const sc = decodeScenario(msg.data);
+        const options = {
+          ...msg.options, width: sc.map.width, height: sc.map.height, players: sc.starts.length, seed: sc.map.seed || msg.options.seed,
+          turnLimit: sc.turnLimit, scenario: sc.name,
+        };
+        state = createGame(scenarioWorld(sc), options);
+        mode = options.mode ?? 'single';
+        humans = state.players.filter((p) => p.human).map((p) => p.id);
+        viewer = humans[0];
+        ended.clear();
+        lastEvents = [];
+        sendMap(state, 0);
+        sendView(state, mode === 'hotseat' ? 'handoff' : 'new');
+        notice(`Szenario „${sc.name}“ gestartet`, 'info');
+      } catch (e) {
+        notice(e instanceof ScenarioError ? `Szenario: ${e.message}` : 'Szenario konnte nicht geladen werden', 'error');
+      }
+      break;
+    }
     case 'newGame': {
       const t0 = performance.now();
       const world = generateWorld(msg.options);

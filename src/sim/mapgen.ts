@@ -24,6 +24,8 @@ export interface MapGenOptions {
   difficulty?: Difficulty;
   /** Rundenlimit für den Punktsieg. */
   turnLimit?: number;
+  /** Name des Szenarios, wenn die Karte aus dem Editor stammt. */
+  scenario?: string;
   /** Mehrspieler: Modus, Anzahl Menschen, eigener Sitz (online). */
   mode?: 'single' | 'hotseat' | 'online';
   humans?: number;

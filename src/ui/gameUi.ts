@@ -273,7 +273,7 @@ export class GameUi {
       : '<p>Keine Speicherstände vorhanden.</p>';
     this.savesPanel.insertAdjacentHTML('beforeend', `<div class="file-row">
       <button type="button" data-file="export">💾 Aktuelles Spiel als Datei sichern</button>
-      <label class="filebtn">📂 Spielstand aus Datei laden <input type="file" accept=".json,application/json" data-file="import" /></label></div>`);
+      <label class="filebtn">📂 Spielstand oder Szenario aus Datei laden <input type="file" accept=".json,application/json" data-file="import" /></label></div>`);
     this.savesPanel.hidden = false;
   }
 

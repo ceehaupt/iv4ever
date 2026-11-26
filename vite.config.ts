@@ -19,5 +19,9 @@ export default defineConfig({
   define: { __APP_VERSION__: JSON.stringify(appVersion()) },
   // Standard-Aufteilung beibehalten: Pixi lädt WebGPU-/Canvas-Renderer nur bei Bedarf nach,
   // das Handbuch ist ein eigener, erst beim Öffnen geladener Chunk.
-  build: { target: 'es2022' },
+  build: {
+    target: 'es2022',
+    // Zwei Seiten: Spiel und Karteneditor.
+    rollupOptions: { input: { main: 'index.html', editor: 'editor.html' } },
+  },
 });

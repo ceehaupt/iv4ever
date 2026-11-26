@@ -253,3 +253,14 @@ Kosten, Voraussetzungen und Wirkungen: [`REGELN-DATEN.md`](REGELN-DATEN.md#gebä
   Aktionsfolge auf allen Rechnern. Beim Wiedereinstieg spielt der Mensch wieder selbst.
 - **Speichern:** Im Online-Spiel speichert der Gastgeber; fortgesetzt wird in einem neuen Raum, fehlende Menschen spielt die KI.
 - Angebote zwischen Menschen (Frieden, offene Grenzen, Handel) müssen vom Gegenüber angenommen werden.
+
+## Karteneditor und Szenarien
+
+- **Editor** (Kopfleiste „🗺️ Editor“ bzw. `editor.html`): Zufallskarte als Ausgangspunkt oder leere Karte (Ozean) in allen Größen.
+  Werkzeuge: Gelände, Höhe, Bewuchs, Ressource (nur wo sie passt), Flüsse (zwei Nachbarfelder nacheinander anklicken = Fluss auf der
+  gemeinsamen Kante an/aus), Flüsse entfernen, Startfelder; Pinsel einzeln oder Radius 1/2; Strg/⌘+Z macht rückgängig.
+  Klick malt, Ziehen verschiebt die Karte. Der Arbeitsstand bleibt im Browser erhalten.
+- **Spielbar** ist ein Szenario mit 2–10 Startfeldern auf Land (kein Gebirge) und mindestens 4 Feldern Abstand; Probleme stehen unten rechts.
+  Startfeld 1 gehört dem (ersten) Menschen, die übrigen der KI bzw. weiteren Hotseat-Spielern. Optional: Name, Beschreibung, Rundenlimit.
+- **Speichern** als Datei (`*.iv4ever-szenario.json`); **Spielen** startet sofort. Im Spiel startet „Laden ▾ → Spielstand oder
+  Szenario aus Datei laden“ ein Szenario mit Schwierigkeit und Modus aus der Kopfleiste. Online-Partien mit Szenario gibt es noch nicht.

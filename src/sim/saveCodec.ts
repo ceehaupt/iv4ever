@@ -8,14 +8,14 @@ type TypedName = keyof typeof TYPED;
 /** Kennung des Dateiformats (erste Zeile des JSON). */
 export const SAVE_FILE_KIND = 'iv4ever-save';
 
-function toBase64(bytes: Uint8Array): string {
+export function toBase64(bytes: Uint8Array): string {
   let bin = '';
   const CHUNK = 0x8000;
   for (let i = 0; i < bytes.length; i += CHUNK) bin += String.fromCharCode(...bytes.subarray(i, i + CHUNK));
   return btoa(bin);
 }
 
-function fromBase64(b64: string): Uint8Array {
+export function fromBase64(b64: string): Uint8Array {
   const bin = atob(b64);
   const out = new Uint8Array(bin.length);
   for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);

@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>iv4ever – Karteneditor</title>
+  </head>
+  <body class="editor">
+    <div id="game"></div>
+
+    <header id="topbar" class="panel">
+      <strong class="brand">iv4ever · Editor</strong>
+      <label>Größe <select id="ed-size"></select></label>
+      <label>Typ <select id="ed-script"></select></label>
+      <button id="ed-random" type="button" title="Zufallskarte als Ausgangspunkt (ersetzt die aktuelle Karte)">Zufallskarte</button>
+      <button id="ed-blank" type="button" title="Leere Karte aus Ozean (ersetzt die aktuelle Karte)">Leere Karte</button>
+      <span class="sep"></span>
+      <label class="filebtn">📂 Öffnen <input id="ed-open" type="file" accept=".json,application/json" /></label>
+      <button id="ed-save" type="button">💾 Als Datei speichern</button>
+      <button id="ed-play" type="button" class="primary">▶ Spielen</button>
+      <a class="btn" href="./">← Zum Spiel</a>
+      <span id="stats"></span>
+    </header>
+
+    <aside id="ed-tools" class="panel" aria-label="Werkzeuge"></aside>
+
+    <aside id="ed-status" class="panel" aria-live="polite"></aside>
+
+    <div id="toast" class="panel" hidden role="status"></div>
+
+    <script type="module" src="/src/editor/main.ts"></script>
+  </body>
+</html>

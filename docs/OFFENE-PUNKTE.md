@@ -36,7 +36,8 @@ Kennzeichnung: **[Erledigt]** = umgesetzt · **[Fehler]** = Verhalten ist falsch
 - **[Grenze]** Kein Stadtstaaten-System, kein Weltkongress bzw. keine diplomatische Abstimmung.
 - **[Erledigt]** Bündnisse (Verteidigung, gemeinsame Sicht) und Forderungen/Tribut. Offen: KIs schließen untereinander selten Bündnisse (Ø 0,5 je Partie), weil offene Grenzen zwischen KIs selten sind – beim nächsten Balancing prüfen.
 - **[Erledigt]** Umwelt: Verschmutzung durch Industrie und Großstädte, Säubern, Recyclinghof (Ökologie), Klimawandel.
-- **[Lücke]** Keine Szenarien und keine Karteneditor-Funktion.
+- **[Erledigt]** Karteneditor mit Szenario-Dateien (Gelände, Ressourcen, Flüsse, Startfelder; Rückgängig; direkt spielen).
+- **[Grenze]** Szenarien legen nur Karte und Startfelder fest (keine vorgegebenen Städte, Einheiten, Technologien oder Ereignisse) und sind online nicht verfügbar. Der Editor braucht eine Maus (Malen per Tastatur fehlt).
 
 ## Präsentation und Bedienung
 

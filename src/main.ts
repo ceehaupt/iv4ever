@@ -1,4 +1,5 @@
 import './style.css';
+import { SCENARIO_STORAGE } from './editor/shared';
 import type { CityView, FromWorker, GameView, ToWorker, UnitView } from './protocol';
 import { GameRenderer, isTyping } from './render/renderer';
 import { foundingBlockerAt } from './sim/city';
@@ -237,7 +238,10 @@ const ui = new GameUi({
       ui.toast('Im Online-Spiel nicht möglich – Fortsetzen über „Online …“', 'error');
       return;
     }
-    if (confirmDiscard()) worker.postMessage({ type: 'loadData', data: text });
+    if (!confirmDiscard()) return;
+    // Szenario (Karteneditor) oder Spielstand – am Dateikennzeichen erkennen.
+    if (text.includes('"iv4ever-scenario"')) startScenario(text);
+    else worker.postMessage({ type: 'loadData', data: text });
   },
   onRate: (rate) => send({ type: 'command', command: { type: 'setRate', rate } }),
   onEventClick: (tile) => {
@@ -978,6 +982,19 @@ worker.onmessage = (e: MessageEvent<FromWorker>) => {
 };
 
 hud.confirmDiscard = confirmDiscard;
+
+function startScenario(text: string): void {
+  const options = hud.currentOptions();
+  if (options.mode === 'online') {
+    ui.toast('Szenarien gibt es (noch) nicht online – bitte Einzelspieler oder Hotseat wählen', 'error');
+    return;
+  }
+  onlineGame = false;
+  online.close();
+  chat.el.hidden = true;
+  turnDeadline = 0;
+  worker.postMessage({ type: 'newScenario', data: text, options });
+}
 hud.onNewMap = (options) => {
   if (options.mode === 'online') {
     renderOnline();
@@ -1179,4 +1196,9 @@ function renderKeyHints(): void {
 }
 renderKeyHints();
 
-hud.requestNewMap(false, false);
+// Aus dem Karteneditor „Spielen“: Szenario liegt in der Sitzung bereit.
+const pendingScenario = new URLSearchParams(location.search).has('scenario') ? sessionStorage.getItem(SCENARIO_STORAGE) : null;
+if (pendingScenario) {
+  history.replaceState(null, '', location.pathname);
+  startScenario(pendingScenario);
+} else hud.requestNewMap(false, false);
