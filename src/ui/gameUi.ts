@@ -207,7 +207,7 @@ export class GameUi {
             : btn('wake', 'Aufwecken', 'F'),
           btn('skip', 'Überspringen', 'Leer', selected.moves > 0),
           ...(t.air || selected.orders === Orders.Explore ? [] : [btn('explore', 'Erkunden', 'E', true,
-            'Zieht jede Runde selbst ins Unbekannte; hält an, wenn Gegner auftauchen oder nichts mehr zu entdecken ist')]),
+            'Zieht jede Runde selbst ins Unbekannte; hält an, sobald eine fremde Einheit in Sicht kommt oder nichts mehr zu entdecken ist')]),
           ...(t.missionary ? [btn('spread', 'Religion verbreiten', 'V', true, 'In einer eigenen oder neben einer fremden Stadt: Stadt folgt eurer Staatsreligion')] : []),
           ...(t.trade ? [btn('route', 'Handelsroute', 'R', true, 'In oder neben einer mindestens 6 Felder entfernten Stadt: Route zur nächsten eigenen Stadt')] : []),
           ...(t.cargo ? [btn('load', `Einladen (${cargo.length}/${t.cargo})`, 'L',

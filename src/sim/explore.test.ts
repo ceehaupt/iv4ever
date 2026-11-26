@@ -44,7 +44,7 @@ describe('Erkunden', () => {
     expect(scoutOf(s).orders).toBe(Orders.None);
   });
 
-  it('hält an, wenn ein Gegner in die Nähe kommt', () => {
+  it('hält an, wenn ein Plünderer in Sicht kommt', () => {
     const s = fogged();
     const scout = scoutOf(s);
     applyCommand(s, HUMAN, { type: 'explore', unit: scout.id });
@@ -58,7 +58,36 @@ describe('Erkunden', () => {
     expect(s.units.includes(scout)).toBe(true);
     expect(scout.orders).toBe(Orders.None);
     expect(scout.tile).toBe(tile);
-    expect(events.some((e) => e.player === HUMAN && e.text.includes('Gegner in der Nähe'))).toBe(true);
+    expect(events.some((e) => e.player === HUMAN && e.text.includes('Erkundung unterbrochen'))).toBe(true);
+    expect(scout.exploreSeen).toBeUndefined();
+  });
+
+  it('hält an, sobald eine Einheit einer anderen Zivilisation ins Sichtfeld kommt – auch mitten im Zug', () => {
+    // Friedliche Einheit von Spieler 1 in 3 Feldern Abstand (außerhalb der Sicht 2) – je nach Lage läuft der Späher hinein.
+    let stoppedMidMove = 0;
+    for (const t of landTiles(islands()).filter((x) => tileDistance(islands().map, x, T(14, 9)) === 3)) {
+      const s = fogged();
+      const scout = scoutOf(s);
+      const other = addUnit(s, 1, UnitTypeId.Warrior, t);
+      const r = applyCommand(s, HUMAN, { type: 'explore', unit: scout.id });
+      const sees = tileDistance(s.map, scout.tile, other.tile) <= 2;
+      if (!sees) continue;
+      expect(scout.orders).toBe(Orders.None);
+      expect(r.events?.some((e) => e.text.includes('Krieger') && e.text.includes('in Sicht'))).toBe(true);
+      if (scout.moves > 0) stoppedMidMove++;
+    }
+    expect(stoppedMidMove).toBeGreaterThan(0);
+  });
+
+  it('schon beim Erteilen sichtbare Einheiten halten nicht an', () => {
+    const s = fogged();
+    const scout = scoutOf(s);
+    const near = landTiles(s).find((t) => tileDistance(s.map, t, scout.tile) === 2)!;
+    const other = addUnit(s, 1, UnitTypeId.Warrior, near);
+    other.orders = Orders.Fortify;
+    applyCommand(s, HUMAN, { type: 'explore', unit: scout.id });
+    expect(scout.orders).toBe(Orders.Explore);
+    expect(scout.exploreSeen).toContain(other.id);
   });
 
   it('Aufwecken beendet das Erkunden; Flugzeuge können nicht erkunden', () => {

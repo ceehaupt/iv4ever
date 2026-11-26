@@ -69,6 +69,8 @@ export interface Unit {
   aiTarget?: number;
   /** Runde, in der diese Einheit zuletzt einen Luftangriff abgefangen hat (Jäger, Flugabwehr). */
   interceptedTurn?: number;
+  /** Erkunden: fremde Einheiten, die diese Einheit schon im Blick hat (nur neue lassen sie anhalten). */
+  exploreSeen?: number[];
 }
 
 export interface Player {
@@ -400,7 +402,8 @@ export function pathFor(state: GameState, u: Unit, target: number): number[] | n
 }
 
 /** Geht den gespeicherten Weg so weit wie möglich; plant neu, wenn unterwegs Hindernisse auftauchen. */
-function continueMove(state: GameState, u: Unit): MoveEvent | null {
+/** stopAfterStep: nach jedem Schritt gefragt; true bricht den Zug ab (Weg bleibt erhalten). */
+function continueMove(state: GameState, u: Unit, stopAfterStep?: () => boolean): MoveEvent | null {
   const steps = [u.tile];
   const occ = occupancy(state);
   let replans = 0;
@@ -432,6 +435,7 @@ function continueMove(state: GameState, u: Unit): MoveEvent | null {
     u.path.shift();
     steps.push(next);
     refreshVision(state, u.owner);
+    if (stopAfterStep?.()) break;
   }
   if (!u.path || u.path.length === 0) {
     u.path = null;
@@ -458,46 +462,67 @@ function exploreTargetPath(state: GameState, u: Unit, occ: Int16Array): number[]
   return null;
 }
 
-/** Sichtbare gegnerische Einheit (Krieg oder Plünderer) in der Nähe? */
-function exploreDanger(state: GameState, u: Unit): boolean {
-  const p = state.players[u.owner];
-  return state.units.some((o) =>
-    o.owner !== u.owner && p.visible[o.tile] === 1 && tileDistance(state.map, u.tile, o.tile) <= EXPLORE_DANGER_RADIUS &&
+/** Fremde Einheiten im eigenen Sichtfeld der Einheit (nicht dem des ganzen Volks). */
+function foreignInSight(state: GameState, u: Unit): Unit[] {
+  const sight = new Uint8Array(state.map.width * state.map.height);
+  markVisible(state.map, u.tile, UNIT_TYPES[u.type].sight, sight);
+  return state.units.filter((o) => o.owner !== u.owner && sight[o.tile] === 1);
+}
+
+/**
+ * Grund, das Erkunden abzubrechen, oder null. Hält an, wenn eine fremde Einheit neu ins Sichtfeld kommt,
+ * und – bei sightAndDanger – auch, wenn ein Gegner (Krieg oder Plünderer) höchstens EXPLORE_DANGER_RADIUS entfernt steht.
+ * Merkt sich die gesehenen Einheiten (record = nur merken, nie anhalten).
+ */
+function exploreAlert(state: GameState, u: Unit, mode: 'record' | 'sight' | 'sightAndDanger'): string | null {
+  const inSight = foreignInSight(state, u);
+  const known = new Set(u.exploreSeen ?? []);
+  u.exploreSeen = inSight.map((o) => o.id);
+  if (mode === 'record') return null;
+  const civ = (o: Unit) => state.players[o.owner].name;
+  const fresh = inSight.find((o) => !known.has(o.id));
+  if (fresh) return `Erkundung unterbrochen – ${UNIT_TYPES[fresh.type].name} (${civ(fresh)}) in Sicht`;
+  if (mode === 'sight') return null;
+  const danger = inSight.find((o) => tileDistance(state.map, u.tile, o.tile) <= EXPLORE_DANGER_RADIUS &&
     (state.players[o.owner].barbarian || relation(state, u.owner, o.owner).war));
+  return danger ? `Erkundung unterbrochen – Gegner in der Nähe (${civ(danger)})` : null;
 }
 
 /**
  * Erkunden fortsetzen: zum nächsten erreichbaren Randfeld ziehen, bei Ankunft ein neues wählen.
- * Endet (Befehl aufgehoben, Meldung) bei Gegnern in der Nähe oder wenn nichts mehr zu erkunden ist.
- * checkDanger = false beim Erteilen: wer trotz Gegnern losschickt, will das so.
+ * Endet (Befehl aufgehoben, Meldung), sobald exploreAlert anschlägt (geprüft nach jedem Schritt),
+ * an Bord oder wenn nichts mehr zu erkunden ist.
+ * initial = beim Erteilen: schon sichtbare Einheiten und nahe Gegner nimmt der Spieler bewusst in Kauf;
+ * neu auftauchende Einheiten halten die Einheit aber auch dann an.
  */
-function continueExplore(state: GameState, u: Unit, events: TurnEvent[], checkDanger: boolean): MoveEvent | null {
+function continueExplore(state: GameState, u: Unit, events: TurnEvent[], initial: boolean): MoveEvent | null {
   const steps = [u.tile];
   const name = UNIT_TYPES[u.type].name;
-  const stop = (text: string) => {
-    u.orders = Orders.None;
-    u.path = null;
-    events.push({ player: u.owner, text: `${name}: ${text}`, tile: u.tile });
-  };
-  for (let leg = 0; leg < 6 && u.moves > 0 && u.orders === Orders.Explore; leg++) {
+  const mode = initial ? 'sight' : 'sightAndDanger';
+  let alert = exploreAlert(state, u, initial ? 'record' : mode);
+  let done: string | null = null;
+  for (let leg = 0; leg < 6 && !alert && u.moves > 0 && u.orders === Orders.Explore; leg++) {
     if (u.carriedBy) {
-      stop('Erkundung beendet – an Bord gegangen');
-      break;
-    }
-    if ((checkDanger || leg > 0) && exploreDanger(state, u)) {
-      stop('Erkundung unterbrochen – Gegner in der Nähe');
+      done = 'Erkundung beendet – an Bord gegangen';
       break;
     }
     if (!u.path?.length) {
       u.path = exploreTargetPath(state, u, occupancy(state));
       if (!u.path) {
-        stop('nichts mehr zu erkunden');
+        done = 'nichts mehr zu erkunden';
         break;
       }
     }
-    const ev = continueMove(state, u);
+    const ev = continueMove(state, u, () => (alert = exploreAlert(state, u, mode)) !== null);
     if (!ev) break;
     steps.push(...ev.steps.slice(1));
+  }
+  const reason = alert ?? done;
+  if (reason) {
+    u.orders = Orders.None;
+    u.path = null;
+    u.exploreSeen = undefined;
+    events.push({ player: u.owner, text: `${name}: ${reason}`, tile: u.tile });
   }
   return steps.length > 1 ? { unit: u.id, owner: u.owner, steps } : null;
 }
@@ -716,13 +741,14 @@ function unitCommand(state: GameState, player: number, cmd: Extract<Command, { u
       u.path = null;
       u.job = null;
       const events: TurnEvent[] = [];
-      const ev = continueExplore(state, u, events, false);
+      const ev = continueExplore(state, u, events, true);
       return { moves: ev ? [ev] : [], events };
     }
     case 'wake':
       u.orders = Orders.None;
       u.path = null;
       u.job = null;
+      u.exploreSeen = undefined;
       return { moves: [] };
     case 'disband': {
       // Mit einem Schiff auf See geht auch die Ladung unter.
@@ -818,7 +844,7 @@ export function endTurn(state: GameState): { moves: MoveEvent[]; events: TurnEve
       const ev = continueMove(state, u);
       if (ev) events.push(ev);
     } else if (u.orders === Orders.Explore) {
-      const ev = continueExplore(state, u, turnEvents, true);
+      const ev = continueExplore(state, u, turnEvents, false);
       if (ev) events.push(ev);
     }
   }

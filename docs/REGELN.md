@@ -54,8 +54,10 @@ Werte aller Einheiten: [`REGELN-DATEN.md`](REGELN-DATEN.md#einheiten). Start mit
 - Mit der letzten Bewegung darf jedes betretbare Feld noch betreten werden (die Runde ist danach vorbei).
 - Stapel: unbegrenzt viele eigene Einheiten pro Feld; fremde Einheiten und Städte blockieren.
 - **Erkunden (E):** Jede Einheit außer Flugzeugen zieht auf Befehl jede Runde selbst zum nächsten erreichbaren Feld am Rand des Bekannten
-  (Landeinheiten über Land, Schiffe übers Wasser). Sie hält an – mit Meldung –, wenn ein sichtbarer Gegner (Kriegsgegner oder Plünderer)
-  höchstens 2 Felder entfernt steht, wenn sie an Bord geht oder wenn nichts mehr zu entdecken ist. Aufwecken (F) beendet den Befehl.
+  (Landeinheiten über Land, Schiffe übers Wasser). Sie hält an – mit Meldung, auch mitten im Zug –, sobald eine fremde Einheit
+  (jedes Volk, auch Plünderer) neu in ihr eigenes Sichtfeld kommt. Einheiten, die beim Erteilen schon zu sehen waren, zählen erst
+  wieder, wenn sie aus dem Blick waren; ein Kriegsgegner oder Plünderer höchstens 2 Felder entfernt hält sie aber ab der nächsten Runde an.
+  Außerdem endet das Erkunden an Bord oder wenn nichts mehr zu entdecken ist. Aufwecken (F) beendet den Befehl.
 - Sicht: +1 auf Hügeln; Wald/Dschungel, Hügel und Gebirge verdecken, was dahinter liegt.
 
 ## Religion

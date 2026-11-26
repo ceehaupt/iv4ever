@@ -111,7 +111,7 @@ export function toSaveData(s: GameState): SaveData {
       upheaval: p.upheaval,
       faith: p.faith ?? 0,
     })),
-    units: s.units.map((u) => ({ ...u, path: u.path ? u.path.slice() : null, promotions: u.promotions.slice() })),
+    units: s.units.map((u) => ({ ...u, path: u.path ? u.path.slice() : null, promotions: u.promotions.slice(), exploreSeen: u.exploreSeen?.slice() })),
     nextUnitId: s.nextUnitId,
     cities: s.cities.map((c) => structuredClone(c)),
     nextCityId: s.nextCityId,
