@@ -9,7 +9,10 @@ export default defineConfig({
   timeout: 60_000,
   fullyParallel: false,
   workers: 1,
-  reporter: process.env.CI ? 'github' : 'list',
+  // In der CI zusätzlich „list“, damit die vollständige Fehlermeldung im Log steht.
+  reporter: process.env.CI ? [['github'], ['list']] : 'list',
+  // Langsame CI-Rechner: einmal wiederholen, um echte Fehler von Zeitproblemen zu unterscheiden (Wiederholung steht im Log).
+  retries: process.env.CI ? 1 : 0,
   use: { baseURL: 'http://localhost:5199', trace: 'retain-on-failure' },
   webServer: [
     { command: 'npx vite --port 5199 --strictPort', url: 'http://localhost:5199', reuseExistingServer: !process.env.CI },

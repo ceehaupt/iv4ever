@@ -293,6 +293,9 @@ button:disabled {
   gap: 4px;
   padding: 8px;
   min-width: 280px;
+  /* Viele Spielstände: scrollen statt über den Bildschirmrand hinaus (sonst ist der Datei-Export unerreichbar). */
+  max-height: calc(100vh - 140px);
+  overflow-y: auto;
   z-index: 2;
 }
 

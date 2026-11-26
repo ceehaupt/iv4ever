@@ -1,13 +1,15 @@
 import { expect, type Page, test } from '@playwright/test';
 
-/** Neues Einzelspiel mit festem Seed starten. */
-async function newGame(page: Page, seed = '1234'): Promise<void> {
+/**
+ * Einzelspiel starten: das beim Laden erzeugte Spiel nutzen und warten, bis seine Einheiten da sind.
+ * (Früher wurde hier per Seed eine zweite Karte erzeugt – auf langsamen CI-Rechnern lief der nächste
+ * Testschritt dann noch gegen das alte Spiel, und die neue Karte überschrieb den Rundenwechsel.)
+ */
+async function newGame(page: Page): Promise<void> {
   page.on('dialog', (d) => void d.accept());
   await page.goto('/');
-  await expect(page.locator('#turn')).toHaveText('Runde 1', { timeout: 20_000 });
-  await page.fill('#seed', seed);
-  await page.press('#seed', 'Enter');
-  await expect(page.locator('#turn')).toHaveText('Runde 1', { timeout: 20_000 });
+  await expect(page.locator('#turn')).toHaveText('Runde 1', { timeout: 30_000 });
+  await expect(page.locator('#ready')).toContainText('Einheit', { timeout: 30_000 });
 }
 
 test('Stadt gründen und Runde beenden', async ({ page }) => {
