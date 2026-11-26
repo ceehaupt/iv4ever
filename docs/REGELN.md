@@ -36,7 +36,7 @@ Verbesserungen nur im eigenen Gebiet. Mehrere Arbeiter am selben Auftrag addiere
 
 ## Technologien
 
-54 Technologien in 15 Stufen (Kosten von 24 🔬 in Stufe 1 bis 1500 🔬 in Stufe 15, je Stufe gleich). Man wählt ein **Ziel**;
+55 Technologien in 15 Stufen (Kosten von 24 🔬 in Stufe 1 bis 1500 🔬 in Stufe 15, je Stufe gleich). Man wählt ein **Ziel**;
 die Voraussetzungen werden automatisch der Reihe nach erforscht. Ohne Ziel wird Forschung angespart. Freischaltungen:
 [`REGELN-DATEN.md`](REGELN-DATEN.md#technologien) bzw. im Spiel über **T**.
 
@@ -54,6 +54,27 @@ Werte aller Einheiten: [`REGELN-DATEN.md`](REGELN-DATEN.md#einheiten). Start mit
 - Mit der letzten Bewegung darf jedes betretbare Feld noch betreten werden (die Runde ist danach vorbei).
 - Stapel: unbegrenzt viele eigene Einheiten pro Feld; fremde Einheiten und Städte blockieren.
 - Sicht: +1 auf Hügeln; Wald/Dschungel, Hügel und Gebirge verdecken, was dahinter liegt.
+
+## Luftfahrt
+
+Mit der Technologie **Luftfahrt** (Stufe 13, nach Verbrennungsmotor und Funktechnik) kommen vier Einheiten:
+
+| Einheit | Rolle |
+|---|---|
+| **Jagdflugzeug** | fängt feindliche Luftangriffe im Einsatzradius (6) ab; kann auch selbst angreifen |
+| **Bomber** | starker Luftangriff (Radius 8) auf Land- und Seeeinheiten, +25 % gegen Städte, +50 % gegen Schiffe |
+| **Flugabwehr** | Landeinheit; beschießt angreifende Flugzeuge im Umkreis von 2 Feldern |
+| **Flugzeugträger** | Schiff mit 3 Stellplätzen für Flugzeuge |
+
+- Flugzeuge **ziehen nicht über die Karte**. Sie stehen in einer eigenen Stadt oder auf einem eigenen Träger und haben je Runde
+  **einen Einsatz**: Luftangriff auf ein sichtbares Ziel im Einsatzradius oder **Verlegen** in eine eigene Stadt bzw. auf einen
+  Träger mit freiem Platz (bis zum doppelten Radius). Bedienung: Rechtsklick, „Einsatz“ oder langes Drücken auf das Ziel.
+- Luftangriffe sind Fernkampf: Das Ziel wehrt sich nicht. Vorher fängt aber jedes feindliche Jagdflugzeug, dessen Radius das
+  Ziel erreicht, und jede Flugabwehr im Umkreis ab – **je einmal pro Runde**. Abfangjäger und Flugzeug nehmen beide Schaden,
+  Flugabwehr schießt nur. Wird das Flugzeug abgeschossen, fällt der Angriff aus.
+- Flugzeuge **verteidigen kein Feld**. Wird ihre Stadt erobert oder ihr Träger versenkt, sind sie verloren.
+- Die KI baut im Krieg Jäger zur Abwehr, kriegerische Herrscher auch Bomber, und Flugabwehr, wenn feindliche Flugzeuge in der
+  Nähe sind. Bomber suchen das lohnendste Ziel (Abfanggefahr eingerechnet) und verlegen ohne Ziel Richtung Front.
 
 ## Kampf
 

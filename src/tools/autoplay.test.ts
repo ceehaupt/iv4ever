@@ -9,7 +9,7 @@ import { createGame, endTurn, type GameState } from '../sim/game';
 import { generateWorld, type MapGenOptions } from '../sim/mapgen';
 import type { Difficulty } from '../sim/rules/leaders';
 import { TECHS } from '../sim/rules/techs';
-import { isNaval } from '../sim/rules/units';
+import { isNaval, UNIT_TYPES } from '../sim/rules/units';
 import { score, VICTORY_NAMES } from '../sim/victory';
 
 const SIZES = {
@@ -47,6 +47,8 @@ interface GameStats {
   openBorders: number;
   overseasCities: number;
   maxShips: number;
+  maxPlanes: number;
+  airStrikes: number;
   msPerTurn: number;
   scoreSpread: number;
 }
@@ -66,6 +68,8 @@ function play(opts: MapGenOptions, turns: number): GameStats {
   let captures = 0;
   let alliancesFormed = 0;
   let maxShips = 0;
+  let maxPlanes = 0;
+  let airStrikes = 0;
   const tierTurn: Record<number, number> = { 5: -1, 10: -1, 15: -1 };
   const t0 = performance.now();
   let played = 0;
@@ -78,6 +82,8 @@ function play(opts: MapGenOptions, turns: number): GameStats {
       if (/erklärt .* den Krieg|Du erklärst/.test(e.text) && e.text.startsWith(s.players[e.player].name)) wars++;
     }
     captures += res.combats.filter((c) => c.capturedCity && !s.players[c.attackerOwner].barbarian).length;
+    maxPlanes = Math.max(maxPlanes, s.units.filter((u) => UNIT_TYPES[u.type].air).length);
+    airStrikes += res.combats.filter((c) => UNIT_TYPES[c.attackerType].air && c.ranged && !UNIT_TYPES[c.defenderType ?? 0].air).length;
     maxShips = Math.max(maxShips, s.units.filter((u) => isNaval(u.type)).length);
     const tier = maxTier(s);
     for (const k of [5, 10, 15]) if (tierTurn[k] < 0 && tier >= k) tierTurn[k] = s.turn;
@@ -118,6 +124,8 @@ function play(opts: MapGenOptions, turns: number): GameStats {
     openBorders: Object.values(s.diplomacy.relations).filter((r) => r.openBorders).length,
     overseasCities: overseas,
     maxShips,
+    maxPlanes,
+    airStrikes,
     msPerTurn: ms,
     scoreSpread: scores.length > 1 ? scores[0] / Math.max(1, scores[1]) : 1,
   };
@@ -169,6 +177,7 @@ ${games} Partien · ${turns} Runden max. · ${sizeKey} · ${script} · ${difficu
 | Ø offene Grenzen (Ende) | ${mean('openBorders')} |
 | Ø Städte in Übersee | ${mean('overseasCities')} |
 | Ø max. Schiffe gleichzeitig | ${mean('maxShips')} |
+| Ø max. Flugzeuge / Luftangriffe | ${mean('maxPlanes')} / ${mean('airStrikes')} |
 | Abstand Erster/Zweiter (Punkte) | ${mean('scoreSpread')} × |
 | Ø Rechenzeit je Runde | ${mean('msPerTurn')} ms |
 

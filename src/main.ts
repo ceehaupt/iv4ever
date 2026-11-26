@@ -541,7 +541,8 @@ function handleClick(tile: number): void {
 
 function updatePathPreview(): void {
   const u = selectedUnit();
-  if (!u || !isOwn(u) || !map || !view || hoverTile < 0 || hoverTile === u.tile) {
+  // Flugzeuge haben keinen Weg: Einsatz bzw. Verlegen zeigt der Hinweis am Mauszeiger.
+  if (!u || !isOwn(u) || !map || !view || hoverTile < 0 || hoverTile === u.tile || UNIT_TYPES[u.type].air) {
     renderer.setPath(-1, null, null);
     return;
   }
@@ -609,6 +610,15 @@ function attackProblem(u: UnitView, tile: number): string | null {
   const t = UNIT_TYPES[u.type];
   if (t.strength <= 0 && t.ranged <= 0) return 'Diese Einheit kann nicht angreifen';
   if (u.moves <= 0) return 'Keine Bewegung mehr übrig';
+  const dist0 = tileDistance(map, u.tile, tile);
+  if (t.air) {
+    if (u.moves <= 0) return 'Dieses Flugzeug war in dieser Runde schon im Einsatz';
+    if (dist0 > t.range) return `Außer Reichweite (Einsatzradius ${t.range} Felder)`;
+    if (!view!.units.some((x) => x.tile === tile && x.owner !== u.owner && UNIT_TYPES[x.type].strength > 0 && !UNIT_TYPES[x.type].air)) {
+      return 'Kein Ziel – Luftangriffe treffen Einheiten';
+    }
+    return null;
+  }
   if (u.carriedBy) return 'Von Bord aus kann nicht angegriffen werden';
   const water = isWater(map.terrain[tile]);
   if (t.naval && !water) return 'Schiffe greifen nur Schiffe auf See an';
@@ -628,8 +638,9 @@ function predictionFor(u: UnitView, tile: number) {
   if (!map || !view) return null;
   const t = UNIT_TYPES[u.type];
   const ranged = t.ranged > 0;
+  // Flugzeuge am Boden verteidigen nie; Luftangriffe treffen Land- und Seeeinheiten.
   const defenders = view.units.filter(
-    (x) => x.tile === tile && x.owner !== u.owner && !!UNIT_TYPES[x.type].naval === !!t.naval && !x.carriedBy,
+    (x) => x.tile === tile && x.owner !== u.owner && !x.carriedBy && !UNIT_TYPES[x.type].air && (t.air || !!UNIT_TYPES[x.type].naval === !!t.naval),
   );
   const city = cityAtTile(tile);
   const bf: Battlefield = { map, attackerTile: u.tile, defenderTile: tile, cityDefense: city ? city.defense : null };
@@ -659,6 +670,10 @@ function updateCombatTooltip(x: number, y: number): void {
   } else {
     html = `<div class="odds good">Kein Verteidiger</div><small>${cityAtTile(hoverTile) ? 'Stadt wird erobert' : view!.camps.includes(hoverTile) ? 'Lager wird ausgehoben' : 'Einheiten werden gefangen'}</small>`;
   }
+  if (UNIT_TYPES[u.type].air) {
+    const threats = airThreats(u, hoverTile);
+    html += threats ? `<small class="bad">Abfanggefahr: ${threats}</small>` : '<small>Keine bekannte Abwehr</small>';
+  }
   if (problem) html += `<small class="bad">${problem}</small>`;
   combatEl.innerHTML = html;
   combatEl.hidden = false;
@@ -680,7 +695,45 @@ function peacefulOwnerAt(u: UnitView, tile: number): number {
   return -1;
 }
 
+/** Sichtbare feindliche Luftabwehr gegen einen Angriff auf `tile` (Text) – Jäger im Radius, Flugabwehr im Umkreis. */
+function airThreats(u: UnitView, tile: number): string {
+  if (!map || !view) return '';
+  const hostile = new Set([view.barbarian, ...view.diplomacy.civs.filter((c) => c.war).map((c) => c.id)]);
+  let jets = 0;
+  let flak = 0;
+  for (const x of view.units) {
+    if (x.owner === u.owner || !hostile.has(x.owner)) continue;
+    const t = UNIT_TYPES[x.type];
+    const d = tileDistance(map, x.tile, tile);
+    if (t.interceptor && d <= t.range) jets++;
+    else if (t.antiAir && d <= t.antiAir) flak++;
+  }
+  return [jets ? `${jets} Jäger` : '', flak ? `${flak} Flugabwehr` : ''].filter(Boolean).join(', ');
+}
+
 function moveOrAttack(u: UnitView, tile: number): void {
+  if (UNIT_TYPES[u.type].air) {
+    moveMode = false;
+    if (!hasEnemyTarget(u, tile)) {
+      // Verlegen in eigene Stadt oder auf eigenen Träger (Regeln prüft der Worker).
+      command({ type: 'command', command: { type: 'rebase', unit: u.id, target: tile } });
+      return;
+    }
+    const problem = attackProblem(u, tile);
+    if (problem) {
+      ui.toast(problem, 'error');
+      return;
+    }
+    const peaceful = peacefulOwnerAt(u, tile);
+    if (peaceful >= 0) {
+      const civ = view!.players.find((p) => p.id === peaceful)?.name ?? 'diesem Volk';
+      if (!window.confirm(`Mit ${civ} herrscht Frieden. Krieg erklären und angreifen?`)) return;
+      send({ type: 'command', command: { type: 'declareWar', target: peaceful } });
+    }
+    combatEl.hidden = true;
+    command({ type: 'command', command: { type: 'airStrike', unit: u.id, target: tile } });
+    return;
+  }
   if (hasEnemyTarget(u, tile)) {
     moveMode = false;
     const problem = attackProblem(u, tile);

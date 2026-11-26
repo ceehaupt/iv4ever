@@ -44,7 +44,7 @@ test('Handbuch öffnet mit F1 und zeigt die Technologien', async ({ page }) => {
   await page.keyboard.press('F1');
   await expect(page.locator('#handbook')).toBeVisible();
   await page.click('#handbook [data-tab="techs"]');
-  await expect(page.locator('#handbook tbody tr')).toHaveCount(54);
+  await expect(page.locator('#handbook tbody tr')).toHaveCount(55);
 });
 
 test('Spielstand als Datei exportieren und wieder importieren', async ({ page }) => {

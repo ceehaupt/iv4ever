@@ -23,6 +23,7 @@ npm run dev        # http://localhost:5173
 | `F` | Befestigen / Schlafen bzw. Aufwecken |
 | `B` | Stadt gründen (Siedler) |
 | `L` | Landeinheiten auf das ausgewählte Schiff laden |
+| Rechtsklick mit Flugzeug | Feindliches Ziel im Einsatzradius: Luftangriff · eigene Stadt/Träger: verlegen |
 | `Tab` | Nächste Einheit, die einen Befehl braucht |
 | `T` | Technologien (Forschungsziel wählen) |
 | `K` | Diplomatie, Handel und Siegfortschritt (vorher `D`, kollidierte mit der Kamera) |

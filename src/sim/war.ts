@@ -66,11 +66,13 @@ export function attackBlocker(state: GameState, u: Unit, target: number): string
   if (u.moves <= 0) return 'Keine Bewegung mehr übrig';
   if (!state.players[u.owner].visible[target]) return 'Ziel ist nicht sichtbar';
   if (u.carriedBy) return 'Von Bord aus kann nicht angegriffen werden';
+  if (t.air) return 'Flugzeuge fliegen Luftangriffe (Rechtsklick auf das Ziel)';
   const dist = tileDistance(state.map, u.tile, target);
   const water = isWater(state.map.terrain[target]);
   if (t.naval && !water) return 'Schiffe greifen nur Schiffe auf See an';
   if (!t.naval && water) return 'Schiffe auf See können nur Schiffe angreifen';
-  const enemies = state.units.filter((o) => o.tile === target && o.owner !== u.owner && !!UNIT_TYPES[o.type].naval === !!t.naval);
+  // Flugzeuge am Boden verteidigen nicht und sind kein Ziel für Boden-/Seeangriffe.
+  const enemies = state.units.filter((o) => o.tile === target && o.owner !== u.owner && !!UNIT_TYPES[o.type].naval === !!t.naval && !UNIT_TYPES[o.type].air);
   const city = cityAt(state, target);
   const enemyCity = city && city.owner !== u.owner ? city : null;
   const camp = state.camps.some((c) => c.tile === target);
@@ -98,7 +100,7 @@ export function performAttack(state: GameState, u: Unit, target: number, events:
   const ranged = t.ranged > 0;
   const bf: Battlefield = { map: state.map, attackerTile: u.tile, defenderTile: target, cityDefense: cityDefenseAt(state, target) };
   const enemies = state.units.filter(
-    (o) => o.tile === target && o.owner !== u.owner && !!UNIT_TYPES[o.type].naval === !!t.naval && !o.carriedBy,
+    (o) => o.tile === target && o.owner !== u.owner && !!UNIT_TYPES[o.type].naval === !!t.naval && !o.carriedBy && !UNIT_TYPES[o.type].air,
   );
   const att = fighterOf(u);
   const k = bestDefender(enemies.map(fighterOf), att, bf, ranged);
@@ -171,8 +173,8 @@ function occupyTile(state: GameState, u: Unit, target: number, ev: CombatEvent, 
   const barb = state.players[u.owner].barbarian;
   const civilians = state.units.filter((x) => x.tile === target && x.owner !== u.owner);
   for (const c of civilians) {
-    if (barb || UNIT_TYPES[c.type].naval) {
-      // Plünderer machen keine Gefangenen; Schiffe in einer eroberten Stadt werden versenkt.
+    if (barb || UNIT_TYPES[c.type].naval || UNIT_TYPES[c.type].air) {
+      // Plünderer machen keine Gefangenen; Schiffe und Flugzeuge in einer eroberten Stadt sind verloren.
       state.units = state.units.filter((x) => x !== c);
     } else {
       c.owner = u.owner;

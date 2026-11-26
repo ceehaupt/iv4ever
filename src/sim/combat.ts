@@ -136,6 +136,16 @@ export interface Prediction {
   dmgAtt: [number, number];
 }
 
+/**
+ * Luftkampf ohne Gelände: Abfangjäger gegen Flugzeug (beide nehmen Schaden) bzw. Flugabwehr gegen Flugzeug
+ * (`ranged`: nur das Flugzeug). Stärken sind die reinen Kampfwerte, Lebenspunkte und Beförderungen zählen.
+ */
+export function resolveAirDuel(att: Fighter, def: Fighter, ranged: boolean, rng: Rng): CombatOutcome {
+  const A = UNIT_TYPES[att.type].strength * (1 + promo(att, 'strength') / 100) * hpFactor(att.hp);
+  const D = UNIT_TYPES[def.type].strength * (1 + promo(def, 'strength') / 100) * hpFactor(def.hp);
+  return outcome(att, def, A, D, ranged, rng.range(ROLL_MIN, ROLL_MAX), rng.range(ROLL_MIN, ROLL_MAX));
+}
+
 /** Vorhersage über ein Raster der Zufallswerte (gleiche Regeln wie resolveCombat). */
 export function predictCombat(att: Fighter, def: Fighter, bf: Battlefield, ranged: boolean): Prediction {
   const A = attackPower(att, def, bf, ranged);

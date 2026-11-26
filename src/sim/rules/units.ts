@@ -37,14 +37,18 @@ export const UnitTypeId = {
   Tank: 25,
   Destroyer: 26,
   Transport: 27,
+  Fighter: 28,
+  Bomber: 29,
+  AntiAir: 30,
+  Carrier: 31,
 } as const;
 
 /** Einheitenklassen – bestimmen Boni und Konter. */
-export type UnitClass = 'civil' | 'recon' | 'melee' | 'ranged' | 'mounted' | 'siege' | 'naval';
+export type UnitClass = 'civil' | 'recon' | 'melee' | 'ranged' | 'mounted' | 'siege' | 'naval' | 'air';
 
 export const CLASS_NAMES: Record<UnitClass, string> = {
   civil: 'Zivil', recon: 'Aufklärung', melee: 'Nahkampf', ranged: 'Fernkampf', mounted: 'Beritten', siege: 'Belagerung',
-  naval: 'Schiff',
+  naval: 'Schiff', air: 'Flugzeug',
 };
 
 export interface UnitType {
@@ -83,6 +87,14 @@ export interface UnitType {
   cargo?: number;
   /** Kann Handelsrouten errichten. */
   trade?: boolean;
+  /** Flugzeug: steht in einer Stadt oder auf einem Träger; `range` = Einsatzradius, ein Einsatz je Runde. */
+  air?: boolean;
+  /** Fängt feindliche Luftangriffe im Einsatzradius ab (Jagdflugzeug). */
+  interceptor?: boolean;
+  /** Flugabwehr: beschießt angreifende Flugzeuge in diesem Umkreis (Felder). */
+  antiAir?: number;
+  /** Stellplätze für Flugzeuge (Flugzeugträger). */
+  airCargo?: number;
 }
 
 const U = (u: Omit<UnitType, 'ranged' | 'range' | 'canFound' | 'canWork' | 'popCost' | 'tech' | 'resources'> &
@@ -153,7 +165,20 @@ export const UNIT_TYPES: readonly UnitType[] = [
     tech: T.Combustion, naval: true, ocean: true }),
   U({ key: 'transport', name: 'Transporter', icon: '🚛', cls: 'naval', moves: 6, strength: 6, sight: 2, cost: 110,
     tech: T.Combustion, naval: true, ocean: true, cargo: 4 }),
+  // --- Luftfahrt ---
+  U({ key: 'fighter', name: 'Jagdflugzeug', icon: '✈️', cls: 'air', moves: 1, strength: 20, ranged: 12, range: 6, sight: 4, cost: 150,
+    tech: T.Aviation, air: true, interceptor: true }),
+  U({ key: 'bomber', name: 'Bomber', icon: '🛩️', cls: 'air', moves: 1, strength: 10, ranged: 34, range: 8, sight: 3, cost: 200,
+    tech: T.Aviation, air: true, vsCity: 25, vs: { naval: 50 } }),
+  U({ key: 'flak', name: 'Flugabwehr', icon: '🎯', cls: 'melee', moves: 1, strength: 20, sight: 2, cost: 110,
+    tech: T.Aviation, antiAir: 2 }),
+  U({ key: 'carrier', name: 'Flugzeugträger', icon: '🚢', cls: 'naval', moves: 5, strength: 14, sight: 3, cost: 180,
+    tech: T.Aviation, naval: true, ocean: true, airCargo: 3 }),
 ];
+
+export function isAir(type: number): boolean {
+  return UNIT_TYPES[type].air === true;
+}
 
 export function isNaval(type: number): boolean {
   return UNIT_TYPES[type].naval === true;

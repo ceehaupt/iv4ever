@@ -3,6 +3,7 @@ import { predictCombat } from './combat';
 import { economy, type GameState, Orders, type Player, ROUTE_MIN_DISTANCE, ROUTES_PER_CITY, type Unit } from './game';
 import { isMilitary, landmasses, moveTo, type Out, power, run } from './aiCommon';
 import { navalTurn } from './aiNaval';
+import { airBuildWish, airTurn } from './aiAir';
 import { forEachNeighbor, tileDistance, tilesAround } from './hex';
 import { siteScore } from './gen/starts';
 import { findPath, landCost } from './path';
@@ -160,6 +161,12 @@ function chooseBuild(state: GameState, c: City, persona: Persona, sit: Situation
     state.rng.next() < 0.25 + persona.builder * 0.25) {
     const m = items.find((i) => i.kind === 'unit' && UNIT_TYPES[i.id].trade);
     if (m) return m;
+  }
+  // 4c. Luftwaffe (im Krieg): Jäger zur Abwehr, Bomber für Angriffe, Flugabwehr bei feindlichen Flugzeugen
+  const air = airBuildWish(state, state.players[c.owner], c.tile, sit.cities.length, persona.aggression > 0.5);
+  if (air && !sit.cities.some((o) => o.queue.some((q) => q.kind === 'unit' && UNIT_TYPES[q.id].key === air))) {
+    const item = items.find((i) => i.kind === 'unit' && UNIT_TYPES[i.id].key === air);
+    if (item && state.rng.next() < 0.5) return item;
   }
   // 4. Militär für Angriffe bei kriegerischen Herrschern
   const tactics = AI_TACTICS[state.options.difficulty ?? 'normal'];
@@ -386,7 +393,7 @@ function explore(state: GameState, u: Unit, out: Out): void {
 }
 
 function attackOdds(state: GameState, u: Unit, target: number): number {
-  const defenders = state.units.filter((o) => o.tile === target && o.owner !== u.owner && UNIT_TYPES[o.type].strength > 0 && !isNaval(o.type));
+  const defenders = state.units.filter((o) => o.tile === target && o.owner !== u.owner && UNIT_TYPES[o.type].strength > 0 && !isNaval(o.type) && !UNIT_TYPES[o.type].air);
   if (!defenders.length) return 1;
   const bf = { map: state.map, attackerTile: u.tile, defenderTile: target, cityDefense: cityDefenseAt(state, target) };
   const ranged = UNIT_TYPES[u.type].ranged > 0;
@@ -571,6 +578,7 @@ export function aiTurn(state: GameState, out: Out): void {
     }
     const sit2 = situation(state, p.id);
     const reserved = navalTurn(state, p, out, stranded, garrisonOf(state, p, sit2), isOffensive(state, p, sit2));
+    airTurn(state, p, out, isOffensive(state, p, sit2) ? campaignTarget(state, p, sit2, mass) : -1);
     militaryTurn(state, p, situation(state, p.id), out, reserved, mass);
   }
 }

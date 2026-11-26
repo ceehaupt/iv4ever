@@ -77,6 +77,10 @@ Automatisch aus `src/sim/rules/` erzeugt (`npm run docs`). Nicht von Hand bearbe
 | 🛡 Panzer | Beritten | 180 | 32 | – | 3 | Motorisierung | Eisen |
 | 🚤 Zerstörer | Schiff | 140 | 24 | – | 7 | Verbrennungsmotor | – |
 | 🚛 Transporter | Schiff | 110 | 6 | – | 6 | Verbrennungsmotor | – |
+| ✈️ Jagdflugzeug | Flugzeug | 150 | 20 | 12 (6) | 1 | Luftfahrt | – |
+| 🛩️ Bomber | Flugzeug | 200 | 10 | 34 (8) | 1 | Luftfahrt | – |
+| 🎯 Flugabwehr | Nahkampf | 110 | 20 | – | 1 | Luftfahrt | – |
+| 🚢 Flugzeugträger | Schiff | 180 | 14 | – | 5 | Luftfahrt | – |
 
 ## Beförderungen
 
@@ -200,6 +204,7 @@ Automatisch aus `src/sim/rules/` erzeugt (`npm run docs`). Nicht von Hand bearbe
 | Computer | 14 | 1300 | Funktechnik, Raketentechnik | 🧪 Labor<br>☄️ Sternenantrieb |
 | Raumfahrt | 15 | 1500 | Raketentechnik, Computer | 🛰️ Habitatmodul |
 | Globalisierung | 15 | 1500 | Computer, Ideologien | ✨ +1 Handel je Handelsroute |
+| Luftfahrt | 13 | 1120 | Verbrennungsmotor, Funktechnik | ✈️ Jagdflugzeug<br>🛩️ Bomber<br>🎯 Flugabwehr<br>🚢 Flugzeugträger |
 
 ## Leitbilder
 

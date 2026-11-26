@@ -32,7 +32,8 @@ export function moveTo(state: GameState, u: Unit, target: number, out: Out): boo
   return run(state, u.owner, { type: 'move', unit: u.id, target }, out) !== null;
 }
 
-export const isMilitary = (type: number) => UNIT_TYPES[type].strength > 0 && UNIT_TYPES[type].cls !== 'recon' && !isNaval(type);
+/** Landstreitkräfte (ohne Späher, Schiffe und Flugzeuge). */
+export const isMilitary = (type: number) => UNIT_TYPES[type].strength > 0 && UNIT_TYPES[type].cls !== 'recon' && !isNaval(type) && !UNIT_TYPES[type].air;
 export const power = (type: number) => UNIT_TYPES[type].strength + UNIT_TYPES[type].ranged * 0.8;
 
 /** Landmassen-Kennung je Feld (−1 = Wasser); zusammenhängendes Land gehört zu einer Landmasse. */

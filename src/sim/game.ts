@@ -1,3 +1,4 @@
+import { airStrike, rebase } from './air';
 import {
   assignTiles, availableItems, type BuildItem, type City, cityAt, cityReport, foundCity, foundingBlocker, knowsFn,
   playerContext, processCity, recomputeOwnership, sameItem, type TurnEvent, workableTiles,
@@ -61,6 +62,8 @@ export interface Unit {
   carriedBy?: number | null;
   /** KI-Gedächtnis: Zielfeld bzw. Auftrag. */
   aiTarget?: number;
+  /** Runde, in der diese Einheit zuletzt einen Luftangriff abgefangen hat (Jäger, Flugabwehr). */
+  interceptedTurn?: number;
 }
 
 export interface Player {
@@ -157,6 +160,8 @@ export type Command =
   | { type: 'propose'; target: number; proposal: Proposal }
   | { type: 'respond'; proposal: number; accept: boolean }
   | { type: 'cancelAlliance'; target: number }
+  | { type: 'airStrike'; unit: number; target: number }
+  | { type: 'rebase'; unit: number; target: number }
   | { type: 'setDoctrine'; doctrine: number }
   | { type: 'establishRoute'; unit: number };
 
@@ -570,6 +575,16 @@ function unitCommand(state: GameState, player: number, cmd: Extract<Command, { u
       const combat = performAttack(state, u, cmd.target, events);
       return { moves: [], combats: [combat], events };
     }
+    case 'airStrike': {
+      const events: TurnEvent[] = [];
+      const combats = airStrike(state, u, cmd.target, events);
+      return { moves: [], combats, events };
+    }
+    case 'rebase': {
+      const from = u.tile;
+      rebase(state, u, cmd.target);
+      return { moves: [{ unit: u.id, owner: u.owner, steps: [from, cmd.target] }] };
+    }
     case 'promote': {
       if (!canPromote(u)) throw new CommandError('Noch keine Beförderung möglich');
       if (!promotionChoices(u.type, u.promotions).includes(cmd.promotion)) throw new CommandError('Diese Beförderung ist nicht wählbar');
@@ -591,6 +606,7 @@ function unitCommand(state: GameState, player: number, cmd: Extract<Command, { u
     }
     case 'move': {
       if (cmd.target === u.tile) return { moves: [] };
+      if (UNIT_TYPES[u.type].air) throw new CommandError('Flugzeuge werden verlegt (eigene Stadt oder Träger) oder fliegen Luftangriffe');
       u.job = null;
       if (u.moves <= 0) throw new CommandError('Keine Bewegung mehr übrig');
       const path = planPath(state, u, cmd.target, occupancy(state));
@@ -645,7 +661,7 @@ function unitCommand(state: GameState, player: number, cmd: Extract<Command, { u
       const cap = UNIT_TYPES[u.type].cargo ?? 0;
       if (!cap) throw new CommandError('Dieses Schiff kann nichts transportieren');
       const free = cap - cargoOf(state, u).length;
-      const waiting = state.units.filter((x) => x.owner === player && x.tile === u.tile && !UNIT_TYPES[x.type].naval && !x.carriedBy);
+      const waiting = state.units.filter((x) => x.owner === player && x.tile === u.tile && !UNIT_TYPES[x.type].naval && !UNIT_TYPES[x.type].air && !x.carriedBy);
       if (!waiting.length) throw new CommandError('Keine Landeinheiten zum Einladen hier');
       for (const x of waiting.slice(0, free)) {
         x.carriedBy = u.id;

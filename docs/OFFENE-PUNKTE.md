@@ -30,7 +30,8 @@ Kennzeichnung: **[Erledigt]** = umgesetzt · **[Fehler]** = Verhalten ist falsch
 ## Spielinhalt und Balancing
 
 - **[Erledigt] Balancing:** automatische Testpartien (`npm run autoplay`), erste Runde ausgewertet und angepasst (Kultursieg 2400, Projekt teurer, Händlerregel) – siehe `docs/BALANCING.md`.
-- **[Grenze]** Keine Luft-, Atom- oder Spionageeinheiten; die späten Zeitalter enden bei Panzern, Zerstörern und Transportern.
+- **[Erledigt]** Luftfahrt: Jagdflugzeug, Bomber, Flugabwehr, Flugzeugträger (Einsätze, Abfangen, Verlegen; KI nutzt sie).
+- **[Grenze]** Keine Atom- oder Spionageeinheiten.
 - **[Grenze]** Keine Religion, kein Stadtstaaten-System, kein Weltkongress bzw. keine diplomatische Abstimmung.
 - **[Erledigt]** Bündnisse (Verteidigung, gemeinsame Sicht) und Forderungen/Tribut. Offen: KIs schließen untereinander selten Bündnisse (Ø 0,5 je Partie), weil offene Grenzen zwischen KIs selten sind – beim nächsten Balancing prüfen.
 - **[Grenze]** Keine Umweltfolgen (Verschmutzung, Klima) durch Fabriken und Kraftwerke.

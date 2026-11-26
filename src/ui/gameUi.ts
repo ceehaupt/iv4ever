@@ -197,7 +197,9 @@ export class GameUi {
       `<button type="button" data-action="${action}" data-unit-id="${id}" ${enabled ? '' : 'disabled'} title="${escapeHtml(title)}">${label} <kbd>${key}</kbd></button>`;
     const actions = own
       ? [
-          btn('moveMode', 'Bewegen', 'M', selected.moves > 0, 'Danach Zielfeld anklicken (oder Rechtsklick auf das Ziel)'),
+          t.air
+            ? btn('moveMode', 'Einsatz', 'M', selected.moves > 0, `Feindliches Ziel im Einsatzradius (${t.range} Felder) = Luftangriff; eigene Stadt oder Träger bis ${t.range * 2} Felder = verlegen`)
+            : btn('moveMode', 'Bewegen', 'M', selected.moves > 0, 'Danach Zielfeld anklicken (oder Rechtsklick auf das Ziel)'),
           selected.orders === Orders.None || selected.orders === Orders.Skip
             ? btn('fortify', t.strength > 0 ? 'Befestigen' : 'Schlafen', 'F')
             : btn('wake', 'Aufwecken', 'F'),

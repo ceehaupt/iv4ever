@@ -172,6 +172,13 @@ function migrate(d: SaveData): SaveData {
   return d;
 }
 
+function padTechs(t: Uint8Array): Uint8Array {
+  if (t.length >= TECHS.length) return t;
+  const out = new Uint8Array(TECHS.length);
+  out.set(t);
+  return out;
+}
+
 export function fromSaveData(raw: SaveData): GameState {
   if (!raw || typeof raw !== 'object') throw new SaveError('Speicherstand ist beschädigt');
   if (typeof raw.version !== 'number' || raw.version < 1 || raw.version > SAVE_VERSION) {
@@ -191,7 +198,8 @@ export function fromSaveData(raw: SaveData): GameState {
     map: d.map,
     options: d.options,
     starts: d.starts,
-    players: d.players.map((p) => ({ ...p, visible: new Uint8Array(n) })),
+    // Neue Technologien werden hinten angehängt: ältere Stände bekommen längere Arrays (unbekannt = 0).
+    players: d.players.map((p) => ({ ...p, techs: padTechs(p.techs), visible: new Uint8Array(n) })),
     units: d.units,
     nextUnitId: d.nextUnitId,
     cities: d.cities,

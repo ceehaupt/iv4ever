@@ -4,7 +4,7 @@
  */
 type Glyph =
   | 'tent' | 'pick' | 'eye' | 'club' | 'spear' | 'bow' | 'horse' | 'sword' | 'catapult' | 'cannon' | 'sail' | 'steamship'
-  | 'bag' | 'rifle' | 'tank' | 'transport';
+  | 'bag' | 'rifle' | 'tank' | 'transport' | 'plane' | 'bomber' | 'flak' | 'carrier';
 
 const GLYPH_BY_KEY: Record<string, Glyph> = {
   settler: 'tent', worker: 'pick', scout: 'eye', warrior: 'club', spearman: 'spear', archer: 'bow', horseman: 'horse',
@@ -12,6 +12,7 @@ const GLYPH_BY_KEY: Record<string, Glyph> = {
   galley: 'sail', war_galley: 'sail', caravel: 'sail', merchant: 'bag', musketeer: 'rifle', cannon: 'cannon',
   cavalry: 'horse', frigate: 'sail', rifleman: 'rifle', artillery: 'cannon', ironclad: 'steamship', infantry: 'rifle',
   tank: 'tank', destroyer: 'steamship', transport: 'transport',
+  fighter: 'plane', bomber: 'bomber', flak: 'flak', carrier: 'carrier',
 };
 
 /** Zeichnet das Piktogramm zentriert bei (x, y) in einem Quadrat der Kantenlänge s. */
@@ -202,6 +203,54 @@ export function drawUnitGlyph(ctx: CanvasRenderingContext2D, key: string, x: num
         ctx.closePath();
       });
       line([[22, -12], [34, -26]], 4);
+      break;
+    case 'plane':
+    case 'bomber': {
+      // Rumpf, Tragflächen, Leitwerk – von oben gesehen; Bomber mit breiteren Flächen und zwei Motoren.
+      const wide = glyph === 'bomber';
+      shape(() => ctx.roundRect(-6, -36, 12, 72, 6));
+      shape(() => {
+        ctx.moveTo(-6, -6);
+        ctx.lineTo(wide ? -44 : -38, wide ? 8 : 4);
+        ctx.lineTo(wide ? -44 : -38, wide ? 18 : 12);
+        ctx.lineTo(-6, 10);
+        ctx.moveTo(6, -6);
+        ctx.lineTo(wide ? 44 : 38, wide ? 8 : 4);
+        ctx.lineTo(wide ? 44 : 38, wide ? 18 : 12);
+        ctx.lineTo(6, 10);
+      });
+      shape(() => {
+        ctx.moveTo(-4, 24);
+        ctx.lineTo(-18, 34);
+        ctx.lineTo(18, 34);
+        ctx.lineTo(4, 24);
+        ctx.closePath();
+      });
+      if (wide) {
+        shape(() => ctx.arc(-22, 6, 6, 0, Math.PI * 2));
+        shape(() => ctx.arc(22, 6, 6, 0, Math.PI * 2));
+      }
+      break;
+    }
+    case 'flak':
+      // Geschütz mit zwei steil nach oben gerichteten Rohren auf einer Lafette.
+      shape(() => ctx.roundRect(-30, 14, 60, 16, 6));
+      shape(() => ctx.arc(0, 10, 12, Math.PI, 0));
+      line([[-4, 4], [-18, -32]], 6);
+      line([[4, 4], [10, -34]], 6);
+      break;
+    case 'carrier':
+      // Langer Rumpf mit flachem Deck und Inselaufbau.
+      shape(() => {
+        ctx.moveTo(-42, 4);
+        ctx.lineTo(42, 4);
+        ctx.lineTo(32, 24);
+        ctx.lineTo(-32, 24);
+        ctx.closePath();
+      });
+      shape(() => ctx.rect(-42, -4, 84, 8));
+      shape(() => ctx.rect(18, -22, 12, 18));
+      line([[-30, 0], [6, 0]], 3);
       break;
     case 'tank':
       shape(() => ctx.roundRect(-34, 6, 68, 22, 10));
