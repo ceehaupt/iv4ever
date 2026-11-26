@@ -1,11 +1,8 @@
-import {
-  availableItems, type BuildItem, type City, cityAt, foundingBlocker, playerContext, type PlayerContext, type TurnEvent,
-} from './city';
+import { availableItems, type BuildItem, type City, cityAt, foundingBlocker, playerContext, type PlayerContext } from './city';
 import { predictCombat } from './combat';
-import {
-  applyCommand, type Command, CommandError, type CommandResult, economy, type GameState, type MoveEvent, Orders, type Player,
-  type Unit,
-} from './game';
+import { economy, type GameState, Orders, type Player, ROUTE_MIN_DISTANCE, ROUTES_PER_CITY, type Unit } from './game';
+import { isMilitary, landmasses, moveTo, type Out, power, run } from './aiCommon';
+import { navalTurn } from './aiNaval';
 import { forEachNeighbor, tileDistance, tilesAround } from './hex';
 import { siteScore } from './gen/starts';
 import { findPath, landCost } from './path';
@@ -14,7 +11,7 @@ import type { Persona } from './rules/leaders';
 import { isWater, Relief } from './rules/terrain';
 import { TECHS, TechId } from './rules/techs';
 import { isNaval, MOVE_SCALE, promotionChoices, UNIT_TYPES, UnitTypeId } from './rules/units';
-import { type CombatEvent, cityDefenseAt, fighterOf } from './war';
+import { cityDefenseAt, fighterOf } from './war';
 import { ALL_JOBS, jobBlocker } from './work';
 import { isHostile, mayEnterTerritory } from './diplomacy';
 import { RESOURCES } from './rules/resources';
@@ -26,28 +23,6 @@ import { DOCTRINES } from './rules/doctrines';
  * und arbeitet mit vollständigem eigenem Wissen, aber ohne Schummelsicht: Ziele müssen erkundet sein.
  * Schwierigkeit wirkt über Ertragsboni (siehe city.ts), nicht über Sonderrechte.
  */
-
-interface Out {
-  events: TurnEvent[];
-  combats: CombatEvent[];
-  moves: MoveEvent[];
-}
-
-function run(state: GameState, pid: number, c: Command, out: Out): CommandResult | null {
-  try {
-    const r = applyCommand(state, pid, c);
-    out.moves.push(...r.moves);
-    if (r.combats) out.combats.push(...r.combats);
-    if (r.events) out.events.push(...r.events);
-    return r;
-  } catch (e) {
-    if (e instanceof CommandError) return null;
-    throw e;
-  }
-}
-
-const isMilitary = (type: number) => UNIT_TYPES[type].strength > 0 && UNIT_TYPES[type].cls !== 'recon' && !isNaval(type);
-const power = (type: number) => UNIT_TYPES[type].strength + UNIT_TYPES[type].ranged * 0.8;
 
 /** Feindschaft kommt aus der Diplomatie (Krieg bzw. Plünderer). */
 let hostile = (_a: number, _b: number) => true;
@@ -88,6 +63,8 @@ interface Situation {
   settlers: number;
   queuedSettlers: number;
   queuedWorkers: number;
+  merchants: number;
+  queuedMerchants: number;
   enemiesNear: (tile: number, radius: number) => number;
 }
 
@@ -102,6 +79,8 @@ function situation(state: GameState, pid: number): Situation {
     settlers: own.filter((u) => u.type === UnitTypeId.Settler).length,
     queuedSettlers: cities.filter((c) => c.queue.some((q) => q.kind === 'unit' && q.id === UnitTypeId.Settler)).length,
     queuedWorkers: cities.filter((c) => c.queue.some((q) => q.kind === 'unit' && q.id === UnitTypeId.Worker)).length,
+    merchants: own.filter((u) => UNIT_TYPES[u.type].trade).length,
+    queuedMerchants: cities.filter((c) => c.queue.some((q) => q.kind === 'unit' && UNIT_TYPES[q.id].trade)).length,
     enemiesNear: (tile, radius) =>
       enemyUnits.filter((u) => hostile(pid, u.owner) && tileDistance(state.map, u.tile, tile) <= radius).length,
   };
@@ -169,6 +148,12 @@ function chooseBuild(state: GameState, c: City, persona: Persona, sit: Situation
     const w = items.find((i) => i.kind === 'unit' && i.id === UnitTypeId.Worker);
     if (w) return w;
   }
+  // 4a. Händler, solange Routenplätze frei sind (einer gleichzeitig unterwegs)
+  if (sit.cities.length >= 2 && sit.merchants + sit.queuedMerchants === 0 && freeRouteSlots(state, c.owner) > 0 &&
+    state.rng.next() < 0.25 + persona.builder * 0.25) {
+    const m = items.find((i) => i.kind === 'unit' && UNIT_TYPES[i.id].trade);
+    if (m) return m;
+  }
   // 4. Militär für Angriffe bei kriegerischen Herrschern
   const wantArmy = Math.round(sit.cities.length * (1 + 2 * persona.aggression));
   if (sit.military.length < wantArmy && state.rng.next() < 0.35 + persona.aggression * 0.4) {
@@ -199,6 +184,7 @@ function manageCities(state: GameState, p: Player, sit: Situation, out: Out): vo
       run(state, p.id, { type: 'build', city: c.id, item, append: false }, out);
       if (item.kind === 'unit' && item.id === UnitTypeId.Settler) sit.queuedSettlers++;
       if (item.kind === 'unit' && item.id === UnitTypeId.Worker) sit.queuedWorkers++;
+      if (item.kind === 'unit' && UNIT_TYPES[item.id].trade) sit.queuedMerchants++;
     }
   }
   // Steuersatz: nur bei negativem Saldo und knapper Kasse senken, bei vollem Schatz anheben.
@@ -217,20 +203,19 @@ function knownLandCost(state: GameState, pid: number) {
   return landCost(state.map, (i) => p.explored[i] === 1, (i) => occupied.has(i) || !mayEnterTerritory(state, pid, state.tileOwner[i]));
 }
 
-function moveTo(state: GameState, u: Unit, target: number, out: Out): boolean {
-  if (u.tile === target) return true;
-  return run(state, u.owner, { type: 'move', unit: u.id, target }, out) !== null;
-}
-
-function settle(state: GameState, u: Unit, out: Out, claimed: Set<number>): void {
-  if (u.orders === Orders.Goto && u.aiTarget !== undefined && !foundingBlocker(state, u.owner, u.aiTarget)) return;
+/** Liefert true, wenn der Siedler an Land keinen Bauplatz erreicht (dann übernimmt die Seefahrt, aiNaval.ts). */
+function settle(state: GameState, u: Unit, out: Out, claimed: Set<number>, mass: Int32Array): boolean {
+  // Ziel auf einer anderen Landmasse (von der Seefahrt geplant): hier nichts tun.
+  if (u.aiTarget !== undefined && mass[u.aiTarget] !== mass[u.tile] && !foundingBlocker(state, u.owner, u.aiTarget)) return true;
+  if (u.orders === Orders.Goto && u.aiTarget !== undefined && !foundingBlocker(state, u.owner, u.aiTarget)) return false;
   if (u.aiTarget === undefined || foundingBlocker(state, u.owner, u.aiTarget)) {
     const p = state.players[u.owner];
     const cost = knownLandCost(state, u.owner);
     let best = -1;
     let bestScore = -Infinity;
     for (const t of tilesAround(state.map, u.tile, 9)) {
-      if (!p.explored[t] || claimed.has(t) || foundingBlocker(state, u.owner, t)) continue;
+      // Nur die eigene Landmasse – andere Inseln übernimmt die Seefahrt.
+      if (!p.explored[t] || mass[t] !== mass[u.tile] || claimed.has(t) || foundingBlocker(state, u.owner, t)) continue;
       const d = tileDistance(state.map, u.tile, t);
       const score = siteScore(state.map, t) - d * 3;
       if (score > bestScore) {
@@ -239,22 +224,60 @@ function settle(state: GameState, u: Unit, out: Out, claimed: Set<number>): void
       }
     }
     if (best < 0) {
-      run(state, u.owner, { type: 'fortify', unit: u.id }, out);
-      return;
+      if (u.orders === Orders.None) run(state, u.owner, { type: 'fortify', unit: u.id }, out);
+      return true;
     }
     if (best !== u.tile && !findPath({ map: state.map, from: u.tile, to: best, maxMoves: MOVE_SCALE, movesLeft: u.moves, cost, limit: 2500 })) {
       claimed.add(best);
-      return;
+      return false;
     }
     u.aiTarget = best;
   }
   claimed.add(u.aiTarget);
   if (u.tile === u.aiTarget) {
     run(state, u.owner, { type: 'found', unit: u.id }, out);
-    return;
+    return false;
   }
   if (!moveTo(state, u, u.aiTarget, out)) u.aiTarget = undefined;
   else if (u.tile === u.aiTarget && u.moves > 0) run(state, u.owner, { type: 'found', unit: u.id }, out);
+  return false;
+}
+
+// --- Händler -----------------------------------------------------------------------
+
+/** Freie Routenplätze der eigenen Städte. */
+function freeRouteSlots(state: GameState, pid: number): number {
+  return state.cities.filter((c) => c.owner === pid).reduce((n, c) => n + Math.max(0, ROUTES_PER_CITY - state.routes.filter((r) => r.from === c.id).length), 0);
+}
+
+/** Händler: lohnendste erreichbare Stadt suchen (Entfernung, Ausland), dort die Route errichten. */
+function trade(state: GameState, u: Unit, out: Out): void {
+  const pid = u.owner;
+  const p = state.players[pid];
+  const here = cityAt(state, u.tile);
+  if (here && run(state, pid, { type: 'establishRoute', unit: u.id }, out)) return;
+  if (u.orders === Orders.Goto && u.aiTarget !== undefined) return;
+  const own = state.cities.filter((c) => c.owner === pid);
+  const candidates = state.cities
+    .filter((c) => p.explored[c.tile] && !hostile(pid, c.owner) && c.tile !== u.tile)
+    .map((c) => {
+      const home = own.filter((h) => h.id !== c.id).sort((a, b) => tileDistance(state.map, a.tile, c.tile) - tileDistance(state.map, b.tile, c.tile))[0];
+      if (!home) return null;
+      const d = tileDistance(state.map, home.tile, c.tile);
+      if (d < ROUTE_MIN_DISTANCE) return null;
+      if (state.routes.filter((r) => r.from === home.id).length >= 2 || state.routes.some((r) => r.from === home.id && r.to === c.id)) return null;
+      return { c, v: 2 + Math.floor(d / 8) + (c.owner !== pid ? 1 : 0) - tileDistance(state.map, u.tile, c.tile) / 6 };
+    })
+    .filter((x): x is { c: City; v: number } => x !== null)
+    .sort((a, b) => b.v - a.v);
+  for (const { c } of candidates.slice(0, 4)) {
+    if (moveTo(state, u, c.tile, out)) {
+      u.aiTarget = c.tile;
+      if (u.tile === c.tile) run(state, pid, { type: 'establishRoute', unit: u.id }, out);
+      return;
+    }
+  }
+  run(state, pid, { type: 'fortify', unit: u.id }, out);
 }
 
 /** Straßenfelder, die Städte mit der Hauptstadt verbinden würden. */
@@ -372,9 +395,23 @@ function knownTargets(state: GameState, pid: number): number[] {
   return [...out];
 }
 
-function militaryTurn(state: GameState, p: Player, sit: Situation, out: Out): void {
-  const persona = p.persona!;
-  const busy = new Set<number>();
+/** Garnisonseinheiten (bleiben in der Stadt), je Stadt bis zum Bedarf. */
+function garrisonOf(state: GameState, p: Player, sit: Situation): Set<number> {
+  const g = new Set<number>();
+  for (const c of sit.cities) {
+    const inside = state.units.filter((u) => u.owner === p.id && u.tile === c.tile && isMilitary(u.type));
+    for (const u of inside.slice(0, defendersNeeded(state, c, sit))) g.add(u.id);
+  }
+  return g;
+}
+
+/** Bereit für Angriffe auf fremde Städte (nicht nur Verteidigung)? */
+function isOffensive(state: GameState, p: Player, sit: Situation): boolean {
+  return state.turn > 40 && p.persona!.aggression > 0.5 && sit.military.length >= sit.cities.length * 2 + 2;
+}
+
+function militaryTurn(state: GameState, p: Player, sit: Situation, out: Out, reserved: Set<number>): void {
+  const busy = new Set<number>(reserved);
   // 1. Garnisonen auffüllen
   for (const c of sit.cities) {
     const need = defendersNeeded(state, c, sit);
@@ -398,7 +435,7 @@ function militaryTurn(state: GameState, p: Player, sit: Situation, out: Out): vo
   // 2. Übrige Einheiten: Bedrohungen und Lager in der Nähe, aggressive Herrscher auch fremde Städte
   const targets = knownTargets(state, p.id);
   const homeTargets = targets.filter((t) => sit.cities.some((c) => tileDistance(state.map, c.tile, t) <= 8));
-  const offensive = state.turn > 40 && persona.aggression > 0.5 && sit.military.length >= sit.cities.length * 2 + 2;
+  const offensive = isOffensive(state, p, sit);
   const pool = offensive ? targets : homeTargets;
   for (const u of sit.military) {
     if (busy.has(u.id) || !state.units.includes(u) || u.moves <= 0) continue;
@@ -457,6 +494,7 @@ function promote(state: GameState, p: Player, out: Out): void {
 /** Ein Zug aller Computerspieler. */
 export function aiTurn(state: GameState, out: Out): void {
   hostile = (a, b) => isHostile(state, a, b);
+  const mass = landmasses(state.map);
   for (const p of state.players) {
     if (p.human || p.barbarian || !p.alive || !p.persona) continue;
     chooseResearch(state, p, out);
@@ -467,13 +505,17 @@ export function aiTurn(state: GameState, out: Out): void {
     const claimedSites = new Set<number>();
     const claimedJobs = new Set<number>();
     const roads = desiredRoads(state, p.id);
+    const stranded: Unit[] = [];
     for (const u of state.units.filter((x) => x.owner === p.id)) {
       if (!state.units.includes(u) || u.carriedBy) continue;
-      if (u.type === UnitTypeId.Settler) settle(state, u, out, claimedSites);
-      else if (u.type === UnitTypeId.Worker) work(state, u, out, roads, claimedJobs);
+      if (u.type === UnitTypeId.Settler) {
+        if (settle(state, u, out, claimedSites, mass)) stranded.push(u);
+      } else if (u.type === UnitTypeId.Worker) work(state, u, out, roads, claimedJobs);
       else if (u.type === UnitTypeId.Scout) explore(state, u, out);
-      else if (isNaval(u.type) && u.orders === Orders.None) run(state, p.id, { type: 'fortify', unit: u.id }, out);
+      else if (UNIT_TYPES[u.type].trade) trade(state, u, out);
     }
-    militaryTurn(state, p, situation(state, p.id), out);
+    const sit2 = situation(state, p.id);
+    const reserved = navalTurn(state, p, out, stranded, garrisonOf(state, p, sit2), isOffensive(state, p, sit2));
+    militaryTurn(state, p, situation(state, p.id), out, reserved);
   }
 }

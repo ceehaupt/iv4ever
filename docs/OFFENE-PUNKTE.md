@@ -21,9 +21,8 @@ Kennzeichnung: **[Erledigt]** = umgesetzt · **[Fehler]** = Verhalten ist falsch
 
 ## Computerspieler (KI)
 
-- **[Lücke] Keine Seefahrt:** Die KI baut zwar Schiffe, befestigt sie aber nur (`src/sim/ai.ts`). Kein Transport, keine Landungen,
-  kein Seekampf. Auf Archipel-Karten ist die KI daher deutlich schwächer und erobert nicht über das Meer.
-- **[Lücke] Keine Handelsrouten:** Die KI setzt keine Händler ein.
+- **[Erledigt] Seefahrt der KI** (`src/sim/aiNaval.ts`): Siedler ohne Platz an Land fahren mit Begleitschutz auf andere Inseln, kriegerische KIs landen Truppen bei Gegnern in Übersee, Kriegsschiffe versenken feindliche Schiffe und werden bei Bedrohung gebaut. Getestet in `aiNaval.test.ts`.
+- **[Erledigt] Handelsrouten der KI:** Sie baut Händler, solange Routenplätze frei sind, und wählt die lohnendste erreichbare Stadt (Entfernung, Ausland).
 - **[Lücke]** Die KI plant den Projektsieg nicht gezielt. Projektbauten bewertet sie nur über die Persönlichkeit, ein Kultursieg wird nicht angestrebt.
 - **[Grenze]** Der Schwierigkeitsgrad wirkt nur als Ertragsfaktor, nicht über besseres Verhalten.
 - **[Lücke]** Belagerung und Angriff mit gemischten Verbänden sind einfach gehalten, ohne koordinierte Angriffswellen.

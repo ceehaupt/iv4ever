@@ -350,6 +350,11 @@ function planPath(state: GameState, u: Unit, target: number, occ: Int16Array): n
   return res ? res.tiles : null;
 }
 
+/** Weg für eine Einheit zum Ziel (für die KI: Erreichbarkeit prüfen, ohne zu ziehen). */
+export function pathFor(state: GameState, u: Unit, target: number): number[] | null {
+  return planPath(state, u, target, occupancy(state));
+}
+
 /** Geht den gespeicherten Weg so weit wie möglich; plant neu, wenn unterwegs Hindernisse auftauchen. */
 function continueMove(state: GameState, u: Unit): MoveEvent | null {
   const steps = [u.tile];
