@@ -28,7 +28,11 @@ export interface NewGameOptions {
 export type GameMode = 'single' | 'hotseat' | 'online';
 
 /** Online-Aktion eines Spielers (vom Server in eine feste Reihenfolge gebracht). */
-export type RemoteAction = { kind: 'command'; command: Command } | { kind: 'endTurn' };
+export type RemoteAction =
+  | { kind: 'command'; command: Command }
+  | { kind: 'endTurn' }
+  /** Vom Server erzeugt, wenn ein Mensch die Verbindung verliert: Die KI übernimmt seinen Platz. */
+  | { kind: 'leave' };
 
 /** Einheit, wie der menschliche Spieler sie sieht. */
 export interface UnitView {

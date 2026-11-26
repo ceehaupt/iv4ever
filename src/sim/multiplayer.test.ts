@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { applyCommand, type Command, CommandError, createGame, endTurn, type GameState } from './game';
+import { applyCommand, type Command, CommandError, createGame, endTurn, type GameState, handOverToAi } from './game';
 import { generateWorld } from './mapgen';
 import { relation } from './diplomacy';
 import { UnitTypeId } from './rules/units';
@@ -70,5 +70,23 @@ describe('Mehrspieler', () => {
     applyCommand(s, 1, { type: 'respond', proposal: pending.id, accept: true });
     expect(s.players[0].gold).toBe(20);
     expect(s.players[1].gold).toBe(30);
+  });
+
+  it('Verlässt ein Mensch das Spiel, übernimmt die KI – auf allen Rechnern gleich', () => {
+    const run = () => {
+      const s = fresh();
+      for (let t = 0; t < 5; t++) endTurn(s);
+      handOverToAi(s, 1);
+      for (let t = 0; t < 20; t++) endTurn(s);
+      return s;
+    };
+    const a = run();
+    const b = run();
+    expect(a.players[1].human).toBe(false);
+    expect(a.players[1].persona).toBeDefined();
+    // Die KI hat mit dem Volk weitergespielt (z. B. eine Stadt gegründet).
+    expect(a.cities.some((c) => c.owner === 1)).toBe(true);
+    expect(toSaveData(a).units).toEqual(toSaveData(b).units);
+    expect(a.rng.getState()).toBe(b.rng.getState());
   });
 });

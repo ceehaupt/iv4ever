@@ -1,23 +1,18 @@
-# Spielregeln (Stand M5)
+# Spielregeln (Stand M10)
 
 Eigene Entwürfe. Alle Zahlen stehen als Konstanten bzw. Tabellen im Code und lassen sich dort anpassen:
 `src/sim/city.ts`, `src/sim/game.ts`, `src/sim/rules/*.ts`.
 
+Die vollständigen Tabellen (Gelände, Ressourcen, Einheiten, Beförderungen, Gebäude, Wunder, Technologien, Leitbilder) stehen in
+[`REGELN-DATEN.md`](REGELN-DATEN.md). Sie wird mit `npm run docs` aus dem Code erzeugt; ein Test prüft, dass sie aktuell ist.
+Hier stehen die Regeln, die sich nicht aus Tabellen ablesen lassen.
+
 ## Gelände
 
-| Gelände | 🌾 | ⚒️ | 💰 | Bewegung |
-|---|---|---|---|---|
-| Grasland | 2 | 0 | 0 | 1 |
-| Ebene | 1 | 1 | 0 | 1 |
-| Wüste | 0 | 1 | 0 | 1 |
-| Tundra | 1 | 0 | 0 | 1 |
-| Schnee | 0 | 0 | 0 | 1 |
-| Küste | 2 | 0 | 1 | – |
-| Ozean | 1 | 0 | 1 | – |
-| See | 2 | 0 | 2 | – |
+Erträge und Bewegungskosten je Gelände: siehe [`REGELN-DATEN.md`](REGELN-DATEN.md#gelände).
 
 Zuschläge: Hügel +1 ⚒, Bewegung 2, +25 % Verteidigung · Wald +1 ⚒, Bewegung 2, +25 % · Dschungel −1 🌾, Bewegung 2, +15 % ·
-Schwemmland +2 🌾 · Fluss an einer Kante +1 💰 · Gebirge unpassierbar (0/1/0) · Ressourcen siehe `rules/resources.ts`.
+Schwemmland +2 🌾 · Fluss an einer Kante +1 💰 · Gebirge und Packeis unpassierbar · Ressourcen siehe [`REGELN-DATEN.md`](REGELN-DATEN.md#ressourcen).
 
 **Ressourcen wirken erst mit ihrer Verbesserung** (Weizen/Reis → Farm, Rinder/Schafe/Pferde → Weide, Wild/Pelze → Jagdlager,
 Stein → Steinbruch, Kupfer/Eisen/Edelsteine/Gold/Salz → Mine, Datteln/Wein/Gewürze/Seide → Plantage);
@@ -41,38 +36,21 @@ Verbesserungen nur im eigenen Gebiet. Mehrere Arbeiter am selben Auftrag addiere
 
 ## Technologien
 
-30 Technologien in 7 Stufen (Kosten 24 / 42 / 70 / 110 / 165 / 240 / 330 🔬). Man wählt ein **Ziel**; die Voraussetzungen werden
-automatisch der Reihe nach erforscht. Ohne Ziel wird Forschung angespart. Details und Freischaltungen: `src/sim/rules/techs.ts`
-bzw. im Spiel über **T**.
+54 Technologien in 15 Stufen (Kosten von 24 🔬 in Stufe 1 bis 1500 🔬 in Stufe 15, je Stufe gleich). Man wählt ein **Ziel**;
+die Voraussetzungen werden automatisch der Reihe nach erforscht. Ohne Ziel wird Forschung angespart. Freischaltungen:
+[`REGELN-DATEN.md`](REGELN-DATEN.md#technologien) bzw. im Spiel über **T**.
 
 ## Einheiten
 
-| Einheit | Klasse | Technologie | Ressource | Kosten | Bew. | Stärke | Fernkampf | Besonderes |
-|---|---|---|---|---|---|---|---|---|
-| Siedler | Zivil | – | – | 35 | 1 | – | – | gründet Städte; braucht Stadtgröße 2, kostet 1 Bürger |
-| Arbeiter | Zivil | – | – | 25 | 1 | – | – | Verbesserungen und Straßen |
-| Späher | Aufklärung | – | – | 15 | 2 | 1 | – | Sicht 2 |
-| Krieger | Nahkampf | – | – | 12 | 1 | 2 | – | |
-| Bogenschütze | Fernkampf | Jagd | – | 22 | 1 | 2 | 3 (2 Felder) | +25 % in Städten |
-| Speerkämpfer | Nahkampf | Bronzeverarbeitung | Kupfer | 25 | 1 | 4 | – | +100 % gegen Berittene |
-| Reiter | Beritten | Tierzucht | Pferde | 30 | 2 | 4 | – | |
-| Schwertkämpfer | Nahkampf | Eisenverarbeitung | Eisen | 40 | 1 | 6 | – | +25 % gegen Städte |
-| Katapult | Belagerung | Mathematik | – | 45 | 1 | 2 | 6 (2 Felder) | +100 % gegen Städte |
-| Langbogenschütze | Fernkampf | Baukunst | – | 45 | 1 | 4 | 5 (2 Felder) | +50 % in Städten |
-| Pikenier | Nahkampf | Lehnswesen | Eisen | 50 | 1 | 7 | – | +100 % gegen Berittene |
-| Ritter | Beritten | Lehnswesen | Pferde + Eisen | 70 | 2 | 10 | – | |
-| Tribok | Belagerung | Burgenbau | – | 70 | 1 | 3 | 9 (2 Felder) | +100 % gegen Städte |
-
-| Galeere | Schiff | Segeln | – | 35 | 3 | 1 | – | Küste; transportiert 2 Landeinheiten |
-| Kriegsgaleere | Schiff | Seefahrt | – | 40 | 3 | 3 | – | Küste; Seekampf |
-| Karavelle | Schiff | Astronomie | – | 55 | 4 | 2 | – | auch Ozean; transportiert 3 |
+Werte aller Einheiten: [`REGELN-DATEN.md`](REGELN-DATEN.md#einheiten). Start mit Siedler, Krieger und Späher.
 
 - **Seefahrt:** Schiffe entstehen in Küstenstädten und fahren auf Küstengewässern (Karavelle auch auf dem Ozean), nie auf Binnenseen.
   Landeinheiten gehen an Bord, indem sie auf das Wasserfeld eines eigenen Transportschiffs mit freiem Platz ziehen
   oder in einer Stadt eingeladen werden (L). Sie gehen an Land, indem sie auf ein Landfeld ziehen – die Landung beendet den Zug.
   Schiffe kämpfen nur gegen Schiffe; ein versenktes Schiff reißt seine Ladung mit. Schiffe in einer eroberten Stadt werden versenkt.
+  Mit **Navigation** sind alle Schiffe hochseetauglich.
 - Strategische Ressourcen zählen, wenn sie verbessert, im eigenen Gebiet und an das Handelsnetz angebunden sind.
-- Bewegung intern in Zwölfteln (Straßen ⅓ bzw. ¼).
+- Bewegung intern in Zwölfteln (Straßen ⅓, mit Ingenieurwesen ¼, Eisenbahn ⅙).
 - Mit der letzten Bewegung darf jedes betretbare Feld noch betreten werden (die Runde ist danach vorbei).
 - Stapel: unbegrenzt viele eigene Einheiten pro Feld; fremde Einheiten und Städte blockieren.
 - Sicht: +1 auf Hügeln; Wald/Dschungel, Hügel und Gebirge verdecken, was dahinter liegt.
@@ -91,7 +69,6 @@ bzw. im Spiel über **T**.
 - Angreifen beendet den Zug der Einheit. Die Vorhersage (Maus über dem Ziel) zeigt Siegchance und Schadensspannen.
 - **Heilung** am Rundenbeginn, wenn die Einheit nicht gezogen hat oder angegriffen wurde: +10 im Feld, +15 im eigenen Gebiet,
   +25 in eigener Stadt (+10 mit Feldscher auf dem Feld).
-- Bis zur Diplomatie (M7) herrscht mit allen Zivilisationen Krieg.
 
 ### Erfahrung und Beförderungen
 
@@ -101,7 +78,7 @@ bzw. im Spiel über **T**.
   Stadtwache I–II (+20/+30 % in Städten), Flankenschutz (+50 % gegen Berittene), Gewaltmarsch (+1 Bewegung),
   Feldscher (+10 Heilung auf dem Feld). Voraussetzungen siehe `src/sim/rules/units.ts`.
 
-## Leitbilder (ab M8)
+## Leitbilder
 
 Je Bereich gilt ein Leitbild; ein Wechsel kostet eine Runde **Umbruch** (keine Forschung, kein Gold). Details: `src/sim/rules/doctrines.ts` bzw. im Spiel über **P**.
 
@@ -174,42 +151,16 @@ Je Bereich gilt ein Leitbild; ein Wechsel kostet eine Runde **Umbruch** (keine F
 - **Versorgung:** Versorgungsgrenze = 4 + 2 bei Süßwasser (Fluss oder See am Stadtfeld) + Gebäude.
   Jeder Bürger darüber isst 1 🌾 zusätzlich.
 
-### Gebäude
+### Gebäude und Wunder
 
-| Gebäude | Technologie | Kosten | Wirkung |
-|---|---|---|---|
-| Palast | – | – | erste Stadt: +3 🔬, +2 Kultur, +1 Stimmung |
-| Denkmal | – | 25 | +2 Kultur |
-| Brunnen | – | 30 | +2 Versorgung |
-| Palisade | – | 40 | +50 % Verteidigung (wirkt ab M5) |
-| Schrein | Mystik | 35 | +2 Stimmung, +1 Kultur |
-| Kornspeicher | Töpferei | 45 | 40 % des Nahrungsbedarfs bleiben nach dem Wachstum |
-| Kaserne | Bronzeverarbeitung | 40 | Erfahrung für neue Einheiten (ab M5) |
-| Hafen | Segeln | 55 | +1 🌾 auf bewirtschafteten Wasserfeldern (Küstenstadt) |
-| Bibliothek | Schrift | 60 | +50 % 🔬, +1 Kultur |
-| Markt | Währung | 60 | +50 % Gold, +1 Stimmung |
-| Gerichtsgebäude | Gesetzgebung | 60 | kein Städte-Unterhalt, +1 Stimmung |
-| Theater | Theaterkunst | 70 | +2 Stimmung, +2 Kultur |
-| Schmiede | Eisenverarbeitung | 80 | +25 % ⚒ |
-| Aquädukt | Ingenieurwesen | 90 | +4 Versorgung |
-| Burg | Burgenbau | 100 | +100 % Verteidigung (braucht Palisade, ab M5) |
-| Bank | Bankwesen | 110 | +50 % Gold (braucht Markt) |
-| Kathedrale | Theologie | 120 | +3 Stimmung, +3 Kultur |
-| Universität | Gelehrsamkeit | 130 | +50 % 🔬 (braucht Bibliothek) |
+Kosten, Voraussetzungen und Wirkungen: [`REGELN-DATEN.md`](REGELN-DATEN.md#gebäude) und
+[Wunder und Projekt](REGELN-DATEN.md#wunder-und-projekt). Allgemein gilt:
 
-### Weltwunder (je nur einmal auf der Welt)
-
-| Wunder | Technologie | Kosten | Wirkung |
-|---|---|---|---|
-| Ewige Flamme | Mystik | 90 | +3 Kultur, +1 Stimmung in allen eigenen Städten |
-| Terrassengärten | Bewässerung | 120 | +2 Versorgung in allen eigenen Städten |
-| Hafen der Händler | Seefahrt | 130 | +4 💰 hier, +1 💰 in allen eigenen Küstenstädten |
-| Großes Amphitheater | Theaterkunst | 140 | +1 Stimmung überall, +2 hier |
-| Himmelswarte | Astronomie | 150 | +3 🔬 und +50 % 🔬 hier |
-| Wall der Ahnen | Burgenbau | 170 | +50 % Verteidigung in allen eigenen Städten (ab M5) |
-| Akademie der Weisen | Philosophie | 180 | Spezialisten überall +1 💰 |
-
-Wird ein Wunder anderswo zuerst fertig, verschwindet es aus der Bauliste; die Produktion bleibt erhalten.
+- Die erste Stadt erhält den **Palast**. Manche Gebäude setzen ein anderes voraus (z. B. Bank → Markt, Universität → Bibliothek,
+  Burg → Palisade).
+- **Weltwunder** gibt es nur einmal auf der Welt. Wird ein Wunder anderswo zuerst fertig, verschwindet es aus der Bauliste;
+  die Produktion bleibt erhalten.
+- Das **Großprojekt „Aufbruch“** besteht aus Startrampe, Sternenantrieb und Habitatmodul (siehe Siegbedingungen).
 
 ## Wirtschaft
 
@@ -218,3 +169,12 @@ Wird ein Wunder anderswo zuerst fertig, verschwindet es aus der Bauliste; die Pr
 - **Unterhalt:** Städte ab der vierten je 1 Gold (Gerichtsgebäude befreit); Einheiten über dem Freikontingent
   (3 + 2 je Stadt, mit Lehnswesen 3 je Stadt) je 1 Gold.
   Fehlt Gold, wird der Fehlbetrag aus der Forschung der Runde gedeckt.
+
+## Mehrspieler
+
+- **Hotseat:** 2–4 Menschen am selben Gerät; zwischen den Zügen verdeckt ein Übergabebildschirm die Karte. Speichern und Laden möglich.
+- **Online:** deterministischer Lockstep über einen Relay-Server, der nur die Reihenfolge der Aktionen festlegt. Jeder Rechner
+  berechnet die Simulation selbst; eine Prüfsumme je Runde deckt Abweichungen auf. Die Runde endet, wenn alle Menschen
+  „Runde beenden“ gedrückt haben.
+- **Verlässt ein Mensch das Online-Spiel**, übernimmt die KI sein Volk („… (KI)“), an derselben Stelle der Aktionsfolge auf allen Rechnern.
+- Angebote zwischen Menschen (Frieden, offene Grenzen, Handel) müssen vom Gegenüber angenommen werden.

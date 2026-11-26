@@ -1,8 +1,8 @@
 import type { CityView, FromWorker, GameView, NewGameOptions, ToWorker, ViewReason } from '../protocol';
 import { availableItems, buildCost, type City, cityReport, cultureToNextRadius, foodToGrow, type TurnEvent, workableTiles } from '../sim/city';
 import {
-  addUnit, applyCommand, canPromote, CommandError, createGame, currentResearch, economy, endTurn, type GameState, type MoveEvent,
-  refreshVision,
+  addUnit, applyCommand, canPromote, CommandError, createGame, currentResearch, economy, endTurn, type GameState, handOverToAi,
+  type MoveEvent, refreshVision,
 } from '../sim/game';
 import { promotionChoices, UnitTypeId, xpForNext } from '../sim/rules/units';
 import { tilesAround } from '../sim/hex';
@@ -274,6 +274,16 @@ async function handle(msg: ToWorker): Promise<void> {
     case 'remote': {
       // Online: Befehle aller Spieler in der vom Server festgelegten Reihenfolge.
       if (!state) return;
+      if (msg.action.kind === 'leave') {
+        handOverToAi(state, msg.player);
+        humans = humans.filter((h) => h !== msg.player);
+        ended.delete(msg.player);
+        notice(`${state.players[msg.player].name} übernimmt den Platz eines Spielers, der das Spiel verlassen hat`);
+        // Haben alle Verbliebenen die Runde schon beendet, geht es jetzt weiter.
+        if (aliveHumans(state).every((h) => ended.has(h))) await finishRound(state);
+        else sendView(state, ended.has(viewer) ? 'waiting' : 'command');
+        break;
+      }
       if (msg.action.kind === 'endTurn') {
         ended.add(msg.player);
         if (aliveHumans(state).every((h) => ended.has(h))) await finishRound(state);

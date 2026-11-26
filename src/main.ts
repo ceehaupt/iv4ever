@@ -878,13 +878,16 @@ window.addEventListener('keydown', (e) => {
       if (!e.shiftKey) doctrinePanel.toggle();
       break;
     case 'r':
-      if (own && UNIT_TYPES[u.type].trade) runAction('route', u.id);
-      else renderer.toggleResources();
+      // R = Handelsroute (Händler), Shift + R = Ressourcen ein/aus – vorher teilten sich beide die Taste.
+      if (e.shiftKey) renderer.toggleResources();
+      else if (own && UNIT_TYPES[u.type].trade) runAction('route', u.id);
       break;
     case 'n':
       hud.requestNewMap(true);
       break;
     case 'x':
+      // Debug nur auf dem Dev-Server und nie im Online-Spiel (dort wäre es ein Blick hinter den Nebel).
+      if (!import.meta.env.DEV || view?.mode === 'online') break;
       revealAll = renderer.toggleRevealAll();
       if (view) minimap.update(fogForUi(), view.units, view.tileOwner, view.cities);
       ui.toast(revealAll ? 'Debug: Karte aufgedeckt' : 'Debug: Nebel wieder an');

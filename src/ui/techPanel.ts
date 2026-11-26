@@ -1,31 +1,9 @@
 import type { ResearchView } from '../protocol';
-import { BUILDINGS } from '../sim/rules/buildings';
-import { CLEAR_TECH, IMPROVEMENTS, ROAD_TECH } from '../sim/rules/improvements';
 import { canResearch, costTowards, nextStepTowards, TECHS, techCost } from '../sim/rules/techs';
-import { UNIT_TYPES } from '../sim/rules/units';
-import { DOCTRINES } from '../sim/rules/doctrines';
 
-/** Was eine Technologie freischaltet – aus den Regeltabellen abgeleitet. */
-export function techUnlocks(id: number): string[] {
-  const out: string[] = [];
-  BUILDINGS.forEach((b) => {
-    if (b.tech === id) out.push(`${b.icon} ${b.name}${b.wonder ? ' (Weltwunder)' : ''}`);
-  });
-  IMPROVEMENTS.forEach((i) => {
-    if (i && i.tech === id) out.push(`${i.icon} ${i.name}`);
-  });
-  UNIT_TYPES.forEach((u) => {
-    if (u.tech === id) out.push(`${u.icon} ${u.name}`);
-  });
-  DOCTRINES.forEach((d) => {
-    if (d.tech === id) out.push(`📜 ${d.name}`);
-  });
-  if (id === ROAD_TECH) out.push('🛤️ Straße');
-  if (id === CLEAR_TECH) out.push('🪓 Roden');
-  const effect = TECHS[id].effect;
-  if (effect) out.push(`✨ ${effect}`);
-  return out;
-}
+import { techUnlocks } from '../sim/rules/catalog';
+
+export { techUnlocks };
 
 const plural = (n: number) => `${n} ${n === 1 ? 'Runde' : 'Runden'}`;
 

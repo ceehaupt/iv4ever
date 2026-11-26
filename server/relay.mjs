@@ -86,7 +86,11 @@ wss.on('connection', (ws) => {
     if (!room) return;
     room.players = room.players.filter((p) => p !== me);
     if (!room.players.length) rooms.delete(room.code);
-    else broadcast(room, { t: 'left', seat: me.seat, name: me.name });
+    else {
+      broadcast(room, { t: 'left', seat: me.seat, name: me.name });
+      // Im laufenden Spiel als geordnete Aktion verteilen, damit alle Clients an derselben Stelle die KI übernehmen lassen.
+      if (room.started) broadcast(room, { t: 'act', seq: room.seq++, seat: me.seat, action: { kind: 'leave' } });
+    }
     if (!room.started) lobby(room);
   });
 });

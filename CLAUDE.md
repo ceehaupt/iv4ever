@@ -1,7 +1,9 @@
 # iv4ever
 
-Rundenbasiertes 4X-Strategiespiel im Browser (Hexfelder, 2.5D, Einzelspieler gegen KI).
-Plan und Meilensteine: `docs/ROADMAP.md`, Spielregeln: `docs/REGELN.md` (bei Regeländerungen mitpflegen). UI-Sprache Deutsch, Code-Bezeichner Englisch, Kommentare Deutsch.
+Rundenbasiertes 4X-Strategiespiel im Browser (Hexfelder, 2.5D) gegen KI, im Hotseat oder online im Lockstep.
+Plan und Meilensteine: `docs/ROADMAP.md`, offene Punkte: `docs/OFFENE-PUNKTE.md`, Spielregeln: `docs/REGELN.md` (bei Regeländerungen mitpflegen).
+`docs/REGELN-DATEN.md` wird aus den Regeltabellen erzeugt (`npm run docs`); ein Test schlägt fehl, wenn sie veraltet ist.
+UI-Sprache Deutsch, Code-Bezeichner Englisch, Kommentare Deutsch.
 
 ## Rechtliches (verbindlich)
 
@@ -16,7 +18,7 @@ Enzyklopädie-Texte, Grafiken, UI-Layout/-Look, Musik, Sounds, Szenarien. Histor
   Für Online-Lockstep auch plattformgleich: kein `Math.pow/exp/log/hypot/sin/cos` in der Simulation – `sim/detmath.ts` bzw. `Math.sqrt` verwenden.
 - `src/sim/ai.ts` – KI; `diplomacy.ts`, `victory.ts`, `events.ts`, `naval.ts`; `rules/doctrines.ts`, `rules/leaders.ts`.
 - `src/net/online.ts` + `server/relay.mjs` – Online-Mehrspieler (Server ordnet nur Aktionen, rechnet nichts).
-- `src/sim/rules/` – Spieldaten (Gelände, Ressourcen, später Einheiten, Technologien …) als Tabellen.
+- `src/sim/rules/` – Spieldaten (Gelände, Ressourcen, Einheiten, Gebäude, Technologien, Leitbilder …) als Tabellen; `catalog.ts` macht daraus die Tabellen für Handbuch und `REGELN-DATEN.md`.
 - `src/sim/gen/` – Weltgenerierung: Flüsse, Ressourcen, Startpositionen; Einstieg `src/sim/mapgen.ts`.
 - Welt ist ost-west umlaufend: Nachbarn/Distanzen immer über `src/sim/hex.ts` (`tileAt`, `neighborOf`, `tileDistance`), nie selbst `c ± 1` rechnen.
 - Flüsse liegen auf Kanten; Abfrage nur über `hasRiver`/`touchesRiver` (`src/sim/map.ts`).
@@ -44,4 +46,5 @@ Node über nvm (`.nvmrc` = 26):
 npm run dev        # Dev-Server
 npm run build      # Typecheck + Produktionsbuild
 npm test           # Vitest (Simulation)
+npm run docs       # docs/REGELN-DATEN.md neu erzeugen
 ```

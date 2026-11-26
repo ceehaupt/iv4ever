@@ -232,6 +232,18 @@ export function createGame(world: GeneratedWorld, options: MapGenOptions): GameS
   return state;
 }
 
+/**
+ * Ein Mensch verlässt das Online-Spiel: Die KI übernimmt sein Volk. Deterministisch (Persönlichkeit aus Seed und Platz),
+ * damit alle Rechner im Lockstep denselben Zustand behalten.
+ */
+export function handOverToAi(state: GameState, id: number): void {
+  const p = state.players[id];
+  if (!p || !p.human) return;
+  p.human = false;
+  p.persona = personaFor(state.options.seed, id - 1 + state.players.length);
+  p.name = `${p.name} (KI)`;
+}
+
 export function addUnit(state: GameState, owner: number, type: number, tile: number, xp = 0): Unit {
   const u: Unit = {
     id: state.nextUnitId++, type, owner, tile, moves: unitMaxMoves(type, []), orders: Orders.None, path: null,

@@ -3,14 +3,12 @@
 Stand: 26.11.2026, nach M10. Alle Meilensteine aus `docs/ROADMAP.md` sind umgesetzt; 74 Tests grün, Build fehlerfrei
 (Erststart ≈ 49 KB gzip für das Haupt-Bundle, Renderer werden nachgeladen).
 
-Kennzeichnung: **[Fehler]** = Verhalten ist falsch bzw. blockiert das Spiel · **[Grenze]** = bewusst nicht umgesetzt ·
+Kennzeichnung: **[Erledigt]** = umgesetzt · **[Fehler]** = Verhalten ist falsch bzw. blockiert das Spiel · **[Grenze]** = bewusst nicht umgesetzt ·
 **[Lücke]** = fehlt noch, wäre sinnvoll · **[Doku]** = Dokumentation veraltet.
 
 ## Online-Mehrspieler
 
-- **[Fehler] Verlassen blockiert das Spiel.** Trennt sich ein Spieler, zeigen die anderen nur eine Meldung. Er zählt aber weiter als
-  lebender Mensch, die Runde endet also nie (`src/worker/sim.worker.ts`, `aliveHumans(...).every(...)`). Lösung: Abgang als Aktion
-  über den Relay ordnen und den Platz an die KI übergeben oder automatisch „Runde beenden“ setzen.
+- **[Erledigt] Verlassen blockiert das Spiel.** Der Relay reiht das Verlassen als Aktion ein; auf allen Rechnern übernimmt an derselben Stelle die KI.
 - **[Grenze] Kein Wiedereinstieg** nach einem Verbindungsabbruch. Der Server speichert keinen Verlauf und ordnet einen Platz nicht neu zu.
 - **[Grenze] Kein Speichern/Laden** im Online-Spiel.
 - **[Grenze] Desync wird nur gemeldet**, nicht behoben. Es gibt weder einen Abgleich noch ein Zurücksetzen auf einen gemeinsamen Stand.
@@ -46,11 +44,11 @@ Kennzeichnung: **[Fehler]** = Verhalten ist falsch bzw. blockiert das Spiel · *
 ## Präsentation und Bedienung
 
 - **[Grenze]** Grafik ist bewusst prozedural (Canvas-Pfade, keine Sprites/Modelle), Gelände ohne Animation.
-- **[Lücke]** Keine Tastenbelegung zum Anpassen; Belegungskonflikt `R` (Ressourcen ein/aus und Händler-Route) wird nur über den Kontext aufgelöst.
+- **[Lücke]** Keine Tastenbelegung zum Anpassen. **[Erledigt]** `R`-Konflikt: `R` = Handelsroute, `Shift + R` = Ressourcen.
 - **[Lücke]** Keine Übersetzung – UI nur Deutsch.
 - **[Lücke]** Touch-Bedienung ist nicht gezielt getestet (Pinch-Zoom ja, Rechtsklick-Befehle haben auf Touch keine Entsprechung).
 - **[Offen]** Barrierefreiheit nur in Grundzügen (Fokus, ARIA, Kontrast). Die Karte selbst ist für Screenreader nicht zugänglich.
-- **[Lücke]** Debug-Tasten (`X` Karte aufdecken) sind auch im Produktionsbuild aktiv – vor einer Veröffentlichung sperren.
+- **[Erledigt]** Debug-Taste `X` nur noch auf dem Dev-Server und nie online.
 
 ## Technik und Tests
 
@@ -63,10 +61,8 @@ Kennzeichnung: **[Fehler]** = Verhalten ist falsch bzw. blockiert das Spiel · *
 
 ## Dokumentation
 
-- **[Doku] `docs/REGELN.md` steht auf M5:** Überschrift „Stand M5“, der Satz „Bis zur Diplomatie (M7) herrscht Krieg“ ist überholt,
-  Vermerke „(wirkt ab M5)“ sind veraltet. Es fehlen die Einheiten, Gebäude und Wunder aus M8 sowie die Technologie-Zahlen (54 statt 30, 15 Stufen).
-  Das Handbuch im Spiel (F1) liest die Tabellen direkt und ist aktuell.
-- **[Doku]** `CLAUDE.md` beschreibt das Spiel noch als „Einzelspieler gegen KI“; seit M10 gibt es auch Mehrspieler.
+- **[Erledigt]** `docs/REGELN.md` auf Stand M10; Tabellen stehen in `docs/REGELN-DATEN.md`, erzeugt aus dem Code (`npm run docs`, per Test abgesichert).
+- **[Erledigt]** `CLAUDE.md` beschreibt Mehrspieler und die erzeugte Datendoku.
 
 ## Rechtliches
 

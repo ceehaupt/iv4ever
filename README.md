@@ -32,10 +32,10 @@ npm run dev        # http://localhost:5173
 | `Enter` | Runde beenden |
 | `Entf` | Einheit auflösen |
 | `H` | Zur ausgewählten Einheit |
-| `G` / `R` | Gitter / Ressourcen ein/aus |
+| `G` / `Shift + R` | Gitter / Ressourcen ein/aus |
 | `Strg/⌘ + S` | Schnellspeichern (Laden über „Laden ▾“) |
 | `Esc` | Auswahl aufheben |
-| `X` | Debug: Karte aufdecken |
+| `X` | Debug (nur Dev-Server, nicht online): Karte aufdecken |
 | `Shift + P` | Debug (nur Dev-Server): Plünderer neben die ausgewählte Einheit setzen |
 | Minimap klicken/ziehen | Springen |
 
