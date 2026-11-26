@@ -17,7 +17,6 @@ async function newGame(page: Page): Promise<void> {
 
 test('Stadt gründen und Runde beenden', async ({ page }) => {
   await newGame(page);
-  await page.locator('#game').click({ position: { x: 5, y: 5 } }).catch(() => {});
   await page.keyboard.press('Escape');
   await page.keyboard.press('Tab'); // erste Einheit = Siedler
   await expect(page.locator('#unitpanel')).toBeVisible();
@@ -31,7 +30,6 @@ test('Stadt gründen und Runde beenden', async ({ page }) => {
 
 test('Späher erkundet automatisch', async ({ page }) => {
   await newGame(page);
-  await page.locator('#game').click({ position: { x: 5, y: 5 } }).catch(() => {});
   await page.keyboard.press('Escape');
   for (let k = 0; k < 3; k++) {
     await page.keyboard.press('Tab');
@@ -41,6 +39,38 @@ test('Späher erkundet automatisch', async ({ page }) => {
   await page.locator('#unitpanel button[data-action="explore"]').click();
   await expect(page.locator('#unitpanel')).toContainText('erkundet');
   await page.screenshot({ path: 'test-results/explore.png' });
+});
+
+test('Klick auf ein erreichbares Feld bewegt die ausgewählte Einheit', async ({ page }) => {
+  await newGame(page);
+  await page.keyboard.press('Escape');
+  for (let k = 0; k < 3; k++) {
+    await page.keyboard.press('Tab');
+    if ((await page.locator('#unitpanel').textContent())?.includes('Späher')) break;
+  }
+  await expect(page.locator('#unitpanel')).toContainText('2/2');
+  await page.keyboard.press('h'); // Einheit in die Bildmitte
+  // Nach dem Zug ist der Späher fertig: eine Einheit weniger wartet (Auswahl springt zur nächsten).
+  const waiting = await page.locator('#ready').textContent();
+  const box = (await page.locator('#game').boundingBox())!;
+  const cx = box.x + box.width / 2;
+  const cy = box.y + box.height / 2;
+  // Ein paar Felder rund um den Späher probieren (eines davon ist Land und erreichbar).
+  const offsets = [[110, 0], [-110, 0], [55, 60], [-55, 60], [55, -60], [-55, -60], [165, 60], [-165, -60]];
+  let moved = false;
+  for (const [dx, dy] of offsets) {
+    await page.mouse.click(cx + dx, cy + dy);
+    await page.waitForTimeout(300);
+    if ((await page.locator('#ready').textContent()) !== waiting) {
+      moved = true;
+      break;
+    }
+    // Daneben geklickt (Wasser, Einheit, Stadt): Späher wieder auswählen.
+    await page.keyboard.press('Escape');
+    for (let k = 0; k < 3 && !((await page.locator('#unitpanel').textContent()) ?? '').includes('Späher'); k++) await page.keyboard.press('Tab');
+    await page.keyboard.press('h');
+  }
+  expect(moved).toBe(true);
 });
 
 test('Schnellspeichern und Laden', async ({ page }) => {

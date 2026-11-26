@@ -13,7 +13,7 @@ interface Step {
 const STEPS: Step[] = [
   {
     title: 'Willkommen bei iv4ever',
-    text: 'Ziehe die Karte mit der Maus oder WASD, zoome mit dem Mausrad. Ein Klick wählt Einheiten, Städte und Felder.',
+    text: 'Ziehe die Karte mit der Maus oder WASD, zoome mit dem Mausrad. Ein Klick wählt Einheiten, Städte und Felder – ist eine eigene Einheit gewählt, zieht ein Klick auf ein freies Feld sie dorthin.',
   },
   {
     title: 'Gründe deine Hauptstadt',

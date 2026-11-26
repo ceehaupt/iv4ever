@@ -537,6 +537,13 @@ function handleClick(tile: number): void {
   }
   if (cityPanel.openCityId >= 0) closeCity();
   const visibleStack = (revealAll || view.fog[tile] === 2) ? stackAt(tile) : [];
+  // Ausgewählte eigene Einheit: Klick auf ein erreichbares freies Feld bewegt sie dorthin (wie Rechtsklick).
+  // Angriffe bleiben beim Rechtsklick bzw. Bewegen-Modus, damit ein Klick nie versehentlich einen Kampf auslöst.
+  if (u && isOwn(u) && u.moves > 0 && !UNIT_TYPES[u.type].air && !visibleStack.length && !city && !hasEnemyTarget(u, tile) &&
+      tile !== u.tile && previewPath(u, tile)) {
+    moveOrAttack(u, tile);
+    return;
+  }
   if (visibleStack.length) {
     // Erneuter Klick auf denselben Stapel wechselt durch die Einheiten.
     const idx = visibleStack.findIndex((x) => x.id === selected);
@@ -556,6 +563,13 @@ function updatePathPreview(): void {
     renderer.setPath(-1, null, null);
     return;
   }
+  const res = previewPath(u, hoverTile);
+  renderer.setPath(u.tile, res?.tiles ?? null, res?.turns ?? null);
+}
+
+/** Weg einer eigenen Einheit zum Feld aus Sicht der Oberfläche (Vorschau und Klick-Bewegung). */
+function previewPath(u: UnitView, target: number): ReturnType<typeof findPath> {
+  if (!map || !view) return null;
   const fog = view.fog;
   const foreign = new Set(view.units.filter((x) => x.owner !== view!.human).map((x) => x.tile));
   for (const c of view.cities) if (c.owner !== view.human) foreign.add(c.tile);
@@ -568,10 +582,10 @@ function updatePathPreview(): void {
     if (s.owner !== view.human || !cap || !isWater(map.terrain[s.tile])) continue;
     if (view.units.filter((x) => x.carriedBy === s.id).length < cap) transports.add(s.tile);
   }
-  const res = findPath({
+  return findPath({
     map,
     from: u.tile,
-    to: hoverTile,
+    to: target,
     maxMoves: u.maxMoves,
     movesLeft: u.moves,
     cost: unitCost({
@@ -586,7 +600,6 @@ function updatePathPreview(): void {
     }),
     limit: 6000,
   });
-  renderer.setPath(u.tile, res?.tiles ?? null, res?.turns ?? null);
 }
 
 // --- Befehle ---------------------------------------------------------------------
@@ -1194,7 +1207,7 @@ renderer.panKey = (e) => {
 function renderKeyHints(): void {
   const k = (a: KeyAction) => keymap.label(a);
   document.getElementById('help')!.textContent =
-    `Ziehen / ${k('panUp')}${k('panLeft')}${k('panDown')}${k('panRight')}: Karte · Rad: Zoom · Klick: wählen · Rechtsklick oder ${k('moveMode')}: bewegen/angreifen · ` +
+    `Ziehen / ${k('panUp')}${k('panLeft')}${k('panDown')}${k('panRight')}: Karte · Rad: Zoom · Klick: wählen bzw. ausgewählte Einheit bewegen · Rechtsklick oder ${k('moveMode')}: bewegen/angreifen · ` +
     `${k('skip')}: überspringen · ${k('fortify')}: befestigen · ${k('explore')}: erkunden · ${k('found')}: Stadt gründen · ${k('nextUnit')}: nächste Einheit · ${k('endTurn')}: Runde beenden · ` +
     `${k('techs')}: Technologien · ${k('diplomacy')}: Diplomatie · ${k('doctrines')}: Leitbilder · ${k('handbook')}: Handbuch · ${k('cursorMode')}: Kartencursor · Tasten ändern: ⚙`;
   document.getElementById('diplobtn')!.title = `Diplomatie und Siegbedingungen (${k('diplomacy')})`;
