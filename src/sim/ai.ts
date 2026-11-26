@@ -1,4 +1,4 @@
-import { availableItems, type BuildItem, type City, cityAt, foundingBlocker, playerContext, type PlayerContext } from './city';
+import { availableItems, type BuildItem, type City, cityAt, cityReport, foundingBlocker, playerContext, type PlayerContext } from './city';
 import { predictCombat } from './combat';
 import { economy, type GameState, Orders, type Player, ROUTE_MIN_DISTANCE, ROUTES_PER_CITY, type Unit } from './game';
 import { isMilitary, landmasses, moveTo, type Out, power, run } from './aiCommon';
@@ -7,7 +7,8 @@ import { forEachNeighbor, tileDistance, tilesAround } from './hex';
 import { siteScore } from './gen/starts';
 import { findPath, landCost } from './path';
 import { BUILDINGS, BuildingId } from './rules/buildings';
-import type { Persona } from './rules/leaders';
+import { AI_TACTICS, type Persona, type Tactics } from './rules/leaders';
+import { nearVictory } from './victory';
 import { isWater, Relief } from './rules/terrain';
 import { TECHS, TechId } from './rules/techs';
 import { isNaval, MOVE_SCALE, promotionChoices, UNIT_TYPES, UnitTypeId } from './rules/units';
@@ -39,6 +40,12 @@ const RESEARCH_SCIENCE: number[] = [T.Writing, T.Currency, T.Philosophy, T.Astro
 function chooseResearch(state: GameState, p: Player, out: Out): void {
   if (p.goal >= 0 && !p.techs[p.goal]) return;
   const persona = p.persona!;
+  // Ab dem mittleren Spiel steuern forschungsorientierte Herrscher den Projektsieg an (Voraussetzungen kommen automatisch).
+  const known = p.techs.reduce((a, b) => a + b, 0);
+  if (persona.science >= 0.5 && known >= TECHS.length * 0.55 && !p.techs[T.Spaceflight]) {
+    run(state, p.id, { type: 'research', tech: T.Spaceflight }, out);
+    return;
+  }
   const lists = [RESEARCH_BASE];
   if (persona.aggression > 0.6) lists.unshift(RESEARCH_WAR);
   if (persona.science > 0.6) lists.unshift(RESEARCH_SCIENCE);
@@ -155,11 +162,17 @@ function chooseBuild(state: GameState, c: City, persona: Persona, sit: Situation
     if (m) return m;
   }
   // 4. Militär für Angriffe bei kriegerischen Herrschern
-  const wantArmy = Math.round(sit.cities.length * (1 + 2 * persona.aggression));
+  const tactics = AI_TACTICS[state.options.difficulty ?? 'normal'];
+  const threatened = state.players.some((o) => o.id !== c.owner && o.alive && !o.barbarian && hostile(c.owner, o.id) && nearVictory(state, o.id));
+  const wantArmy = Math.round(sit.cities.length * (1 + 2 * persona.aggression) * tactics.armyFactor * (threatened ? 1.5 : 1));
   if (sit.military.length < wantArmy && state.rng.next() < 0.35 + persona.aggression * 0.4) {
     const u = bestUnit(items, (t) => landMil(t) ? power(t) * (UNIT_TYPES[t].cls === 'mounted' ? 1.2 : 1) - UNIT_TYPES[t].cost / 60 : -Infinity);
     if (u) return u;
   }
+  // 4b. Großprojekt: Teile in der produktivsten Stadt (je Teil nur eine Stadt gleichzeitig)
+  const project = items.find((i) => i.kind === 'building' && BUILDINGS[i.id].project &&
+    !sit.cities.some((o) => o !== c && o.queue.some((q) => q.kind === 'building' && q.id === i.id)));
+  if (project && c === [...sit.cities].sort((a, b) => cityReport(state, b, ctx).yields.prod - cityReport(state, a, ctx).yields.prod)[0]) return project;
   // 5. Bestes Gebäude
   let best: BuildItem | null = null;
   let bestV = 0.5;
@@ -407,10 +420,11 @@ function garrisonOf(state: GameState, p: Player, sit: Situation): Set<number> {
 
 /** Bereit für Angriffe auf fremde Städte (nicht nur Verteidigung)? */
 function isOffensive(state: GameState, p: Player, sit: Situation): boolean {
-  return state.turn > 40 && p.persona!.aggression > 0.5 && sit.military.length >= sit.cities.length * 2 + 2;
+  const threat = state.players.some((o) => o.id !== p.id && o.alive && !o.barbarian && hostile(p.id, o.id) && nearVictory(state, o.id));
+  return (state.turn > 40 && (p.persona!.aggression > 0.5 || threat)) && sit.military.length >= sit.cities.length * 2 + 2;
 }
 
-function militaryTurn(state: GameState, p: Player, sit: Situation, out: Out, reserved: Set<number>): void {
+function militaryTurn(state: GameState, p: Player, sit: Situation, out: Out, reserved: Set<number>, mass: Int32Array): void {
   const busy = new Set<number>(reserved);
   // 1. Garnisonen auffüllen
   for (const c of sit.cities) {
@@ -432,33 +446,70 @@ function militaryTurn(state: GameState, p: Player, sit: Situation, out: Out, res
       if (u.orders !== Orders.Goto) moveTo(state, u, c.tile, out);
     }
   }
-  // 2. Übrige Einheiten: Bedrohungen und Lager in der Nähe, aggressive Herrscher auch fremde Städte
+  // 2. Übrige Einheiten: Bedrohungen und Lager in der Nähe; bei Offensive ein gemeinsamer Feldzug gegen eine Stadt.
+  const tactics: Tactics = AI_TACTICS[state.options.difficulty ?? 'normal'];
   const targets = knownTargets(state, p.id);
   const homeTargets = targets.filter((t) => sit.cities.some((c) => tileDistance(state.map, c.tile, t) <= 8));
-  const offensive = isOffensive(state, p, sit);
-  const pool = offensive ? targets : homeTargets;
-  for (const u of sit.military) {
-    if (busy.has(u.id) || !state.units.includes(u) || u.moves <= 0) continue;
+  const campaign = isOffensive(state, p, sit) ? campaignTarget(state, p, sit, mass) : -1;
+  const staging = campaign >= 0
+    ? sit.cities.filter((c) => mass[c.tile] === mass[campaign]).sort((a, b) => tileDistance(state.map, a.tile, campaign) - tileDistance(state.map, b.tile, campaign))[0]
+    : undefined;
+  // Fern- und Belagerungseinheiten zuerst, damit sie die Verteidiger schwächen.
+  const free = sit.military
+    .filter((u) => !busy.has(u.id) && state.units.includes(u) && u.moves > 0)
+    .sort((a, b) => UNIT_TYPES[b.type].ranged - UNIT_TYPES[a.type].ranged);
+  const army = staging ? free.filter((u) => mass[u.tile] === mass[campaign]) : [];
+  const atFront = (u: Unit) => tileDistance(state.map, u.tile, campaign) <= 3;
+  const gathered = army.filter((u) => staging && (tileDistance(state.map, u.tile, staging.tile) <= 1 || atFront(u))).length;
+  const marching = army.length >= tactics.armySize && gathered >= tactics.armySize;
+  for (const u of free) {
+    if (!state.units.includes(u) || u.moves <= 0) continue;
+    const inArmy = army.includes(u);
+    const pool = inArmy && (marching || atFront(u)) ? [...homeTargets, ...targets.filter((t) => tileDistance(state.map, t, campaign) <= 2)] : homeTargets;
     // Angriff auf ein erreichbares Ziel?
     const inRange = pool
       .filter((t) => tileDistance(state.map, u.tile, t) <= Math.max(1, UNIT_TYPES[u.type].range))
       .sort((a, b) => attackOdds(state, u, b) - attackOdds(state, u, a));
-    if (inRange.length && attackOdds(state, u, inRange[0]) >= 0.55) {
+    if (inRange.length && attackOdds(state, u, inRange[0]) >= tactics.attackOdds) {
       run(state, p.id, { type: 'attack', unit: u.id, target: inRange[0] }, out);
       continue;
     }
-    const goal = pool.sort((a, b) => tileDistance(state.map, u.tile, a) - tileDistance(state.map, u.tile, b))[0];
+    let goal: number | undefined;
+    if (inArmy && staging) {
+      if (marching) goal = campaign;
+      else if (!atFront(u) && tileDistance(state.map, u.tile, staging.tile) > 1) {
+        // Sammeln in der Stadt, die dem Ziel am nächsten ist.
+        moveTo(state, u, staging.tile, out);
+        continue;
+      } else {
+        if (u.orders === Orders.None) run(state, p.id, { type: 'fortify', unit: u.id }, out);
+        continue;
+      }
+    } else {
+      goal = homeTargets.sort((a, b) => tileDistance(state.map, u.tile, a) - tileDistance(state.map, u.tile, b))[0];
+    }
     if (goal === undefined) {
       if (u.orders === Orders.None) run(state, p.id, { type: 'fortify', unit: u.id }, out);
       continue;
     }
-    // Neben das Ziel ziehen.
-    const next = tilesAround(state.map, goal, 1)
-      .filter((t) => t !== goal && !isWater(state.map.terrain[t]) && state.map.relief[t] !== Relief.Mountain &&
-        !state.units.some((o) => o.tile === t && o.owner !== p.id) && !cityAt(state, t))
+    // Neben das Ziel ziehen (Fernkämpfer bleiben auf Abstand).
+    const keep = UNIT_TYPES[u.type].ranged > 0 ? Math.min(2, UNIT_TYPES[u.type].range) : 1;
+    const next = tilesAround(state.map, goal, keep)
+      .filter((t) => t !== goal && tileDistance(state.map, t, goal) === keep && !isWater(state.map.terrain[t]) &&
+        state.map.relief[t] !== Relief.Mountain && !state.units.some((o) => o.tile === t && o.owner !== p.id) && !cityAt(state, t))
       .sort((a, b) => tileDistance(state.map, u.tile, a) - tileDistance(state.map, u.tile, b))[0];
     if (next !== undefined) moveTo(state, u, next, out);
   }
+}
+
+/** Ziel eines Feldzugs: Städte von Spielern kurz vor dem Sieg zuerst, sonst die nächste feindliche Stadt auf eigener Landmasse. */
+function campaignTarget(state: GameState, p: Player, sit: Situation, mass: Int32Array): number {
+  const home = new Set(sit.cities.map((c) => mass[c.tile]));
+  const origin = sit.cities.find((c) => c.buildings.includes(BuildingId.Palace))?.tile ?? sit.cities[0]?.tile;
+  if (origin === undefined) return -1;
+  const candidates = state.cities.filter((c) => c.owner !== p.id && p.explored[c.tile] && hostile(p.id, c.owner) && home.has(mass[c.tile]));
+  const score = (c: City) => tileDistance(state.map, origin, c.tile) - (nearVictory(state, c.owner) ? 30 : 0) + c.size;
+  return candidates.sort((a, b) => score(a) - score(b))[0]?.tile ?? -1;
 }
 
 /** Leitbilder alle 10 Runden prüfen und das jeweils beste wählen (höchstens ein Wechsel). */
@@ -516,6 +567,6 @@ export function aiTurn(state: GameState, out: Out): void {
     }
     const sit2 = situation(state, p.id);
     const reserved = navalTurn(state, p, out, stranded, garrisonOf(state, p, sit2), isOffensive(state, p, sit2));
-    militaryTurn(state, p, situation(state, p.id), out, reserved);
+    militaryTurn(state, p, situation(state, p.id), out, reserved, mass);
   }
 }

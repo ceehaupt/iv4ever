@@ -72,6 +72,20 @@ export function progress(state: GameState, pid: number): Progress {
   };
 }
 
+/** Anzahl fertiger Teile des Großprojekts eines Spielers. */
+export function projectParts(state: GameState, pid: number): number {
+  const parts = BUILDINGS.map((b, id) => (b.project ? id : -1)).filter((id) => id >= 0);
+  const own = state.cities.filter((c) => c.owner === pid);
+  return parts.filter((id) => own.some((c) => c.buildings.includes(id))).length;
+}
+
+/** Steht ein Spieler kurz vor einem Sieg? (Für die KI: gemeinsame Bedrohung.) */
+export function nearVictory(state: GameState, pid: number): boolean {
+  const pr = progress(state, pid);
+  return projectParts(state, pid) >= 2 || pr.cultureCities >= CULTURE_CITIES - 1 ||
+    (pr.landShare >= DOMINATION_LAND * 0.8 && pr.popShare >= DOMINATION_POP * 0.8);
+}
+
 /** Prüft am Rundenende, ob jemand gewonnen hat (nur einmal). */
 export function checkVictory(state: GameState): Victory | null {
   if (state.winner) return null;

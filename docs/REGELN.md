@@ -122,6 +122,25 @@ Je Bereich gilt ein Leitbild; ein Wechsel kostet eine Runde **Umbruch** (keine F
 - Erfundene Völker und Herrscher (`src/sim/rules/leaders.ts`); die Persönlichkeit bestimmt Forschung, Expansion, Militär und Bauten.
 - Schwierigkeitsgrad: Die KI erhält einen Faktor auf Produktion, Forschung und Nahrungsüberschuss –
   Leicht 0,8 · Normal 1,0 · Schwer 1,25 · Sehr schwer 1,5. Die KI sieht nur, was sie erkundet hat.
+- Der Schwierigkeitsgrad ändert auch das **Verhalten** (`AI_TACTICS`):
+
+  | | Leicht | Normal | Schwer | Sehr schwer |
+  |---|---|---|---|---|
+  | Mindest-Siegchance für Angriffe | 70 % | 55 % | 50 % | 45 % |
+  | Armeegröße für einen Feldzug | 6 | 4 | 4 | 5 |
+  | Kriegserklärungen frühestens ab Runde | 80 | 35 | 30 | 25 |
+  | Armee im Verhältnis zur Städtezahl | 0,7 | 1,0 | 1,2 | 1,4 |
+
+- **Feldzüge:** Kriegerische Herrscher sammeln ihre Armee in der Stadt, die dem Ziel am nächsten liegt, und ziehen erst
+  geschlossen los; Fern- und Belagerungseinheiten greifen zuerst an.
+- **Seefahrt:** Findet ein Siedler an Land keinen Platz mehr, bringt ein Transportschiff ihn mit Begleitschutz auf eine andere
+  Landmasse. Kriegerische Herrscher landen Truppen bei Gegnern in Übersee; Kriegsschiffe greifen feindliche Schiffe an.
+- **Händler:** Die KI baut Händler, solange Routenplätze frei sind, und wählt die lohnendste erreichbare Stadt.
+- **Großprojekt:** Forschungsorientierte Herrscher steuern ab dem mittleren Spiel die Raumfahrt an und bauen die Teile
+  in ihrer produktivsten Stadt.
+- **Drohender Sieg:** Steht ein Volk kurz vor einem Sieg (zwei Projektteile, eine Kulturstadt weniger als nötig oder 80 %
+  der Vorherrschaftsschwellen), erklären ihm auch friedliche Herrscher eher den Krieg und bieten keinen Frieden an;
+  Feldzüge richten sich bevorzugt gegen seine Städte.
 
 ## Plünderer
 

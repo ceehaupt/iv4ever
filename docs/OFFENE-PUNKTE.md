@@ -23,9 +23,9 @@ Kennzeichnung: **[Erledigt]** = umgesetzt · **[Fehler]** = Verhalten ist falsch
 
 - **[Erledigt] Seefahrt der KI** (`src/sim/aiNaval.ts`): Siedler ohne Platz an Land fahren mit Begleitschutz auf andere Inseln, kriegerische KIs landen Truppen bei Gegnern in Übersee, Kriegsschiffe versenken feindliche Schiffe und werden bei Bedrohung gebaut. Getestet in `aiNaval.test.ts`.
 - **[Erledigt] Handelsrouten der KI:** Sie baut Händler, solange Routenplätze frei sind, und wählt die lohnendste erreichbare Stadt (Entfernung, Ausland).
-- **[Lücke]** Die KI plant den Projektsieg nicht gezielt. Projektbauten bewertet sie nur über die Persönlichkeit, ein Kultursieg wird nicht angestrebt.
-- **[Grenze]** Der Schwierigkeitsgrad wirkt nur als Ertragsfaktor, nicht über besseres Verhalten.
-- **[Lücke]** Belagerung und Angriff mit gemischten Verbänden sind einfach gehalten, ohne koordinierte Angriffswellen.
+- **[Erledigt]** Projektsieg: Forschungs-KIs steuern die Raumfahrt an und bauen die Teile in der produktivsten Stadt; Völker kurz vor einem Sieg werden gemeinsam bekämpft.
+- **[Erledigt]** Schwierigkeitsgrad wirkt auch auf das Verhalten (Siegchance, Armeegröße, Kriegsbeginn; `AI_TACTICS`).
+- **[Erledigt]** Koordinierte Feldzüge: Sammeln in der Stadt nahe dem Ziel, geschlossener Vormarsch, Fern- und Belagerungseinheiten zuerst.
 - **[Offen]** Das Performance-Budget aus der Roadmap (KI-Zug < 1 s bei 8 Völkern, 60 fps bei „Riesig“) ist nur
   stichprobenartig gemessen (~3 ms je KI-Runde bei 6 Spielern, frühe Partie). In späten Zeitaltern und auf großen Karten fehlen Messungen.
 

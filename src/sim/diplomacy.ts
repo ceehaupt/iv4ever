@@ -2,6 +2,8 @@ import type { TurnEvent } from './city';
 import type { GameState, Player } from './game';
 import { TECHS, techCost } from './rules/techs';
 import { UNIT_TYPES } from './rules/units';
+import { AI_TACTICS } from './rules/leaders';
+import { nearVictory } from './victory';
 
 /**
  * Diplomatie (eigener Entwurf, siehe docs/REGELN.md):
@@ -262,13 +264,17 @@ export function aiDiplomacy(state: GameState, events: TurnEvent[]): void {
       const att = attitude(state, a.id, b.id);
       if (!r.war) {
         // Krieg erklären?
-        const ready = state.turn > 35 && state.turn - r.since > 15 && myPower > theirPower * (1.6 - a.persona.aggression * 0.6);
-        if (ready && att < 2 && state.rng.next() < a.persona.aggression * 0.06) declareWar(state, a.id, b.id, events);
+        const tactics = AI_TACTICS[state.options.difficulty ?? 'normal'];
+        const ready = state.turn > tactics.warTurn && state.turn - r.since > 15 && myPower > theirPower * (1.6 - a.persona.aggression * 0.6);
+        // Wer kurz vor dem Sieg steht, wird gemeinsam bekämpft – auch von friedlichen Herrschern.
+        const threat = state.turn > tactics.warTurn && nearVictory(state, b.id) && myPower > theirPower * 0.6;
+        if (threat && state.rng.next() < 0.3) declareWar(state, a.id, b.id, events);
+        else if (ready && att < 2 && state.rng.next() < a.persona.aggression * 0.06) declareWar(state, a.id, b.id, events);
         // Offene Grenzen mit Freunden
         else if (!r.openBorders && att >= 3 && !b.human && state.rng.next() < 0.05 && evaluate(state, b.id, a.id, { kind: 'openBorders' }).accept) {
           execute(state, a.id, b.id, { kind: 'openBorders' }, events);
         }
-      } else if (state.turn - r.since >= 10 && (myPower < theirPower * 0.9 || state.turn - r.since > 30) && state.rng.next() < 0.25) {
+      } else if (state.turn - r.since >= 10 && !nearVictory(state, b.id) && (myPower < theirPower * 0.9 || state.turn - r.since > 30) && state.rng.next() < 0.25) {
         // Frieden anbieten
         if (b.human) {
           if (!state.diplomacy.pending.some((p) => p.from === a.id && p.to === b.id)) {

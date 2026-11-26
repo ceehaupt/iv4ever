@@ -42,3 +42,22 @@ export function personaFor(seed: number, index: number): Persona {
   const offset = seed % PERSONAS.length;
   return PERSONAS[(offset + index) % PERSONAS.length];
 }
+
+/** Verhalten der KI je Schwierigkeitsgrad (zusätzlich zum Ertragsfaktor AI_BONUS). */
+export interface Tactics {
+  /** Mindest-Siegchance für einen Angriff. */
+  attackOdds: number;
+  /** Mindeststärke einer Angriffsarmee (Einheiten). */
+  armySize: number;
+  /** Frühester Zeitpunkt für Kriegserklärungen. */
+  warTurn: number;
+  /** Armeegröße im Verhältnis zur Städtezahl. */
+  armyFactor: number;
+}
+
+export const AI_TACTICS: Record<Difficulty, Tactics> = {
+  easy: { attackOdds: 0.7, armySize: 6, warTurn: 80, armyFactor: 0.7 },
+  normal: { attackOdds: 0.55, armySize: 4, warTurn: 35, armyFactor: 1 },
+  hard: { attackOdds: 0.5, armySize: 4, warTurn: 30, armyFactor: 1.2 },
+  expert: { attackOdds: 0.45, armySize: 5, warTurn: 25, armyFactor: 1.4 },
+};
