@@ -17,7 +17,7 @@ function powerLabel(r: number): string {
   return r > 1.5 ? 'deutlich stärker' : r > 1.1 ? 'stärker' : r > 0.9 ? 'ebenbürtig' : r > 0.6 ? 'schwächer' : 'deutlich schwächer';
 }
 
-/** Diplomatie-Übersicht (D): Beziehungen, Angebote, Handel, Siegfortschritt. */
+/** Diplomatie-Übersicht (K): Beziehungen, Angebote, Handel, Siegfortschritt. */
 export class DiploPanel {
   private readonly el = document.getElementById('diplopanel')!;
   private diplo: DiplomacyView | null = null;

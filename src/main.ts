@@ -28,6 +28,9 @@ import { VICTORY_NAMES } from './sim/victory';
 import { GameUi, type JobOption, type UnitAction } from './ui/gameUi';
 import { Hud } from './ui/hud';
 import { Minimap } from './ui/minimap';
+import { type KeyAction, Keymap } from './ui/keymap';
+import { describeTile } from './ui/describe';
+import { tileAt } from './sim/hex';
 
 /**
  * Steuerung auf dem Hauptthread: Auswahl, Eingaben, Wegvorschau. Der Spielzustand selbst
@@ -345,7 +348,13 @@ const tutorial = new Tutorial(() => {
   settings = { ...settings, tutorial: false };
   saveSettings(settings);
 });
-const settingsPanel = new SettingsPanel(settings, applySettings);
+const keymap = new Keymap();
+/** Einstellungsdialog wartet auf eine neue Taste – dann keine Spielaktionen. */
+let keyCapture = false;
+const settingsPanel = new SettingsPanel(settings, applySettings, keymap, (capturing) => {
+  keyCapture = capturing;
+  if (!capturing) renderKeyHints();
+});
 document.getElementById('settingsbtn')!.addEventListener('click', () => settingsPanel.toggle());
 const handbookEl = document.getElementById('handbook')!;
 async function toggleHandbook(): Promise<void> {
@@ -920,13 +929,59 @@ hud.onNewMap = (options) => {
 
 // --- Tastatur ---------------------------------------------------------------------
 
-window.addEventListener('keydown', (e) => {
-  if (isTyping(e)) return;
-  if (e.key === 'F1' || e.key === '?') {
-    e.preventDefault();
-    void toggleHandbook();
+// --- Kartencursor (Tastatur und Screenreader) -----------------------------------------
+let cursorTile = -1;
+const announcer = document.getElementById('announcer')!;
+function announce(text: string): void {
+  // Gleicher Text zweimal hintereinander soll erneut vorgelesen werden.
+  announcer.textContent = '';
+  requestAnimationFrame(() => (announcer.textContent = text));
+}
+function moveCursor(tile: number): void {
+  if (!map || !view || tile < 0) return;
+  cursorTile = tile;
+  renderer.setSelectedTile(tile);
+  renderer.centerOnTile(tile);
+  announce(describeTile(map, view, tile, knows));
+}
+function toggleCursor(): void {
+  if (cursorTile >= 0) {
+    cursorTile = -1;
+    announce('Kartencursor aus');
     return;
   }
+  const u = selectedUnit();
+  const start = u?.tile ?? view?.cities.find((c) => c.owner === view?.human)?.tile ?? view?.units.find(isOwn)?.tile ?? 0;
+  announce('Kartencursor an: Pfeiltasten bewegen, Enter wählt oder zieht die ausgewählte Einheit, Escape beendet.');
+  setTimeout(() => moveCursor(start), 600);
+}
+/** Pfeiltasten im Cursor-Modus: Zeile hoch/runter, Spalte links/rechts (Weltumrundung beachtet). */
+function cursorStep(key: string): boolean {
+  if (cursorTile < 0 || !map) return false;
+  const c = cursorTile % map.width;
+  const r = (cursorTile / map.width) | 0;
+  const d = { ArrowUp: [0, -1], ArrowDown: [0, 1], ArrowLeft: [-1, 0], ArrowRight: [1, 0] }[key];
+  if (!d) return false;
+  const next = tileAt(map, c + d[0], r + d[1]);
+  if (next >= 0) moveCursor(next);
+  return true;
+}
+function cursorEnter(): void {
+  if (cursorTile < 0 || !view) return;
+  const u = selectedUnit();
+  if (u && isOwn(u) && u.tile !== cursorTile) {
+    // Ausgewählte Einheit zum Feld schicken (bzw. angreifen) – wie Rechtsklick.
+    moveOrAttack(u, cursorTile);
+    return;
+  }
+  handleClick(cursorTile);
+  const sel = selectedUnit();
+  if (sel) announce(`${UNIT_TYPES[sel.type].name} ausgewählt. Cursor bewegen und Enter drücken, um sie dorthin zu schicken.`);
+}
+
+window.addEventListener('keydown', (e) => {
+  if (keyCapture) return;
+  if (isTyping(e)) return;
   if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 's') {
     e.preventDefault();
     save();
@@ -938,84 +993,124 @@ window.addEventListener('keydown', (e) => {
     send({ type: 'debugRaider', tile: u.tile });
     return;
   }
+  // Kartencursor fängt Pfeiltasten, Enter und Escape ab.
+  if (cursorTile >= 0) {
+    if (cursorStep(e.key)) {
+      e.preventDefault();
+      return;
+    }
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      cursorEnter();
+      return;
+    }
+    if (e.key === 'Escape') {
+      toggleCursor();
+      return;
+    }
+  }
+  if (e.key === 'Escape') {
+    if (doctrinePanel.open) doctrinePanel.hide();
+    else if (diploPanel.open) diploPanel.hide();
+    else if (techPanel.open) techPanel.hide();
+    else if (cityPanel.openCityId >= 0) closeCity();
+    else if (moveMode) moveMode = false;
+    else if (selected >= 0) selectUnit(-1, false);
+    else {
+      renderer.setSelectedTile(-1);
+      hud.unpin();
+    }
+    return;
+  }
+  // Debug nur auf dem Dev-Server und nie im Online-Spiel (dort wäre es ein Blick hinter den Nebel).
+  if (e.key.toLowerCase() === 'x' && !e.shiftKey && import.meta.env.DEV && view?.mode !== 'online') {
+    revealAll = renderer.toggleRevealAll();
+    if (view) minimap.update(fogForUi(), view.units, view.tileOwner, view.cities);
+    ui.toast(revealAll ? 'Debug: Karte aufgedeckt' : 'Debug: Nebel wieder an');
+    return;
+  }
+  const action = keymap.action(e);
+  if (!action) return;
   const own = u && isOwn(u);
-  switch (e.key) {
-    case 'Enter':
+  switch (action) {
+    case 'endTurn':
       e.preventDefault();
       if (!busy) endTurn();
-      return;
-    case ' ':
+      break;
+    case 'skip':
       e.preventDefault();
       if (own) runAction('skip', u.id);
-      return;
-    case 'Tab':
-    case '.':
+      break;
+    case 'nextUnit':
       e.preventDefault();
       selectNext();
-      return;
-    case 'Delete':
-    case 'Backspace':
+      break;
+    case 'disband':
       if (own) runAction('disband', u.id);
-      return;
-    case 'Escape':
-      if (doctrinePanel.open) doctrinePanel.hide();
-      else if (diploPanel.open) diploPanel.hide();
-      else if (techPanel.open) techPanel.hide();
-      else if (cityPanel.openCityId >= 0) closeCity();
-      else if (moveMode) moveMode = false;
-      else if (selected >= 0) selectUnit(-1, false);
-      else {
-        renderer.setSelectedTile(-1);
-        hud.unpin();
-      }
-      return;
-  }
-  switch (e.key.toLowerCase()) {
-    case 'f':
+      break;
+    case 'fortify':
       if (own) runAction(u.orders === Orders.Fortify || u.orders === Orders.Goto ? 'wake' : 'fortify', u.id);
       break;
-    case 'm':
+    case 'moveMode':
       if (own) runAction('moveMode', u.id);
       break;
-    case 'b':
+    case 'found':
       if (own) runAction('found', u.id);
       break;
-    case 'l':
+    case 'load':
       if (own && UNIT_TYPES[u.type].cargo) runAction('load', u.id);
       break;
-    case 'h': {
+    case 'route':
+      if (own && UNIT_TYPES[u.type].trade) runAction('route', u.id);
+      break;
+    case 'center': {
       const target = u ?? view?.units.find(isOwn);
       if (target) renderer.centerOnTile(target.tile);
       break;
     }
-    case 'g':
+    case 'grid':
       renderer.toggleGrid();
       break;
-    case 't':
+    case 'resources':
+      renderer.toggleResources();
+      break;
+    case 'techs':
       techPanel.toggle();
       break;
-    case 'd':
+    case 'diplomacy':
       diploPanel.toggle();
       break;
-    case 'p':
-      if (!e.shiftKey) doctrinePanel.toggle();
+    case 'doctrines':
+      doctrinePanel.toggle();
       break;
-    case 'r':
-      // R = Handelsroute (Händler), Shift + R = Ressourcen ein/aus – vorher teilten sich beide die Taste.
-      if (e.shiftKey) renderer.toggleResources();
-      else if (own && UNIT_TYPES[u.type].trade) runAction('route', u.id);
+    case 'handbook':
+      e.preventDefault();
+      void toggleHandbook();
       break;
-    case 'n':
+    case 'newMap':
       hud.requestNewMap(true);
       break;
-    case 'x':
-      // Debug nur auf dem Dev-Server und nie im Online-Spiel (dort wäre es ein Blick hinter den Nebel).
-      if (!import.meta.env.DEV || view?.mode === 'online') break;
-      revealAll = renderer.toggleRevealAll();
-      if (view) minimap.update(fogForUi(), view.units, view.tileOwner, view.cities);
-      ui.toast(revealAll ? 'Debug: Karte aufgedeckt' : 'Debug: Nebel wieder an');
+    case 'cursorMode':
+      toggleCursor();
       break;
   }
 });
+
+/** Tastenbelegung: Kamera folgt der Belegung (außer im Cursor-Modus), Hilfezeile und Tooltips zeigen die aktuellen Tasten. */
+renderer.panKey = (e) => {
+  if (cursorTile >= 0 || e.altKey) return null;
+  const a = keymap.action(e);
+  return a === 'panUp' ? 'up' : a === 'panDown' ? 'down' : a === 'panLeft' ? 'left' : a === 'panRight' ? 'right' : null;
+};
+function renderKeyHints(): void {
+  const k = (a: KeyAction) => keymap.label(a);
+  document.getElementById('help')!.textContent =
+    `Ziehen / ${k('panUp')}${k('panLeft')}${k('panDown')}${k('panRight')}: Karte · Rad: Zoom · Klick: wählen · Rechtsklick oder ${k('moveMode')}: bewegen/angreifen · ` +
+    `${k('skip')}: überspringen · ${k('fortify')}: befestigen · ${k('found')}: Stadt gründen · ${k('nextUnit')}: nächste Einheit · ${k('endTurn')}: Runde beenden · ` +
+    `${k('techs')}: Technologien · ${k('diplomacy')}: Diplomatie · ${k('doctrines')}: Leitbilder · ${k('handbook')}: Handbuch · ${k('cursorMode')}: Kartencursor · Tasten ändern: ⚙`;
+  document.getElementById('diplobtn')!.title = `Diplomatie und Siegbedingungen (${k('diplomacy')})`;
+  document.getElementById('research')!.title = `Technologien (${k('techs')})`;
+}
+renderKeyHints();
 
 hud.requestNewMap(false, false);

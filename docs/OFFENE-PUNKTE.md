@@ -40,10 +40,10 @@ Kennzeichnung: **[Erledigt]** = umgesetzt · **[Fehler]** = Verhalten ist falsch
 ## Präsentation und Bedienung
 
 - **[Grenze]** Grafik ist bewusst prozedural (Canvas-Pfade, keine Sprites/Modelle), Gelände ohne Animation.
-- **[Lücke]** Keine Tastenbelegung zum Anpassen. **[Erledigt]** `R`-Konflikt: `R` = Handelsroute, `Shift + R` = Ressourcen.
+- **[Erledigt]** Tastenbelegung frei änderbar (⚙ → Tastenbelegung), auch für die Kamera; Konflikt D (Diplomatie/Kamera) gelöst: Diplomatie jetzt `K`.
 - **[Lücke]** Keine Übersetzung – UI nur Deutsch.
-- **[Lücke]** Touch-Bedienung ist nicht gezielt getestet (Pinch-Zoom ja, Rechtsklick-Befehle haben auf Touch keine Entsprechung).
-- **[Offen]** Barrierefreiheit nur in Grundzügen (Fokus, ARIA, Kontrast). Die Karte selbst ist für Screenreader nicht zugänglich.
+- **[Erledigt]** Touch: langes Drücken wirkt wie Rechtsklick; dazu der Bewegen-Knopf im Einheitenpanel.
+- **[Erledigt]** Kartencursor (`C`): Pfeiltasten wandern über die Karte, Screenreader sagen jedes Feld an (Gelände, Stadt, Besitzer, Ressource, Einheiten, Erträge); Enter wählt bzw. schickt Einheiten.
 - **[Erledigt]** Debug-Taste `X` nur noch auf dem Dev-Server und nie online.
 
 ## Technik und Tests

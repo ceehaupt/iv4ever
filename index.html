@@ -36,7 +36,7 @@
       <div><strong id="turn">Runde –</strong> <span id="turntimer" hidden title="Restzeit der Runde (Zeitlimit des Gastgebers)"></span> <small id="ready"></small></div>
       <div id="economy"></div>
       <button id="research" type="button" class="research" title="Technologien (T)">🔬</button>
-      <button id="diplobtn" type="button" class="research" title="Diplomatie und Siegbedingungen (D)">🤝 Diplomatie</button>
+      <button id="diplobtn" type="button" class="research" title="Diplomatie und Siegbedingungen (K)">🤝 Diplomatie</button>
       <label class="rate" title="Anteil des Handels für Forschung, der Rest wird Gold">
         🔬 <input id="rate" type="range" min="0" max="100" step="10" value="60" /> <span id="rateval">60 %</span>
       </label>
@@ -80,6 +80,8 @@
       Ziehen / WASD: Karte · Rad: Zoom · Klick: wählen · Rechtsklick oder M: bewegen/angreifen · Leertaste: überspringen ·
       F: befestigen · B: Stadt gründen · Tab: nächste Einheit · Enter: Runde beenden · T: Technologien · D: Diplomatie · P: Leitbilder · F1: Handbuch · H: zur Einheit · G / Shift+R: Gitter/Ressourcen
     </footer>
+
+    <div id="announcer" class="visually-hidden" aria-live="polite" aria-atomic="true"></div>
 
     <script type="module" src="/src/main.ts"></script>
   </body>

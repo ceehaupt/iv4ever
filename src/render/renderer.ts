@@ -63,9 +63,15 @@ export class GameRenderer {
   private selectedTile = -1;
   private selectedUnitTile = -1;
   private path: { from: number; tiles: number[]; turns: number[] } | null = null;
-  private readonly keys = new Set<string>();
+  /** Gedrückte Kameratasten → Richtung. */
+  private readonly keys = new Map<string, PanDirection>();
+  /** Welche Kamerarichtung gehört zu einem Tastendruck? (Tastenbelegung kommt aus main.ts.) */
+  panKey: (e: KeyboardEvent) => PanDirection | null = (e) =>
+    ({ w: 'up', a: 'left', s: 'down', d: 'right', arrowup: 'up', arrowleft: 'left', arrowdown: 'down', arrowright: 'right' } as const)[
+      e.key.toLowerCase() as 'w'
+    ] ?? null;
   private lastTime = 0;
-  private drag: { id: number; x: number; y: number; moved: boolean } | null = null;
+  private drag: { id: number; x: number; y: number; moved: boolean; long: boolean } | null = null;
 
   constructor(
     private readonly host: HTMLElement,
@@ -445,7 +451,20 @@ export class GameRenderer {
       }
       if (e.button !== 0 || this.drag) return;
       canvas.setPointerCapture(e.pointerId);
-      this.drag = { id: e.pointerId, x: e.offsetX, y: e.offsetY, moved: false };
+      const drag = { id: e.pointerId, x: e.offsetX, y: e.offsetY, moved: false, long: false };
+      this.drag = drag;
+      // Touch/Stift: langes Drücken wirkt wie ein Rechtsklick (Einheit bewegen bzw. angreifen).
+      if (e.pointerType !== 'mouse') {
+        const x = e.offsetX;
+        const y = e.offsetY;
+        setTimeout(() => {
+          if (this.drag !== drag || drag.moved) return;
+          drag.long = true;
+          navigator.vibrate?.(15);
+          const t = this.pick(x, y);
+          if (t >= 0) this.events.onRightClick(t);
+        }, LONG_PRESS_MS);
+      }
     });
 
     canvas.addEventListener('pointermove', (e) => {
@@ -469,7 +488,7 @@ export class GameRenderer {
       const d = this.drag;
       if (!d || d.id !== e.pointerId) return;
       this.drag = null;
-      if (!d.moved && e.type === 'pointerup') this.events.onClick(this.pick(e.offsetX, e.offsetY));
+      if (!d.moved && !d.long && e.type === 'pointerup') this.events.onClick(this.pick(e.offsetX, e.offsetY));
     };
     canvas.addEventListener('pointerup', endDrag);
     canvas.addEventListener('pointercancel', endDrag);
@@ -492,8 +511,9 @@ export class GameRenderer {
     window.addEventListener('keydown', (e) => {
       if (isTyping(e) || e.metaKey || e.ctrlKey) return;
       const k = e.key.toLowerCase();
-      if (PAN_KEYS.has(k)) {
-        this.keys.add(k);
+      const dir = this.panKey(e);
+      if (dir) {
+        this.keys.set(k, dir);
         e.preventDefault();
       } else if (k === '+' || k === '=') {
         this.zoomAt(this.app.screen.width / 2, this.app.screen.height / 2, 1.2);
@@ -509,10 +529,11 @@ export class GameRenderer {
     if (this.keys.size === 0 || dt === 0) return;
     let dx = 0;
     let dy = 0;
-    if (this.keys.has('a') || this.keys.has('arrowleft')) dx -= 1;
-    if (this.keys.has('d') || this.keys.has('arrowright')) dx += 1;
-    if (this.keys.has('w') || this.keys.has('arrowup')) dy -= 1;
-    if (this.keys.has('s') || this.keys.has('arrowdown')) dy += 1;
+    const dirs = new Set(this.keys.values());
+    if (dirs.has('left')) dx -= 1;
+    if (dirs.has('right')) dx += 1;
+    if (dirs.has('up')) dy -= 1;
+    if (dirs.has('down')) dy += 1;
     if (dx === 0 && dy === 0) return;
     const step = (KEY_PAN_SPEED * dt) / this.camera.zoom;
     this.camera.x += dx * step;
@@ -524,7 +545,11 @@ export class GameRenderer {
 /** Wegpunkte liegen etwas unter der Plakette, auf Höhe der Feldoberfläche. */
 const TOKEN_RAISE_PATH = 10;
 
-const PAN_KEYS = new Set(['w', 'a', 's', 'd', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright']);
+
+/** Ab dieser Dauer gilt ein Touch als „lang gedrückt“ (= Rechtsklick). */
+const LONG_PRESS_MS = 500;
+
+export type PanDirection = 'up' | 'down' | 'left' | 'right';
 
 export function isTyping(e: KeyboardEvent): boolean {
   const t = e.target as HTMLElement | null;

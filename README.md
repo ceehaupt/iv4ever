@@ -25,7 +25,7 @@ npm run dev        # http://localhost:5173
 | `L` | Landeinheiten auf das ausgewählte Schiff laden |
 | `Tab` | Nächste Einheit, die einen Befehl braucht |
 | `T` | Technologien (Forschungsziel wählen) |
-| `D` | Diplomatie, Handel und Siegfortschritt |
+| `K` | Diplomatie, Handel und Siegfortschritt (vorher `D`, kollidierte mit der Kamera) |
 | `P` | Leitbilder (Politik) |
 | `F1` / `?` | Handbuch |
 | `R` (Händler) | Handelsroute errichten |
@@ -35,9 +35,13 @@ npm run dev        # http://localhost:5173
 | `G` / `Shift + R` | Gitter / Ressourcen ein/aus |
 | `Strg/⌘ + S` | Schnellspeichern (Laden über „Laden ▾“) |
 | `Esc` | Auswahl aufheben |
+| `C` | Kartencursor: Pfeiltasten wandern über die Karte, jedes Feld wird angesagt (Screenreader); Enter wählt bzw. schickt die Einheit hin |
 | `X` | Debug (nur Dev-Server, nicht online): Karte aufdecken |
 | `Shift + P` | Debug (nur Dev-Server): Plünderer neben die ausgewählte Einheit setzen |
 | Minimap klicken/ziehen | Springen |
+| Touch: lange drücken | wie Rechtsklick (Einheit bewegen/angreifen) |
+
+Alle Tasten lassen sich unter ⚙ → Tastenbelegung ändern; die Hilfezeile zeigt immer die aktuelle Belegung.
 
 Gleicher Seed + gleiche Einstellungen = gleiche Karte. Die Welt ist ost-west umlaufend.
 Einstellungen (⚙): Klang, Animationen, Kontrast, Schriftgröße, Farben für Farbsehschwäche, Tutorial.

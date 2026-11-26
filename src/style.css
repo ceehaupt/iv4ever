@@ -1046,3 +1046,29 @@ body.large-text .panel input {
   font-size: 12px;
   margin-top: 2px;
 }
+
+/* Tastenbelegung im Einstellungsdialog */
+.settings-box table.keys {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.settings-box table.keys th {
+  text-align: left;
+  font-weight: normal;
+  padding: 2px 8px 2px 0;
+}
+
+.settings-box table.keys button {
+  min-width: 90px;
+}
+
+.visually-hidden {
+  position: absolute !important;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}

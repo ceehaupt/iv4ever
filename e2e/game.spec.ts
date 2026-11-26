@@ -58,3 +58,27 @@ test('Spielstand als Datei exportieren und wieder importieren', async ({ page })
   await page.setInputFiles('[data-file="import"]', file);
   await expect(page.locator('#turn')).toHaveText('Runde 2', { timeout: 20_000 });
 });
+
+test('Kartencursor beschreibt Felder für Screenreader', async ({ page }) => {
+  await newGame(page);
+  await page.keyboard.press('c');
+  await expect(page.locator('#announcer')).toContainText('Feld', { timeout: 5_000 });
+  const first = await page.locator('#announcer').textContent();
+  await page.keyboard.press('ArrowRight');
+  await expect(page.locator('#announcer')).not.toHaveText(first!, { timeout: 5_000 });
+  await expect(page.locator('#announcer')).toContainText('Feld');
+  await page.keyboard.press('Escape');
+  await expect(page.locator('#announcer')).toHaveText('Kartencursor aus');
+});
+
+test('Tasten lassen sich umbelegen', async ({ page }) => {
+  await newGame(page);
+  await page.click('#settingsbtn');
+  await page.click('[data-bind="endTurn"]');
+  await page.keyboard.press('e');
+  await expect(page.locator('#keynote')).toContainText('Runde beenden: E');
+  await page.click('#settingspanel [data-close]');
+  await page.keyboard.press('e');
+  await expect(page.locator('#turn')).toHaveText('Runde 2', { timeout: 20_000 });
+  await expect(page.locator('#help')).toContainText('E: Runde beenden');
+});

@@ -477,7 +477,7 @@ export function applyCommand(state: GameState, player: number, cmd: Command): Co
           moves: [],
           events: [
             { player, text: `Angebot an ${target.name} gesendet`, tile: -1 },
-            { player: cmd.target, text: `${state.players[player].name} macht dir ein Angebot (Diplomatie: D)`, tile: -1 },
+            { player: cmd.target, text: `${state.players[player].name} macht dir ein Angebot (🤝 Diplomatie)`, tile: -1 },
           ],
         };
       }

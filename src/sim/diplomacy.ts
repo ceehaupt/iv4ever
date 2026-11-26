@@ -279,7 +279,7 @@ export function aiDiplomacy(state: GameState, events: TurnEvent[]): void {
         if (b.human) {
           if (!state.diplomacy.pending.some((p) => p.from === a.id && p.to === b.id)) {
             state.diplomacy.pending.push({ id: state.diplomacy.nextProposalId++, from: a.id, to: b.id, proposal: { kind: 'peace' }, turn: state.turn });
-            events.push({ player: b.id, text: `${a.name} bietet Frieden an (Diplomatie: D)`, tile: -1 });
+            events.push({ player: b.id, text: `${a.name} bietet Frieden an (🤝 Diplomatie)`, tile: -1 });
           }
         } else if (evaluate(state, b.id, a.id, { kind: 'peace' }).accept) {
           makePeace(state, a.id, b.id, events);
