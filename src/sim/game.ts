@@ -1,3 +1,4 @@
+import { environmentTurn } from './environment';
 import { airStrike, rebase } from './air';
 import {
   assignTiles, availableItems, type BuildItem, type City, cityAt, cityReport, foundCity, foundingBlocker, knowsFn,
@@ -687,6 +688,7 @@ export function endTurn(state: GameState): { moves: MoveEvent[]; events: TurnEve
   processEconomy(state, turnEvents);
   barbarianTurn(state, turnEvents, combats, events);
   randomEvents(state, turnEvents);
+  environmentTurn(state, turnEvents);
   for (const p of state.players) if (p.upheaval > 0) p.upheaval--;
   // Routen zu verlorenen oder zerstörten Städten verfallen.
   state.routes = state.routes.filter((r) => {
@@ -728,7 +730,8 @@ function processJobs(state: GameState, events: TurnEvent[]): void {
       u.job = null;
       continue;
     }
-    state.jobs[key] = (state.jobs[key] ?? 0) + 1;
+    // Mit Ökologie geht das Säubern doppelt so schnell.
+    state.jobs[key] = (state.jobs[key] ?? 0) + (u.job === 'cleanup' && state.players[u.owner].techs[TechId.Ecology] ? 2 : 1);
     if (state.jobs[key] >= jobTurns(u.job) && !done.has(key)) {
       done.add(key);
       applyJob(state.map, u.tile, u.job);

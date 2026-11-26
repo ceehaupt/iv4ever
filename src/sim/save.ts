@@ -21,8 +21,9 @@ import { Rng } from './rng';
  * 4 – M5: Lebenspunkte/Erfahrung/Beförderungen, Plünderer (eigener Spieler) und Lager
  * 5 – M7: Diplomatie (Beziehungen, Gedächtnis, Angebote), Gewinner
  * 6 – M8: Leitbilder und Umbruch je Spieler, Handelsrouten
+ * 7 – Umwelt: Verschmutzung je Feld
  */
-export const SAVE_VERSION = 6;
+export const SAVE_VERSION = 7;
 
 interface SavedPlayer {
   id: number;
@@ -87,6 +88,7 @@ export function toSaveData(s: GameState): SaveData {
       river: s.map.river.slice(),
       improvement: s.map.improvement.slice(),
       road: s.map.road.slice(),
+      pollution: s.map.pollution.slice(),
     },
     players: s.players.map((p) => ({
       id: p.id,
@@ -169,6 +171,9 @@ function migrate(d: SaveData): SaveData {
       players: d.players.map((p) => ({ ...p, doctrines: [DEFAULT_DOCTRINES.gov, DEFAULT_DOCTRINES.econ, DEFAULT_DOCTRINES.society], upheaval: 0 })),
     };
   }
+  if (d.version === 6) {
+    d = { ...d, version: 7, map: { ...d.map, pollution: new Uint8Array(d.map.width * d.map.height) } };
+  }
   return d;
 }
 
@@ -190,7 +195,7 @@ export function fromSaveData(raw: SaveData): GameState {
   }
   const d = migrate(raw);
   const n = d.map.width * d.map.height;
-  for (const key of ['terrain', 'relief', 'feature', 'resource', 'river', 'improvement', 'road'] as const) {
+  for (const key of ['terrain', 'relief', 'feature', 'resource', 'river', 'improvement', 'road', 'pollution'] as const) {
     if (!(d.map[key] instanceof Uint8Array) || d.map[key].length !== n) throw new SaveError('Kartendaten sind beschädigt');
   }
   const state: GameState = {

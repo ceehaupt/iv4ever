@@ -34,7 +34,7 @@ Kennzeichnung: **[Erledigt]** = umgesetzt · **[Fehler]** = Verhalten ist falsch
 - **[Grenze]** Keine Atom- oder Spionageeinheiten.
 - **[Grenze]** Keine Religion, kein Stadtstaaten-System, kein Weltkongress bzw. keine diplomatische Abstimmung.
 - **[Erledigt]** Bündnisse (Verteidigung, gemeinsame Sicht) und Forderungen/Tribut. Offen: KIs schließen untereinander selten Bündnisse (Ø 0,5 je Partie), weil offene Grenzen zwischen KIs selten sind – beim nächsten Balancing prüfen.
-- **[Grenze]** Keine Umweltfolgen (Verschmutzung, Klima) durch Fabriken und Kraftwerke.
+- **[Erledigt]** Umwelt: Verschmutzung durch Industrie und Großstädte, Säubern, Recyclinghof (Ökologie), Klimawandel.
 - **[Lücke]** Keine Szenarien und keine Karteneditor-Funktion.
 
 ## Präsentation und Bedienung

@@ -5,6 +5,7 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { it } from 'vitest';
 import { landmasses } from '../sim/aiCommon';
+import { pollutedTiles } from '../sim/environment';
 import { createGame, endTurn, type GameState } from '../sim/game';
 import { generateWorld, type MapGenOptions } from '../sim/mapgen';
 import type { Difficulty } from '../sim/rules/leaders';
@@ -48,6 +49,8 @@ interface GameStats {
   overseasCities: number;
   maxShips: number;
   maxPlanes: number;
+  polluted: number;
+  maxPolluted: number;
   airStrikes: number;
   msPerTurn: number;
   scoreSpread: number;
@@ -69,6 +72,7 @@ function play(opts: MapGenOptions, turns: number): GameStats {
   let alliancesFormed = 0;
   let maxShips = 0;
   let maxPlanes = 0;
+  let maxPolluted = 0;
   let airStrikes = 0;
   const tierTurn: Record<number, number> = { 5: -1, 10: -1, 15: -1 };
   const t0 = performance.now();
@@ -82,6 +86,7 @@ function play(opts: MapGenOptions, turns: number): GameStats {
       if (/erklärt .* den Krieg|Du erklärst/.test(e.text) && e.text.startsWith(s.players[e.player].name)) wars++;
     }
     captures += res.combats.filter((c) => c.capturedCity && !s.players[c.attackerOwner].barbarian).length;
+    maxPolluted = Math.max(maxPolluted, pollutedTiles(s));
     maxPlanes = Math.max(maxPlanes, s.units.filter((u) => UNIT_TYPES[u.type].air).length);
     airStrikes += res.combats.filter((c) => UNIT_TYPES[c.attackerType].air && c.ranged && !UNIT_TYPES[c.defenderType ?? 0].air).length;
     maxShips = Math.max(maxShips, s.units.filter((u) => isNaval(u.type)).length);
@@ -125,6 +130,8 @@ function play(opts: MapGenOptions, turns: number): GameStats {
     overseasCities: overseas,
     maxShips,
     maxPlanes,
+    polluted: pollutedTiles(s),
+    maxPolluted,
     airStrikes,
     msPerTurn: ms,
     scoreSpread: scores.length > 1 ? scores[0] / Math.max(1, scores[1]) : 1,
@@ -177,6 +184,7 @@ ${games} Partien · ${turns} Runden max. · ${sizeKey} · ${script} · ${difficu
 | Ø offene Grenzen (Ende) | ${mean('openBorders')} |
 | Ø Städte in Übersee | ${mean('overseasCities')} |
 | Ø max. Schiffe gleichzeitig | ${mean('maxShips')} |
+| Ø verschmutzte Felder (Ende / max.) | ${mean('polluted')} / ${mean('maxPolluted')} |
 | Ø max. Flugzeuge / Luftangriffe | ${mean('maxPlanes')} / ${mean('airStrikes')} |
 | Abstand Erster/Zweiter (Punkte) | ${mean('scoreSpread')} × |
 | Ø Rechenzeit je Runde | ${mean('msPerTurn')} ms |

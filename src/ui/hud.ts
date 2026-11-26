@@ -186,6 +186,7 @@ export class Hud {
     if (imp || map.road[i]) {
       rows.push(`<dt>Ausbau</dt><dd>${[imp ? `${imp.icon} ${imp.name}` : '', map.road[i] ? '🛤️ Straße' : ''].filter(Boolean).join(' · ')}</dd>`);
     }
+    if (map.pollution[i]) rows.push(`<dt>Umwelt</dt><dd>verschmutzt: −1 auf jeden Ertrag (Arbeiter: Säubern)</dd>`);
     if (touchesRiver(map, i)) rows.push(`<dt>Fluss</dt><dd>+1 Handel, +${RIVER_DEFENSE} % gegen Angriffe über den Fluss</dd>`);
     rows.push(`<dt>Bewegung</dt><dd>${Number.isFinite(move) ? move : 'unpassierbar'}</dd>`);
     rows.push(`<dt>Verteidigung</dt><dd>${def > 0 ? `+${def} %` : '–'}</dd>`);

@@ -128,6 +128,7 @@ Automatisch aus `src/sim/rules/` erzeugt (`npm run docs`). Nicht von Hand bearbe
 | 📈 Börse | 200 | Ökonomie | +50 % Gold (braucht Bank). |
 | 🏟 Stadion | 180 | Ideologien | +4 Stimmung. |
 | 📡 Sendeturm | 160 | Funktechnik | +4 Kultur, +1 Stimmung. |
+| ♻️ Recyclinghof | 160 | Ökologie | −3 Verschmutzung, +1 Stimmung. |
 
 ## Wunder und Projekt
 
@@ -205,6 +206,7 @@ Automatisch aus `src/sim/rules/` erzeugt (`npm run docs`). Nicht von Hand bearbe
 | Raumfahrt | 15 | 1500 | Raketentechnik, Computer | 🛰️ Habitatmodul |
 | Globalisierung | 15 | 1500 | Computer, Ideologien | ✨ +1 Handel je Handelsroute |
 | Luftfahrt | 13 | 1120 | Verbrennungsmotor, Funktechnik | ✈️ Jagdflugzeug<br>🛩️ Bomber<br>🎯 Flugabwehr<br>🚢 Flugzeugträger |
+| Ökologie | 12 | 950 | Elektrizität, Medizin | ♻️ Recyclinghof<br>✨ Arbeiter säubern in 2 statt 4 Runden |
 
 ## Leitbilder
 

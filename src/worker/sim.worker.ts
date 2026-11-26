@@ -20,6 +20,7 @@ import { decodeSave, encodeSave } from '../sim/saveCodec';
 import { maxMoves } from '../sim/rules/units';
 import { getSave, listSaves, putSave } from './storage';
 import { stateHash } from '../sim/hash';
+import { cityPollution } from '../sim/environment';
 
 /**
  * Die Simulation läuft vollständig hier. Der Hauptthread rendert nur und schickt Befehle,
@@ -84,6 +85,7 @@ function cityView(s: GameState, c: City, explored: Uint8Array): CityView | null 
     ...base,
     own: {
       foodStored: c.foodStored,
+      pollution: cityPollution(c),
       prodStored: c.prodStored,
       culture: c.culture,
       cultureToNext: cultureToNextRadius(c),
@@ -121,11 +123,15 @@ function sendView(
   const pl = s.players[viewer];
   const econ = economy(s, viewer);
   // Kartenebenen: nur auf erkundeten Feldern den echten Stand zeigen.
-  const layers = { improvement: new Uint8Array(n), road: new Uint8Array(n), feature: s.map.feature.slice() };
+  const layers = {
+    improvement: new Uint8Array(n), road: new Uint8Array(n), feature: s.map.feature.slice(), terrain: s.map.terrain.slice(),
+    pollution: new Uint8Array(n),
+  };
   for (let i = 0; i < n; i++) {
     if (!p.explored[i]) continue;
     layers.improvement[i] = s.map.improvement[i];
     layers.road[i] = s.map.road[i];
+    layers.pollution[i] = s.map.pollution[i];
   }
   const view: GameView = {
     turn: s.turn,
@@ -205,7 +211,7 @@ function sendView(
   const ownEvents = events.filter((e) => e.player === viewer);
   const visibleCombats = combats.filter((c) => c.attackerOwner === viewer || c.defenderOwner === viewer || p.visible[c.tile] || p.visible[c.from]);
   post({ type: 'view', view, moves: visibleMoves, events: ownEvents, combats: visibleCombats, reason, foundedCity }, [
-    fog.buffer, tileOwner.buffer, layers.improvement.buffer, layers.road.buffer, layers.feature.buffer,
+    fog.buffer, tileOwner.buffer, layers.improvement.buffer, layers.road.buffer, layers.feature.buffer, layers.terrain.buffer, layers.pollution.buffer,
   ]);
 }
 

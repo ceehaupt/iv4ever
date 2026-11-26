@@ -126,6 +126,7 @@ export class CityPanel {
         <span>👥 Spezialisten</span><b>${r.specialists} <small>(+${r.specialists * 2} 💰)</small></b>
         <span>🙂 Stimmung</span><span>Grenze ${r.moodLimit} · ${moodLine}</span>
         <span>💧 Versorgung</span><span>Grenze ${r.supplyLimit}${r.supplyDeficit ? ` · <span class="warn">−${r.supplyDeficit} 🌾</span>` : ' · ausreichend'}</span>
+        ${o.pollution ? `<span>🏭 Verschmutzung</span><span class="warn">${o.pollution}/Runde · ${Math.min(100, o.pollution * 4)} % Chance je Runde, dass ein Feld verschmutzt</span>` : ''}
         <span>🎭 Kultur</span><span>${o.culture} (+${r.culture}/Runde) · Radius ${r.radius}${o.cultureToNext !== null ? ` · nächster Ring in ${o.cultureToNext}` : ''}</span>
       </section>
       <section><h3>Gebäude</h3><div class="tags">${buildings}</div></section>

@@ -60,6 +60,7 @@ export const TechId = {
   Spaceflight: 52,
   Globalization: 53,
   Aviation: 54,
+  Ecology: 55,
 } as const;
 
 export interface TechType {
@@ -131,6 +132,7 @@ export const TECHS: readonly TechType[] = [
   { key: 'globalization', name: 'Globalisierung', tier: 15, prereqs: [T.Computers, T.Ideologies], effect: '+1 Handel je Handelsroute' },
   // Nachträglich angehängt (Indizes stehen in Speicherständen).
   { key: 'aviation', name: 'Luftfahrt', tier: 13, prereqs: [T.Combustion, T.Radio] },
+  { key: 'ecology', name: 'Ökologie', tier: 12, prereqs: [T.Electricity, T.Medicine], effect: 'Arbeiter säubern in 2 statt 4 Runden' },
 ];
 
 const TIER_COST = [0, 24, 42, 70, 110, 165, 240, 330, 430, 540, 660, 800, 950, 1120, 1300, 1500];

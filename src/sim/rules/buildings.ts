@@ -44,6 +44,7 @@ export const BuildingId = {
   HabitatModule: 35,
   WorldFair: 36,
   BeaconOfKnowledge: 37,
+  Recycling: 38,
 } as const;
 
 export interface BuildingType {
@@ -82,6 +83,8 @@ export interface BuildingType {
   noUpkeep?: boolean;
   /** Teil des Großprojekts (je Spieler einmal; alle Teile = Projektsieg). */
   project?: boolean;
+  /** Verschmutzung je Runde (negativ = Entlastung). */
+  pollution?: number;
   /** Wirkt in allen eigenen Städten (Wunder). */
   all?: { mood?: number; supply?: number; specialistTrade?: number; coastalTrade?: number; defense?: number };
   description: string;
@@ -157,9 +160,9 @@ export const BUILDINGS: readonly BuildingType[] = [
     description: '+2 Kultur, +15 % Forschung.' }),
   B({ key: 'laboratory', name: 'Labor', icon: '🧪', cost: 220, tech: T.Computers, requires: 14, researchPct: 50,
     description: '+50 % Forschung (braucht Universität).' }),
-  B({ key: 'factory', name: 'Fabrik', icon: '🏭', cost: 200, tech: T.Industrialization, requires: 10, prodPct: 50, supply: -1,
+  B({ key: 'factory', name: 'Fabrik', icon: '🏭', cost: 200, tech: T.Industrialization, requires: 10, prodPct: 50, supply: -1, pollution: 2,
     description: '+50 % Produktion, −1 Versorgung (braucht Schmiede).' }),
-  B({ key: 'power_plant', name: 'Kraftwerk', icon: '⚡', cost: 220, tech: T.Electricity, requires: 27, prodPct: 25,
+  B({ key: 'power_plant', name: 'Kraftwerk', icon: '⚡', cost: 220, tech: T.Electricity, requires: 27, prodPct: 25, pollution: 3,
     description: '+25 % Produktion (braucht Fabrik).' }),
   B({ key: 'hospital', name: 'Krankenhaus', icon: '🏥', cost: 160, tech: T.Medicine, supply: 4, keepFood: 0.25,
     description: '+4 Versorgung, 25 % Nahrung bleibt nach dem Wachstum.' }),
@@ -179,4 +182,7 @@ export const BUILDINGS: readonly BuildingType[] = [
     description: 'Weltwunder: +6 Kultur, +1 Stimmung in allen eigenen Städten.' }),
   B({ key: 'beacon', name: 'Leuchtfeuer des Wissens', icon: '💡', cost: 420, tech: T.Education, wonder: true, culture: 4, researchPct: 100,
     description: 'Weltwunder: +100 % Forschung in dieser Stadt, +4 Kultur.' }),
+  // Nachträglich angehängt (Indizes stehen in Speicherständen).
+  B({ key: 'recycling', name: 'Recyclinghof', icon: '♻️', cost: 160, tech: T.Ecology, pollution: -3, mood: 1,
+    description: '−3 Verschmutzung, +1 Stimmung.' }),
 ];

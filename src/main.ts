@@ -425,13 +425,16 @@ function applyLayers(layers: GameView['layers']): number[] {
   if (!map) return [];
   const changed: number[] = [];
   for (let i = 0; i < layers.road.length; i++) {
-    if (map.improvement[i] !== layers.improvement[i] || map.road[i] !== layers.road[i] || map.feature[i] !== layers.feature[i]) {
+    if (map.improvement[i] !== layers.improvement[i] || map.road[i] !== layers.road[i] || map.feature[i] !== layers.feature[i] ||
+      map.terrain[i] !== layers.terrain[i] || map.pollution[i] !== layers.pollution[i]) {
       changed.push(i);
     }
   }
   map.improvement.set(layers.improvement);
   map.road.set(layers.road);
   map.feature.set(layers.feature);
+  map.terrain.set(layers.terrain);
+  map.pollution.set(layers.pollution);
   return changed;
 }
 

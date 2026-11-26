@@ -172,7 +172,15 @@ function drawTile(g: GraphicsContext, map: GameMap, i: number, c: number, r: num
     if (map.road[i]) road(g, map, i, cx, cy, tint);
     if (f === Feature.Forest) forest(g, cx, cy, c, r, map.seed, t === Terrain.Tundra, tint);
     else if (f === Feature.Jungle) jungle(g, cx, cy, c, r, map.seed, tint);
+    if (map.pollution?.[i]) smog(g, cx, cy, h, tint);
   }
+}
+
+/** Verschmutzung: graue Rußflecken über dem Feld. */
+function smog(g: GraphicsContext, cx: number, cy: number, h: number, tint: Tint): void {
+  const color = tint(0x3a3a3a);
+  const spots = [[-9, -3, 5], [6, -5, 4], [-2, 5, 6], [10, 4, 3.5]] as const;
+  for (const [dx, dy, rad] of spots) g.circle(cx + dx + h * 3, cy + dy, rad).fill({ color, alpha: 0.55 });
 }
 
 // --- Verbesserungen und Straßen ---------------------------------------------------

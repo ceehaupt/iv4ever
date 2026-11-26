@@ -22,9 +22,11 @@ export interface GameMap extends Grid {
   readonly improvement: Uint8Array;
   /** 1 = Straße. Veränderlich während des Spiels. */
   readonly road: Uint8Array;
+  /** 1 = verschmutzt (−1 auf jeden Ertrag). Veränderlich während des Spiels. */
+  readonly pollution: Uint8Array;
 }
 
-export const MAP_FIELDS = ['terrain', 'relief', 'feature', 'resource', 'river', 'improvement', 'road'] as const;
+export const MAP_FIELDS = ['terrain', 'relief', 'feature', 'resource', 'river', 'improvement', 'road', 'pollution'] as const;
 const FIELDS = MAP_FIELDS;
 
 export function createMap(width: number, height: number, seed: number, wrapX = true): GameMap {
@@ -41,6 +43,7 @@ export function createMap(width: number, height: number, seed: number, wrapX = t
     river: new Uint8Array(n),
     improvement: new Uint8Array(n),
     road: new Uint8Array(n),
+    pollution: new Uint8Array(n),
   };
 }
 
@@ -57,6 +60,7 @@ export function cloneMap(m: GameMap): GameMap {
     river: m.river.slice(),
     improvement: m.improvement.slice(),
     road: m.road.slice(),
+    pollution: m.pollution.slice(),
   };
 }
 
@@ -123,6 +127,12 @@ export function tileYields(m: GameMap, i: number, knows: Knows = KNOWS_NOTHING):
     y.food += res.delta.food;
     y.prod += res.delta.prod;
     y.trade += res.delta.trade;
+  }
+  if (m.pollution?.[i]) {
+    // Verschmutzung kostet je einen Punkt (nicht unter 0).
+    y.food = Math.max(0, y.food - 1);
+    y.prod = Math.max(0, y.prod - 1);
+    y.trade = Math.max(0, y.trade - 1);
   }
   return y;
 }

@@ -77,6 +77,10 @@ export interface MapLayers {
   improvement: Uint8Array;
   road: Uint8Array;
   feature: Uint8Array;
+  /** Gelände kann sich ändern (Klimawandel). */
+  terrain: Uint8Array;
+  /** Verschmutzung (nur erkundete Felder). */
+  pollution: Uint8Array;
 }
 
 export interface PlayerView {
@@ -101,6 +105,8 @@ export interface CityView {
   defense: number;
   own?: {
     foodStored: number;
+      /** Verschmutzung je Runde (Chance je Punkt 4 %, dass ein Feld verschmutzt). */
+      pollution: number;
     prodStored: number;
     culture: number;
     cultureToNext: number | null;

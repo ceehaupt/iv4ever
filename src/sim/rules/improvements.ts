@@ -17,7 +17,7 @@ export const Improvement = {
 } as const;
 
 /** Arbeiteraufträge: Verbesserungen plus Straße und Roden. */
-export type JobKind = 'farm' | 'mine' | 'pasture' | 'camp' | 'plantation' | 'lumbermill' | 'quarry' | 'road' | 'clear';
+export type JobKind = 'farm' | 'mine' | 'pasture' | 'camp' | 'plantation' | 'lumbermill' | 'quarry' | 'road' | 'clear' | 'cleanup';
 
 export interface ImprovementType {
   key: string;
@@ -95,6 +95,9 @@ export const ROAD_TECH = TechId.Wheel;
 export const ROAD_TURNS = 2;
 export const CLEAR_TECH = TechId.BronzeWorking;
 export const CLEAR_TURNS = 4;
+/** Säubern verschmutzter Felder. */
+export const CLEANUP_TECH = TechId.Industrialization;
+export const CLEANUP_TURNS = 4;
 
 export function improvementForJob(job: JobKind): number {
   return IMPROVEMENTS.findIndex((i) => i?.job === job);
@@ -102,10 +105,10 @@ export function improvementForJob(job: JobKind): number {
 
 export const JOB_NAMES: Record<JobKind, string> = {
   farm: 'Farm', mine: 'Mine', pasture: 'Weide', camp: 'Jagdlager', plantation: 'Plantage',
-  lumbermill: 'Sägewerk', quarry: 'Steinbruch', road: 'Straße', clear: 'Roden',
+  lumbermill: 'Sägewerk', quarry: 'Steinbruch', road: 'Straße', clear: 'Roden', cleanup: 'Säubern',
 };
 
 export const JOB_ICONS: Record<JobKind, string> = {
   farm: '🌱', mine: '⛏️', pasture: '🐂', camp: '🏕️', plantation: '🌿',
-  lumbermill: '🪵', quarry: '🧱', road: '🛤️', clear: '🪓',
+  lumbermill: '🪵', quarry: '🧱', road: '🛤️', clear: '🪓', cleanup: '🧹',
 };

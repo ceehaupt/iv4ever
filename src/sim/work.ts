@@ -1,6 +1,6 @@
 import type { GameMap, Knows } from './map';
 import {
-  CLEAR_TECH, CLEAR_TURNS, IMPROVEMENTS, improvementForJob, type JobKind, JOB_NAMES, ROAD_TECH, ROAD_TURNS,
+  CLEANUP_TECH, CLEANUP_TURNS, CLEAR_TECH, CLEAR_TURNS, IMPROVEMENTS, improvementForJob, type JobKind, JOB_NAMES, ROAD_TECH, ROAD_TURNS,
 } from './rules/improvements';
 import { RESOURCES, resourceFits } from './rules/resources';
 import { Feature, isWater, Relief } from './rules/terrain';
@@ -10,17 +10,19 @@ import { TECHS } from './rules/techs';
  * Arbeiteraufträge – reine Prüf- und Anwendungsfunktionen auf der Karte,
  * damit Oberfläche (Knöpfe) und Simulation dieselben Regeln verwenden.
  */
-export const ALL_JOBS: readonly JobKind[] = ['road', 'farm', 'mine', 'pasture', 'camp', 'plantation', 'lumbermill', 'quarry', 'clear'];
+export const ALL_JOBS: readonly JobKind[] = ['road', 'farm', 'mine', 'pasture', 'camp', 'plantation', 'lumbermill', 'quarry', 'clear', 'cleanup'];
 
 export function jobTurns(job: JobKind): number {
   if (job === 'road') return ROAD_TURNS;
   if (job === 'clear') return CLEAR_TURNS;
+  if (job === 'cleanup') return CLEANUP_TURNS;
   return IMPROVEMENTS[improvementForJob(job)]!.turns;
 }
 
 export function jobTech(job: JobKind): number {
   if (job === 'road') return ROAD_TECH;
   if (job === 'clear') return CLEAR_TECH;
+  if (job === 'cleanup') return CLEANUP_TECH;
   return IMPROVEMENTS[improvementForJob(job)]!.tech;
 }
 
@@ -35,6 +37,7 @@ export function jobBlocker(
   if (o >= 0 && o !== owner) return 'Fremdes Gebiet';
   const res = RESOURCES[map.resource[tile]];
   if (job === 'road') return map.road[tile] ? 'Hier ist schon eine Straße' : null;
+  if (job === 'cleanup') return !map.pollution[tile] ? 'Hier ist nichts verschmutzt' : o !== owner ? 'Nur im eigenen Gebiet' : null;
   if (job === 'clear') {
     const f = map.feature[tile];
     if (f !== Feature.Forest && f !== Feature.Jungle) return 'Nur Wald oder Dschungel';
@@ -55,6 +58,10 @@ export function jobBlocker(
 export function applyJob(map: GameMap, tile: number, job: JobKind): void {
   if (job === 'road') {
     map.road[tile] = 1;
+    return;
+  }
+  if (job === 'cleanup') {
+    map.pollution[tile] = 0;
     return;
   }
   if (job === 'clear') {

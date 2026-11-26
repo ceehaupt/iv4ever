@@ -27,7 +27,8 @@ function addWorker(s: GameState, tile: number) {
 
 describe('Technologiebaum', () => {
   it('ist ein gültiger Baum: Voraussetzungen existieren und liegen in früheren Stufen', () => {
-    expect(TECHS).toHaveLength(55);
+    // TechId und Tabelle passen zusammen (neue Technologien werden hinten angehängt).
+    expect(TECHS).toHaveLength(Object.keys(TechId).length);
     TECHS.forEach((t) => {
       for (const p of t.prereqs) expect(TECHS[p].tier).toBeLessThan(t.tier);
     });

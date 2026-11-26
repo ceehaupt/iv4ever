@@ -24,6 +24,7 @@ export function describeTile(map: GameMap, view: GameView, i: number, knows: Kno
   if (imp) parts.push(imp.name);
   if (view.layers.road[i]) parts.push('Straße');
   if (touchesRiver(map, i)) parts.push('Fluss');
+  if (view.layers.pollution[i]) parts.push('verschmutzt');
   const y = tileYields(map, i, knows);
   parts.push(`Nahrung ${y.food}, Produktion ${y.prod}, Handel ${y.trade}`);
   if (fog === 2) {

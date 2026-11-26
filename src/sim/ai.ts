@@ -3,6 +3,7 @@ import { predictCombat } from './combat';
 import { economy, type GameState, Orders, type Player, ROUTE_MIN_DISTANCE, ROUTES_PER_CITY, type Unit } from './game';
 import { isMilitary, landmasses, moveTo, type Out, power, run } from './aiCommon';
 import { navalTurn } from './aiNaval';
+import { cityPollution } from './environment';
 import { airBuildWish, airTurn } from './aiAir';
 import { forEachNeighbor, tileDistance, tilesAround } from './hex';
 import { siteScore } from './gen/starts';
@@ -133,6 +134,8 @@ function buildingValue(id: number, c: City, persona: Persona, ctx: PlayerContext
   if (b.wonder) v = v * 0.6 + persona.builder * 10 + (state.rng.next() < 0.3 ? 4 : 0);
   if (b.noUpkeep) v += ctx.connected.size > 3 ? 5 : 1;
   if (b.project) v += 40 * (0.5 + persona.science);
+  // Recyclinghof: lohnt sich, je mehr die Stadt verschmutzt.
+  if ((b.pollution ?? 0) < 0) v += Math.min(-(b.pollution ?? 0), cityPollution(c)) * 12;
   return v / Math.max(20, b.cost) * 40;
 }
 
@@ -336,6 +339,7 @@ function work(state: GameState, u: Unit, out: Out, roads: Set<number>, claimed: 
       if (jobBlocker(state.map, state.tileOwner, pid, t, job, knows)) continue;
       let v = 0;
       if (job === 'road') v = roads.has(t) ? 5 : 0;
+      else if (job === 'cleanup') v = state.cities.some((c) => c.worked.includes(t)) ? 9 : 6;
       else if (job === 'clear') v = 0;
       else {
         const imp = improvementForJob(job);

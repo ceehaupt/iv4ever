@@ -1,4 +1,7 @@
 import { expect, type Page, test } from '@playwright/test';
+import { TECHS } from '../src/sim/rules/techs';
+
+const TECH_COUNT = TECHS.length;
 
 /**
  * Einzelspiel starten: das beim Laden erzeugte Spiel nutzen und warten, bis seine Einheiten da sind.
@@ -44,7 +47,7 @@ test('Handbuch öffnet mit F1 und zeigt die Technologien', async ({ page }) => {
   await page.keyboard.press('F1');
   await expect(page.locator('#handbook')).toBeVisible();
   await page.click('#handbook [data-tab="techs"]');
-  await expect(page.locator('#handbook tbody tr')).toHaveCount(55);
+  await expect(page.locator('#handbook tbody tr')).toHaveCount(TECH_COUNT);
 });
 
 test('Spielstand als Datei exportieren und wieder importieren', async ({ page }) => {

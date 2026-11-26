@@ -36,7 +36,7 @@ Verbesserungen nur im eigenen Gebiet. Mehrere Arbeiter am selben Auftrag addiere
 
 ## Technologien
 
-55 Technologien in 15 Stufen (Kosten von 24 🔬 in Stufe 1 bis 1500 🔬 in Stufe 15, je Stufe gleich). Man wählt ein **Ziel**;
+56 Technologien in 15 Stufen (Kosten von 24 🔬 in Stufe 1 bis 1500 🔬 in Stufe 15, je Stufe gleich). Man wählt ein **Ziel**;
 die Voraussetzungen werden automatisch der Reihe nach erforscht. Ohne Ziel wird Forschung angespart. Freischaltungen:
 [`REGELN-DATEN.md`](REGELN-DATEN.md#technologien) bzw. im Spiel über **T**.
 
@@ -54,6 +54,17 @@ Werte aller Einheiten: [`REGELN-DATEN.md`](REGELN-DATEN.md#einheiten). Start mit
 - Mit der letzten Bewegung darf jedes betretbare Feld noch betreten werden (die Runde ist danach vorbei).
 - Stapel: unbegrenzt viele eigene Einheiten pro Feld; fremde Einheiten und Städte blockieren.
 - Sicht: +1 auf Hügeln; Wald/Dschungel, Hügel und Gebirge verdecken, was dahinter liegt.
+
+## Umwelt
+
+- **Verschmutzung je Stadt und Runde:** Fabrik +2, Kraftwerk +3, ab Größe 13 je angefangene 8 Einwohner +1; der
+  **Recyclinghof** (Technologie **Ökologie**) zieht 3 ab. Je Punkt besteht jede Runde eine Chance von 4 %, dass ein Landfeld im
+  Gebiet der Stadt verschmutzt (bewirtschaftete Felder zuerst). Die Stadtansicht zeigt den Wert.
+- **Verschmutzte Felder** bringen je 1 weniger Nahrung, Produktion und Handel (nicht unter 0). Arbeiter können sie **säubern**
+  (ab Industrialisierung, 4 Runden; mit Ökologie 2 Runden).
+- **Klimawandel:** Mit je 200 verschmutzten Feldern weltweit steigt die Chance je Runde um 100 % (höchstens 50 %), dass irgendwo
+  ein Feld verödet: Grasland wird Ebene, Ebene wird Wüste.
+- Die KI säubert verschmutzte Felder vorrangig und baut Recyclinghöfe in stark verschmutzenden Städten.
 
 ## Luftfahrt
 
