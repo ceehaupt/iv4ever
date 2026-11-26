@@ -51,6 +51,11 @@ test('Handbuch öffnet mit F1 und zeigt die Technologien', async ({ page }) => {
 });
 
 test('Spielstand als Datei exportieren und wieder importieren', async ({ page }) => {
+  // Diagnose für die CI: Meldungen des Spiels und Fehler aus Seite/Worker mitschreiben.
+  const log: string[] = [];
+  page.on('console', (m) => (m.type() === 'error' || m.type() === 'warning') && log.push(`console.${m.type()}: ${m.text()}`));
+  page.on('pageerror', (e) => log.push(`pageerror: ${e.message}`));
+  page.on('worker', (w) => w.on('console', (m) => log.push(`worker: ${m.text()}`)));
   await newGame(page);
   await page.keyboard.press('Enter');
   await expect(page.locator('#turn')).toHaveText('Runde 2', { timeout: 20_000 });
@@ -61,7 +66,13 @@ test('Spielstand als Datei exportieren und wieder importieren', async ({ page })
   await expect(page.locator('#turn')).toHaveText('Runde 3', { timeout: 20_000 });
   await page.click('#load');
   await page.setInputFiles('[data-file="import"]', file);
-  await expect(page.locator('#turn')).toHaveText('Runde 2', { timeout: 20_000 });
+  try {
+    await expect(page.locator('#turn')).toHaveText('Runde 2', { timeout: 20_000 });
+  } catch (e) {
+    const toast = await page.locator('#toast').textContent();
+    const size = (await import('node:fs')).statSync(file).size;
+    throw new Error(`${(e as Error).message}\nToast: ${toast}\nDateigröße: ${size}\n${log.join('\n')}`);
+  }
 });
 
 test('Kartencursor beschreibt Felder für Screenreader', async ({ page }) => {
