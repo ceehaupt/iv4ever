@@ -14,5 +14,7 @@ Text einer Aufgabe nach Möglichkeit nicht ändern – er dient dem Abgleich als
 - [x] Balancing: Warum schließen KIs untereinander kaum Bündnisse (Ø 0,5 je Partie)? Mit `npm run autoplay` prüfen und anpassen ✅ 2026-11-27
 - [x] Doku: Abschnitt M10 in `docs/ROADMAP.md` korrigieren (die „Grenzen“ Wiedereinstieg und Online-Speichern sind inzwischen erledigt) ✅ 2026-11-27
 - [ ] Entscheiden: Beförderungssystem umbauen? (Ähnlichkeit zu einem bekannten Genre-Titel, siehe `OFFENE-PUNKTE.md` → Rechtliches)
+- [ ] Regel entscheiden: Sollen Handelsrouten zwischen Völkern im Krieg ruhen? (Bisher bringen sie weiter Ertrag)
+- [ ] Flaky e2e: „Spielstand als Datei exportieren und wieder importieren“ schlug am 27.11. lokal einmal im Parallellauf fehl (56 Wiederholungen danach grün) – bei erneutem Auftreten die Diagnoseausgabe auswerten
 - [ ] Veröffentlichung klären: Hosting für `dist/` und den Relay-Server (`docs/SERVER.md`), dazu die Domain
 - [ ] Lizenz festlegen und `LICENSE` anlegen (Entscheidung des Projektinhabers, ganz zum Schluss)

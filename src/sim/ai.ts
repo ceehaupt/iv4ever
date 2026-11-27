@@ -336,7 +336,7 @@ function trade(state: GameState, u: Unit, out: Out): void {
       if (!home) return null;
       const d = tileDistance(state.map, home.tile, c.tile);
       if (d < ROUTE_MIN_DISTANCE) return null;
-      if (state.routes.filter((r) => r.from === home.id).length >= 2 || state.routes.some((r) => r.from === home.id && r.to === c.id)) return null;
+      if (state.routes.filter((r) => r.from === home.id).length >= ROUTES_PER_CITY || state.routes.some((r) => r.from === home.id && r.to === c.id)) return null;
       return { c, v: 2 + Math.floor(d / 8) + (c.owner !== pid ? 1 : 0) - tileDistance(state.map, u.tile, c.tile) / 6 };
     })
     .filter((x): x is { c: City; v: number } => x !== null)
