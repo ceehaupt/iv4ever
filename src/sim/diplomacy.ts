@@ -176,6 +176,22 @@ export function declareWar(state: GameState, a: number, b: number, events: TurnE
     const t = `${name(state.players[ally])} ${state.players[ally].human ? 'trittst' : 'tritt'} als Verbündete${state.players[ally].human ? 'r' : ''} von ${name(bn)} gegen ${name(an)} in den Krieg ein`;
     for (const p of [ally, a, b]) events.push({ player: p, text: t, tile: -1 });
   }
+  cutWarRoutes(state, events);
+}
+
+/**
+ * Handelsrouten zwischen Städten verfeindeter Besitzer (Krieg, Plünderer) werden zerstört – auch nach einer Eroberung.
+ * Ein späterer Frieden stellt sie nicht wieder her.
+ */
+export function cutWarRoutes(state: GameState, events: TurnEvent[]): void {
+  state.routes = state.routes.filter((r) => {
+    const from = state.cities.find((c) => c.id === r.from);
+    const to = state.cities.find((c) => c.id === r.to);
+    if (!from || !to || !isHostile(state, from.owner, to.owner)) return true;
+    const text = `Handelsroute ${from.name} → ${to.name} durch den Krieg zerstört`;
+    for (const p of new Set([from.owner, to.owner])) if (!state.players[p].barbarian) events.push({ player: p, text, tile: from.tile });
+    return false;
+  });
 }
 
 /** Bündnis kündigen: Der Partner nimmt es übel. */

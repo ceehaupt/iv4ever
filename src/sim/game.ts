@@ -25,7 +25,7 @@ import { applyJob, jobBlocker, jobTurns } from './work';
 import { sailable, unitCost } from './naval';
 import { aiTurn } from './ai';
 import {
-  aiDiplomacy, alliesOf, canGive, cancelAlliance, createDiplomacy, declareWar, refusedDemand, type Diplomacy, evaluate, execute, mayEnterTerritory, type Proposal, relation,
+  aiDiplomacy, alliesOf, canGive, cancelAlliance, createDiplomacy, cutWarRoutes, declareWar, refusedDemand, type Diplomacy, evaluate, execute, mayEnterTerritory, type Proposal, relation,
   updateContacts,
 } from './diplomacy';
 import { checkVictory, type Victory } from './victory';
@@ -845,11 +845,12 @@ export function endTurn(state: GameState): { moves: MoveEvent[]; events: TurnEve
   for (const c of state.cities) assignTiles(state, c);
   religionTurn(state, turnEvents);
   for (const p of state.players) if (p.upheaval > 0) p.upheaval--;
-  // Routen zu verlorenen oder zerstörten Städten verfallen.
+  // Routen zu verlorenen oder zerstörten Städten verfallen; Routen zwischen Kriegsgegnern (auch nach Eroberung) werden zerstört.
   state.routes = state.routes.filter((r) => {
     const from = state.cities.find((c) => c.id === r.from);
     return from && state.cities.some((c) => c.id === r.to);
   });
+  cutWarRoutes(state, turnEvents);
   state.turn++;
   healUnits(state);
   for (const u of state.units) {

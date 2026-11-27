@@ -149,6 +149,8 @@ Je Bereich gilt ein Leitbild; ein Wechsel kostet eine Runde **Umbruch** (keine F
   dorthin (je Stadt höchstens 2). Ertrag: 2 + 1 je 8 Felder + 1 ins Ausland (+ Leitbild/Globalisierung); die Zielstadt erhält +1.
 - Händler dürfen im Frieden **fremdes Gebiet betreten** (auch ohne offene Grenzen), fremde Städte aber nicht – die Route
   zu einer fremden Stadt entsteht vom Nachbarfeld aus. Im Krieg gilt das nicht.
+- **Krieg zerstört Handelsrouten** zwischen den Städten der Kriegsparteien (bei der Kriegserklärung, beim Bündnisfall und
+  wenn eine Stadt an einen Gegner fällt). Ein Friedensschluss stellt sie nicht wieder her – dafür braucht es neue Händler.
 - **Zufallsereignisse**: 4 % je Runde und Volk (ab Runde 10) – gute Ernte, Goldader, Seuche (Aquädukt/Krankenhaus schützen),
   Erfinder, Waldbrand, Flüchtlinge.
 

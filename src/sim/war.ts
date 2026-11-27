@@ -3,7 +3,7 @@ import { type Battlefield, bestDefender, type Fighter, resolveCombat } from './c
 import { cargoOf, CommandError, type GameState, Orders, refreshVision, type Unit } from './game';
 import { tileDistance } from './hex';
 import { isWater } from './rules/terrain';
-import { isHostile, relation } from './diplomacy';
+import { cutWarRoutes, isHostile, relation } from './diplomacy';
 import { BUILDINGS, BuildingId } from './rules/buildings';
 import { PROMOTIONS, UNIT_TYPES, UnitTypeId } from './rules/units';
 
@@ -241,6 +241,7 @@ export function captureCity(state: GameState, city: City, newOwner: number, even
   recomputeOwnership(state);
   for (const c of state.cities) assignTiles(state, c);
   for (const p of [old, newOwner]) refreshVision(state, p);
+  cutWarRoutes(state, events);
   checkEliminations(state, events);
 }
 

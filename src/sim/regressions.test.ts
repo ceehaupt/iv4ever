@@ -290,3 +290,31 @@ describe('Diplomatisches Gedächtnis', () => {
     expect(s.diplomacy.memory['1:2']).toBe(-3);
   });
 });
+
+describe('Handelsrouten im Krieg', () => {
+  it('werden bei der Kriegserklärung zerstört und kommen mit dem Frieden nicht zurück', () => {
+    const s = createGame(generateWorld(opts), opts);
+    const a = foundFor(s, HUMAN);
+    const b = foundFor(s, 1);
+    const c = foundFor(s, 2);
+    s.routes.push({ from: a.id, to: b.id }, { from: b.id, to: a.id }, { from: a.id, to: c.id });
+    for (const [x, y] of [[HUMAN, 1], [HUMAN, 2]]) relation(s, x, y).met = true;
+    const events: { text: string }[] = [];
+    declareWar(s, HUMAN, 1, events as never);
+    expect(s.routes).toEqual([{ from: a.id, to: c.id }]);
+    expect(events.some((e) => e.text.includes('durch den Krieg zerstört'))).toBe(true);
+    s.turn += 10;
+    makePeace(s, HUMAN, 1, []);
+    expect(s.routes.length).toBe(1);
+  });
+
+  it('eine eroberte Stadt verliert ihre Routen zum bisherigen Besitzer, wenn Krieg herrscht', () => {
+    const { s, warrior, target } = battle();
+    const enemy = foundCity(s, 1, target);
+    const home = foundFor(s, 1);
+    s.routes.push({ from: home.id, to: enemy.id });
+    performAttack(s, warrior, target, []);
+    expect(enemy.owner).toBe(HUMAN);
+    expect(s.routes.length).toBe(0);
+  });
+});
