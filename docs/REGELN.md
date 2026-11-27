@@ -198,6 +198,8 @@ Je Bereich gilt ein Leitbild; ein Wechsel kostet eine Runde **Umbruch** (keine F
   geschlossen los; Fern- und Belagerungseinheiten greifen zuerst an.
 - **Seefahrt:** Findet ein Siedler an Land keinen Platz mehr, bringt ein Transportschiff ihn mit Begleitschutz auf eine andere
   Landmasse. Kriegerische Herrscher landen Truppen bei Gegnern in Übersee; Kriegsschiffe greifen feindliche Schiffe an.
+  Ab Runde 30 (mit mindestens zwei Städten) erkundet ein Schiff die Küsten, solange bekanntes Wasser an Unerforschtes grenzt –
+  erst dadurch kennt die KI andere Landmassen.
 - **Händler:** Die KI baut Händler, solange Routenplätze frei sind, und wählt die lohnendste erreichbare Stadt.
 - **Großprojekt:** Forschungsorientierte Herrscher steuern ab dem mittleren Spiel die Raumfahrt an und bauen die Teile
   in ihrer produktivsten Stadt.

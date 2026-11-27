@@ -9,6 +9,7 @@ import { isMilitary, landmasses, moveTo, type Out, run } from './aiCommon';
 import { isWater, Relief, Terrain } from './rules/terrain';
 import { isNaval, UNIT_TYPES, UnitTypeId } from './rules/units';
 import { BuildingId } from './rules/buildings';
+import { TechId } from './rules/techs';
 import { isHostile } from './diplomacy';
 import { availableItems, type BuildItem, cityAt, foundingBlocker, playerContext } from './city';
 import { cityDefenseAt, fighterOf } from './war';
@@ -178,6 +179,53 @@ function queueShip(ctx: NavalCtx, want: (type: number) => number, near: number):
 const transportValue = (type: number) => (cargoCap(type) ? cargoCap(type) * 10 + (UNIT_TYPES[type].ocean ? 5 : 0) - UNIT_TYPES[type].cost / 20 : 0);
 const warshipValue = (type: number) => (isWarship(type) ? UNIT_TYPES[type].strength * 3 - UNIT_TYPES[type].cost / 20 : 0);
 
+// --- 0. Erkundung zur See ----------------------------------------------------------------------
+// Ohne sie kennt die KI keine anderen Landmassen – und plant weder Siedlungen noch Invasionen in Übersee.
+
+/** Ab dieser Runde (und mit mindestens zwei Städten) schickt die KI ein Schiff auf Erkundung. */
+const SEA_SCOUT_TURN = 30;
+
+/** Gibt es bekanntes, befahrbares Wasser neben Unerforschtem? */
+function seaFrontier(state: GameState, p: Player, ocean: boolean): boolean {
+  const m = state.map;
+  for (let t = 0; t < m.width * m.height; t++) {
+    if (!p.explored[t]) continue;
+    const ter = m.terrain[t];
+    if (ter !== Terrain.Coast && !(ocean && ter === Terrain.Ocean)) continue;
+    let edge = false;
+    forEachNeighbor(m, t, (n) => {
+      if (!p.explored[n]) edge = true;
+    });
+    if (edge) return true;
+  }
+  return false;
+}
+
+const scoutValue = (type: number) => (isNaval(type) ? UNIT_TYPES[type].moves * 3 + UNIT_TYPES[type].sight * 2 - UNIT_TYPES[type].cost / 20 : 0);
+
+function exploreSea(ctx: NavalCtx): void {
+  const { state, p, out } = ctx;
+  const ships = state.units.filter((u) => u.owner === p.id && isNaval(u.type));
+  const scouts = ships.filter((u) => u.orders === Orders.Explore);
+  for (const u of scouts) ctx.reserved.add(u.id);
+  if (scouts.length || state.turn < SEA_SCOUT_TURN || state.cities.filter((c) => c.owner === p.id).length < 2) return;
+  // Nur alle paar Runden prüfen – ein Schiff, das nichts mehr findet, soll nicht jede Runde neu starten.
+  if (state.turn % 5 !== 0) return;
+  const ocean = p.techs[TechId.Navigation] === 1 || ships.some((u) => UNIT_TYPES[u.type].ocean);
+  if (!seaFrontier(state, p, ocean)) return;
+  const idle = ships.find((u) => !ctx.reserved.has(u.id) && !cargoOf(state, u).length && u.moves > 0 &&
+    (u.orders === Orders.None || u.orders === Orders.Fortify));
+  if (idle) {
+    if (run(state, p.id, { type: 'explore', unit: idle.id }, out)) ctx.reserved.add(idle.id);
+    return;
+  }
+  // Noch gar kein Schiff: eines bauen (das schnellste mit guter Sicht).
+  if (!ships.length) {
+    const capital = state.cities.find((c) => c.owner === p.id && c.buildings.includes(BuildingId.Palace)) ?? state.cities.find((c) => c.owner === p.id)!;
+    queueShip(ctx, scoutValue, capital.tile);
+  }
+}
+
 // --- 1. Siedler übers Meer --------------------------------------------------------------------
 
 function expandOverseas(ctx: NavalCtx, stranded: Unit[]): void {
@@ -323,6 +371,7 @@ export function navalTurn(state: GameState, p: Player, out: Out, stranded: Unit[
   const home = new Set(state.cities.filter((c) => c.owner === p.id).map((c) => mass[c.tile]));
   const ctx: NavalCtx = { state, p, out, mass, home, reserved: new Set() };
   if (!coastalCities(state, p.id).length) return ctx.reserved;
+  exploreSea(ctx);
   expandOverseas(ctx, stranded);
   if (offensive) invade(ctx, garrison);
   warships(ctx);

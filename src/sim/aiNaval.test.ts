@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { addUnit, applyCommand, endTurn, HUMAN, refreshVision } from './game';
+import { addUnit, applyCommand, endTurn, HUMAN, Orders, refreshVision } from './game';
 import { aiCity, islands, T } from './testWorld';
 import { landmasses } from './aiCommon';
 import { relation } from './diplomacy';
@@ -88,4 +88,30 @@ describe('KI-Händler', () => {
     for (let t = 0; t < 10 && !s.routes.length; t++) endTurn(s);
     expect(s.routes.length).toBeGreaterThan(0);
   });
+
+  it('schickt ein Schiff auf Erkundung, wenn bekannte Küsten an Unerforschtes grenzen', () => {
+    const s = islands();
+    s.players[1].techs[TechId.Sailing] = 1;
+    aiCity(s, T(9, 2));
+    aiCity(s, T(14, 6));
+    // Die KI kennt nur ihre Insel und das Wasser direkt daneben.
+    for (let t = 0; t < s.map.terrain.length; t++) s.players[1].explored[t] = t % 16 >= 8 ? 1 : 0;
+    const galley = addUnit(s, 1, UnitTypeId.Galley, T(8, 2));
+    s.turn = 30;
+    endTurn(s);
+    expect(galley.orders).toBe(Orders.Explore);
+    expect(s.players[1].explored[T(5, 2)]).toBe(1);
+  });
+
+  it('baut ein Erkundungsschiff, wenn sie noch keines hat', () => {
+    const s = islands();
+    s.players[1].techs[TechId.Sailing] = 1;
+    aiCity(s, T(9, 2));
+    aiCity(s, T(14, 6));
+    for (let t = 0; t < s.map.terrain.length; t++) s.players[1].explored[t] = t % 16 >= 8 ? 1 : 0;
+    s.turn = 30;
+    endTurn(s);
+    expect(s.cities.some((c) => c.owner === 1 && c.queue.some((q) => q.kind === 'unit' && UNIT_TYPES[q.id].naval))).toBe(true);
+  });
 });
+
