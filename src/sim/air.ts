@@ -8,11 +8,18 @@ import { type Battlefield, bestDefender, resolveAirDuel, resolveCombat } from '.
 import { cargoOf, CommandError, type GameState, Orders, refreshVision, type Unit } from './game';
 import { tileDistance } from './hex';
 import { isHostile, relation } from './diplomacy';
+import { isWater } from './rules/terrain';
 import { isAir, UNIT_TYPES } from './rules/units';
 import { type CombatEvent, cityDefenseAt, fighterOf, XP_RANGED, XP_SURVIVE } from './war';
 
 /** Einheiten, die am Boden bzw. auf See kämpfen (Flugzeuge verteidigen keine Felder). */
 export const isSurfaceFighter = (u: Unit) => UNIT_TYPES[u.type].strength > 0 && !isAir(u.type);
+
+/** Ziele eines Luftangriffs: kämpfende Einheiten; auf See nur das Schiff, nicht seine Ladung (wie im Bodenkampf). */
+function airTargets(state: GameState, u: Unit, target: number): Unit[] {
+  const atSea = isWater(state.map.terrain[target]);
+  return state.units.filter((o) => o.tile === target && o.owner !== u.owner && isSurfaceFighter(o) && !(atSea && o.carriedBy));
+}
 
 /** Freie Flugzeug-Stellplätze eines Trägers. */
 export function airSlots(state: GameState, carrier: Unit): number {
@@ -26,7 +33,7 @@ export function airStrikeBlocker(state: GameState, u: Unit, target: number): str
   if (u.moves <= 0) return 'Dieses Flugzeug war in dieser Runde schon im Einsatz';
   if (!state.players[u.owner].visible[target]) return 'Ziel ist nicht sichtbar';
   if (tileDistance(state.map, u.tile, target) > t.range) return `Außer Reichweite (Einsatzradius ${t.range} Felder)`;
-  const enemies = state.units.filter((o) => o.tile === target && o.owner !== u.owner && isSurfaceFighter(o));
+  const enemies = airTargets(state, u, target);
   if (!enemies.length) return 'Kein Ziel – Luftangriffe treffen Einheiten (auch in Städten und auf See)';
   for (const o of new Set(enemies.map((e) => e.owner))) {
     if (!isHostile(state, u.owner, o)) {
@@ -79,7 +86,7 @@ export function airStrike(state: GameState, u: Unit, target: number, events: Tur
   const combats: CombatEvent[] = [];
   if (!intercept(state, u, target, events, combats)) return combats;
   const bf: Battlefield = { map: state.map, attackerTile: u.tile, defenderTile: target, cityDefense: cityDefenseAt(state, target) };
-  const enemies = state.units.filter((o) => o.tile === target && o.owner !== u.owner && isSurfaceFighter(o));
+  const enemies = airTargets(state, u, target);
   const att = fighterOf(u);
   const k = bestDefender(enemies.map(fighterOf), att, bf, true);
   if (k < 0) return combats;

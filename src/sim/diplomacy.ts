@@ -361,8 +361,23 @@ export function execute(state: GameState, from: number, to: number, p: Proposal,
   for (const x of [from, to]) events.push({ player: x, text: `Handel zwischen ${name(state.players[from])} und ${name(state.players[to])} abgeschlossen`, tile: -1 });
 }
 
+/** Alle MEMORY_FADE Runden rückt jedes Gedächtnis um 1 Richtung 0 (Groll und Dank verblassen). */
+export const MEMORY_FADE = 10;
+
+function fadeMemory(state: GameState): void {
+  if (state.turn % MEMORY_FADE !== 0) return;
+  const mem = state.diplomacy.memory;
+  for (const k of Object.keys(mem)) {
+    const v = mem[k];
+    if (v > 0) mem[k] = v - 1;
+    else if (v < 0) mem[k] = v + 1;
+    if (mem[k] === 0) delete mem[k];
+  }
+}
+
 /** Diplomatische Züge der KI am Rundenende. */
 export function aiDiplomacy(state: GameState, events: TurnEvent[]): void {
+  fadeMemory(state);
   const list = civs(state);
   for (const a of list) {
     if (a.human || !a.persona) continue;
@@ -396,7 +411,7 @@ export function aiDiplomacy(state: GameState, events: TurnEvent[]): void {
           if (demand) offer(state, a, b, demand, events);
         }
         // Offene Grenzen mit Freunden
-        else if (!r.openBorders && att >= 3 && !b.human && state.rng.next() < 0.05 && evaluate(state, b.id, a.id, { kind: 'openBorders' }).accept) {
+        else if (!r.openBorders && att >= 2 && !b.human && state.rng.next() < 0.05 && evaluate(state, b.id, a.id, { kind: 'openBorders' }).accept) {
           execute(state, a.id, b.id, { kind: 'openBorders' }, events);
         }
       } else if (state.turn - r.since >= 10 && !nearVictory(state, b.id) && (myPower < theirPower * 0.9 || state.turn - r.since > 30) && state.rng.next() < 0.25) {

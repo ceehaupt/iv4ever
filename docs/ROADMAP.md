@@ -120,7 +120,8 @@ Grafik, Texte und Balancing sind eigene Entwürfe (siehe `CLAUDE.md`, Abschnitt 
   Räume mit Code, Lobby, Warteanzeige, Prüfsumme je Runde mit Desync-Warnung
 - Plattformunabhängige Mathematik in der Simulation (eigene ln/exp/pow, sqrt statt hypot)
 - Angebote zwischen Menschen (Frieden, offene Grenzen, Handel) mit Annehmen/Ablehnen
-- Grenzen: kein Wiedereinstieg nach Verbindungsabbruch, kein Speichern im Online-Spiel
+- Wiedereinstieg nach Verbindungsabbruch oder Neuladen (Token, Kulanzzeit; bis dahin spielt die KI den Platz)
+- Speichern im Online-Spiel durch den Gastgeber, Fortsetzen in einem neuen Raum (fehlende Menschen übernimmt die KI)
 
 ## Entscheidungen
 

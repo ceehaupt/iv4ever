@@ -30,7 +30,7 @@ import {
 } from './diplomacy';
 import { checkVictory, type Victory } from './victory';
 import { barbarianTurn, type Camp } from './barbarians';
-import { checkEliminations, type CombatEvent, healUnits, performAttack } from './war';
+import { checkEliminations, type CombatEvent, healUnits, performAttack, razeCamp } from './war';
 
 export const Orders = {
   None: 0,
@@ -416,7 +416,7 @@ export function pathFor(state: GameState, u: Unit, target: number): number[] | n
 
 /** Geht den gespeicherten Weg so weit wie möglich; plant neu, wenn unterwegs Hindernisse auftauchen. */
 /** stopAfterStep: nach jedem Schritt gefragt; true bricht den Zug ab (Weg bleibt erhalten). */
-function continueMove(state: GameState, u: Unit, stopAfterStep?: () => boolean): MoveEvent | null {
+function continueMove(state: GameState, u: Unit, events: TurnEvent[], stopAfterStep?: () => boolean): MoveEvent | null {
   const steps = [u.tile];
   const occ = occupancy(state);
   let replans = 0;
@@ -447,6 +447,8 @@ function continueMove(state: GameState, u: Unit, stopAfterStep?: () => boolean):
     }
     u.path.shift();
     steps.push(next);
+    // Ein verlassenes Lager (Wache z. B. durch Fernkampf gefallen) wird beim Betreten ausgehoben.
+    if (!naval && !u.carriedBy && UNIT_TYPES[u.type].strength > 0) razeCamp(state, u.owner, next, events);
     refreshVision(state, u.owner);
     if (stopAfterStep?.()) break;
   }
@@ -526,7 +528,7 @@ function continueExplore(state: GameState, u: Unit, events: TurnEvent[], initial
         break;
       }
     }
-    const ev = continueMove(state, u, () => (alert = exploreAlert(state, u, mode)) !== null);
+    const ev = continueMove(state, u, events, () => (alert = exploreAlert(state, u, mode)) !== null);
     if (!ev) break;
     steps.push(...ev.steps.slice(1));
   }
@@ -735,8 +737,9 @@ function unitCommand(state: GameState, player: number, cmd: Extract<Command, { u
       if (!path) throw new CommandError('Ziel ist nicht erreichbar');
       u.path = path;
       u.orders = Orders.Goto;
-      const ev = continueMove(state, u);
-      return { moves: ev ? [ev] : [] };
+      const events: TurnEvent[] = [];
+      const ev = continueMove(state, u, events);
+      return { moves: ev ? [ev] : [], events };
     }
     case 'fortify':
       u.orders = Orders.Fortify;
@@ -838,6 +841,8 @@ export function endTurn(state: GameState): { moves: MoveEvent[]; events: TurnEve
   barbarianTurn(state, turnEvents, combats, events);
   randomEvents(state, turnEvents);
   environmentTurn(state, turnEvents);
+  // Ereignisse und Umwelt ändern Stadtgrößen und Felderträge → Bewirtschaftung neu verteilen.
+  for (const c of state.cities) assignTiles(state, c);
   religionTurn(state, turnEvents);
   for (const p of state.players) if (p.upheaval > 0) p.upheaval--;
   // Routen zu verlorenen oder zerstörten Städten verfallen.
@@ -854,7 +859,7 @@ export function endTurn(state: GameState): { moves: MoveEvent[]; events: TurnEve
   }
   for (const u of state.units) {
     if (u.orders === Orders.Goto && u.path) {
-      const ev = continueMove(state, u);
+      const ev = continueMove(state, u, turnEvents);
       if (ev) events.push(ev);
     } else if (u.orders === Orders.Explore) {
       const ev = continueExplore(state, u, turnEvents, false);

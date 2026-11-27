@@ -1,7 +1,7 @@
 // Regressionstests für behobene Logikfehler (Eroberung, Ausscheiden, Friedensschluss, Seekampf).
 import { describe, expect, it } from 'vitest';
 import { foundCity } from './city';
-import { declareWar, makePeace, relation } from './diplomacy';
+import { aiDiplomacy, declareWar, makePeace, MEMORY_FADE, relation } from './diplomacy';
 import { addUnit, createGame, endTurn, type GameState, HUMAN } from './game';
 import { neighborOf } from './hex';
 import { generateWorld } from './mapgen';
@@ -11,6 +11,11 @@ import { fromSaveData, toSaveData } from './save';
 import { checkVictory } from './victory';
 import { attackBlocker, performAttack } from './war';
 import { assignSlots, PERSONAS, personaFor } from './rules/leaders';
+import { applyCommand, refreshVision } from './game';
+import { barbarianTurn } from './barbarians';
+import { CAMP_REWARD } from './war';
+import { forEachNeighbor } from './hex';
+import { aiCity, islands, T } from './testWorld';
 
 const opts = { width: 64, height: 40, seed: 321, players: 4, script: 'continents' as const };
 
@@ -221,5 +226,67 @@ describe('Volkswahl', () => {
   it('Spielstand behält das Volk', () => {
     const s = createGame(generateWorld(opts), { ...opts, leader: 2 });
     expect(fromSaveData(toSaveData(s)).players[HUMAN].slot).toBe(2);
+  });
+});
+
+describe('Plündererlager', () => {
+  it('ein verlassenes Lager wird beim Betreten ausgehoben (vorher: blieb bestehen)', () => {
+    const { s, warrior, target } = battle();
+    s.camps.push({ tile: target, timer: 0 });
+    const gold = s.players[HUMAN].gold;
+    const res = applyCommand(s, HUMAN, { type: 'move', unit: warrior.id, target });
+    expect(warrior.tile).toBe(target);
+    expect(s.camps.length).toBe(0);
+    expect(s.players[HUMAN].gold).toBe(gold + CAMP_REWARD);
+    expect(res.events?.some((e) => e.text.includes('ausgehoben'))).toBe(true);
+  });
+
+  it('setzt keine neuen Plünderer auf fremde Einheiten im Lager', () => {
+    const { s, warrior } = battle();
+    s.turn = 21;
+    // Lager unter dem Krieger, ringsum nur Gebirge: kein freies Feld zum Erscheinen.
+    forEachNeighbor(s.map, warrior.tile, (nb) => { s.map.relief[nb] = Relief.Mountain; });
+    s.camps.push({ tile: warrior.tile, timer: 10 });
+    s.units = s.units.filter((u) => u.owner !== s.barbarian);
+    barbarianTurn(s, [], [], []);
+    expect(s.units.some((u) => u.owner === s.barbarian && u.tile === warrior.tile)).toBe(false);
+  });
+});
+
+describe('Luftangriff auf See', () => {
+  it('trifft das Schiff, nicht die verladenen Truppen', () => {
+    const s = islands();
+    aiCity(s, T(13, 8));
+    const r = relation(s, HUMAN, 1);
+    r.met = true;
+    r.war = true;
+    const sea = T(11, 4);
+    s.map.terrain[sea] = Terrain.Coast;
+    const ship = addUnit(s, 1, UnitTypeId.Transport, sea);
+    const tank = addUnit(s, 1, UnitTypeId.Tank, sea);
+    tank.carriedBy = ship.id;
+    const b = addUnit(s, HUMAN, UnitTypeId.Bomber, T(10, 1));
+    for (const p of s.players) {
+      refreshVision(s, p.id);
+      p.visible.fill(1);
+    }
+    const res = applyCommand(s, HUMAN, { type: 'airStrike', unit: b.id, target: sea });
+    const hit = res.combats!.find((c) => c.attacker === b.id)!;
+    expect(hit.defender).toBe(ship.id);
+    expect(tank.hp).toBe(100);
+  });
+});
+
+describe('Diplomatisches Gedächtnis', () => {
+  it('verblasst alle MEMORY_FADE Runden um 1 Richtung 0', () => {
+    const s = createGame(generateWorld(opts), opts);
+    s.diplomacy.memory = { '1:2': -4, '2:1': 1 };
+    s.turn = MEMORY_FADE * 3;
+    aiDiplomacy(s, []);
+    expect(s.diplomacy.memory['1:2']).toBe(-3);
+    expect(s.diplomacy.memory['2:1']).toBeUndefined();
+    s.turn++;
+    aiDiplomacy(s, []);
+    expect(s.diplomacy.memory['1:2']).toBe(-3);
   });
 });

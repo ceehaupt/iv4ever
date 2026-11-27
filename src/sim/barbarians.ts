@@ -71,11 +71,13 @@ function spawnFromCamps(state: GameState): void {
     if (near >= MAX_UNITS_PER_CAMP) continue;
     camp.timer = 0;
     const free: number[] = [];
+    // Nicht in fremde Städte oder auf fremde Einheiten setzen (auch nicht aufs Lager selbst).
+    const blocked = (t: number) => state.units.some((u) => u.tile === t && u.owner !== state.barbarian) ||
+      state.cities.some((c) => c.tile === t && c.owner !== state.barbarian);
     forEachNeighbor(m, camp.tile, (nb) => {
-      if (!isWater(m.terrain[nb]) && m.relief[nb] !== Relief.Mountain && !state.units.some((u) => u.tile === nb && u.owner !== state.barbarian)) {
-        free.push(nb);
-      }
+      if (!isWater(m.terrain[nb]) && m.relief[nb] !== Relief.Mountain && !blocked(nb)) free.push(nb);
     });
+    if (!free.length && blocked(camp.tile)) continue;
     const tile = free.length ? free[state.rng.int(free.length)] : camp.tile;
     addUnit(state, state.barbarian, spawnType(state), tile);
   }

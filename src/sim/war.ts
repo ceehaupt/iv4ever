@@ -179,6 +179,18 @@ export function performAttack(state: GameState, u: Unit, target: number, events:
   return ev;
 }
 
+/** Lager auf dem Feld ausheben (Belohnung, außer für Plünderer selbst). true, wenn eines dort stand. */
+export function razeCamp(state: GameState, owner: number, tile: number, events: TurnEvent[]): boolean {
+  const idx = state.camps.findIndex((c) => c.tile === tile);
+  if (idx < 0) return false;
+  state.camps.splice(idx, 1);
+  if (!state.players[owner].barbarian) {
+    state.players[owner].gold += CAMP_REWARD;
+    events.push({ player: owner, text: `Plündererlager ausgehoben: +${CAMP_REWARD} Gold`, tile });
+  }
+  return true;
+}
+
 /** Feld ohne Verteidiger einnehmen: Zivilisten fangen, Stadt erobern, Lager ausheben, hineinziehen. */
 function occupyTile(state: GameState, u: Unit, target: number, ev: CombatEvent, events: TurnEvent[]): void {
   const barb = state.players[u.owner].barbarian;
@@ -198,15 +210,7 @@ function occupyTile(state: GameState, u: Unit, target: number, ev: CombatEvent, 
     }
   }
   if (civilians.length) ev.capturedUnits = civilians.length;
-  const campIdx = state.camps.findIndex((c) => c.tile === target);
-  if (campIdx >= 0) {
-    state.camps.splice(campIdx, 1);
-    ev.destroyedCamp = true;
-    if (!barb) {
-      state.players[u.owner].gold += CAMP_REWARD;
-      events.push({ player: u.owner, text: `Plündererlager ausgehoben: +${CAMP_REWARD} Gold`, tile: target });
-    }
-  }
+  if (razeCamp(state, u.owner, target, events)) ev.destroyedCamp = true;
   u.tile = target;
   // Ein nachrückendes Schiff nimmt seine Ladung mit.
   for (const c of cargoOf(state, u)) c.tile = target;

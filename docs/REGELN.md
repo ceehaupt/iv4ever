@@ -160,7 +160,8 @@ Je Bereich gilt ein Leitbild; ein Wechsel kostet eine Runde **Umbruch** (keine F
 - Im Frieden ohne **offene Grenzen** darf man fremdes Gebiet nicht betreten; bei Friedensschluss kehren Truppen
   aus fremdem Gebiet in die nächste eigene Stadt zurück (Schiffe samt Ladung in die nächste Küstenstadt).
 - **Haltung** (−10 … +10): −4 im Krieg, bis +3 durch lange Friedenszeit, +2 offene Grenzen, ±Gedächtnis
-  (erlittene Kriegserklärung −4, Handel +1, Dritte −1 gegenüber Aggressoren), aggressive Herrscher −1 bis −2.
+  (erlittene Kriegserklärung −4, Handel +1, Dritte −1 gegenüber Aggressoren; verblasst alle 10 Runden um 1 Richtung 0),
+  aggressive Herrscher −1 bis −2. KIs bieten einander offene Grenzen ab Haltung +2 an.
 - **Angebote**: Frieden (nach mind. 6 Kriegsrunden; die KI willigt ein, wenn sie unterlegen ist oder der Krieg lange dauert),
   offene Grenzen (ab Haltung +1 oder bei friedfertigen Herrschern), Handel mit Gold und Technologien
   (Technologie zählt 1,2 × ihre Kosten; Aufschlag je nach Haltung 0,9 / 1,0 / 1,3; ab −6 kein Handel).

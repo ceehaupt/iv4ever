@@ -34,7 +34,7 @@ Kennzeichnung: **[Erledigt]** = umgesetzt · **[Fehler]** = Verhalten ist falsch
 - **[Grenze]** Keine Atom- oder Spionageeinheiten.
 - **[Erledigt]** Religion: Glaube, Gründung mit Lehre, Ausbreitung durch Druck, Missionare, Staatsreligion in der Diplomatie.
 - **[Grenze]** Kein Stadtstaaten-System, kein Weltkongress bzw. keine diplomatische Abstimmung.
-- **[Erledigt]** Bündnisse (Verteidigung, gemeinsame Sicht) und Forderungen/Tribut. Offen: KIs schließen untereinander selten Bündnisse (Ø 0,5 je Partie), weil offene Grenzen zwischen KIs selten sind – beim nächsten Balancing prüfen.
+- **[Erledigt]** Bündnisse (Verteidigung, gemeinsame Sicht) und Forderungen/Tribut. KIs schlossen untereinander kaum Bündnisse (Ø 0,5 je Partie), weil das Gedächtnis zwischen KIs nur negativ wurde und nie verblasste; seit 27.11.2026 verblasst es (−1 je 10 Runden) und KIs öffnen Grenzen ab Haltung +2 → Ø 1,8 Bündnisse / 2,0 offene Grenzen am Ende (8 Partien, standard).
 - **[Erledigt]** Umwelt: Verschmutzung durch Industrie und Großstädte, Säubern, Recyclinghof (Ökologie), Klimawandel.
 - **[Erledigt]** Karteneditor mit Szenario-Dateien (Gelände, Ressourcen, Flüsse, Startfelder; Rückgängig; direkt spielen).
 - **[Grenze]** Szenarien legen nur Karte und Startfelder fest (keine vorgegebenen Städte, Einheiten, Technologien oder Ereignisse) und sind online nicht verfügbar. Der Editor braucht eine Maus (Malen per Tastatur fehlt).
