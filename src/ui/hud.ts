@@ -118,6 +118,7 @@ export class Hud {
   }
 
   openDialog(): void {
+    this.updateSwatch(); // Farbpalette kann sich inzwischen geändert haben (Farbsehschwäche in ⚙)
     this.dialog.hidden = false;
     this.opener.setAttribute('aria-expanded', 'true');
     this.size.focus();
