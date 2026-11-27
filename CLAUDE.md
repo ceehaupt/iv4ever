@@ -1,7 +1,7 @@
 # iv4ever
 
 Rundenbasiertes 4X-Strategiespiel im Browser (Hexfelder, 2.5D) gegen KI, im Hotseat oder online im Lockstep.
-Plan und Meilensteine: `docs/ROADMAP.md`, offene Punkte: `docs/OFFENE-PUNKTE.md`, Spielregeln: `docs/REGELN.md` (bei Regeländerungen mitpflegen).
+Plan und Meilensteine: `docs/ROADMAP.md`, offene Punkte: `docs/OFFENE-PUNKTE.md`, konkrete nächste Schritte: `docs/AUFGABEN.md` (Checkboxen, wird mit dem Second Brain synchronisiert), Spielregeln: `docs/REGELN.md` (bei Regeländerungen mitpflegen).
 `docs/REGELN-DATEN.md` wird aus den Regeltabellen erzeugt (`npm run docs`); ein Test schlägt fehl, wenn sie veraltet ist.
 UI-Sprache Deutsch, Code-Bezeichner Englisch, Kommentare Deutsch.
 
