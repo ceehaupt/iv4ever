@@ -63,5 +63,16 @@ Kennzeichnung: **[Erledigt]** = umgesetzt · **[Fehler]** = Verhalten ist falsch
 
 ## Rechtliches
 
-- **[Offen]** Vor einer Veröffentlichung Namen, Texte und Technologiebaum noch einmal gegen die Regeln in `CLAUDE.md`
-  (Abschnitt „Rechtliches“) prüfen. Lizenz für das Projekt ist noch nicht festgelegt (keine `LICENSE`-Datei).
+- **[Erledigt 27.11.2026]** Namensabgleich gegen die Regeln in `CLAUDE.md` (Abschnitt „Rechtliches“, keine Rechtsberatung):
+  - Einheiten, Gebäude, Technologien, Ressourcen, Verbesserungen: allgemeine historische bzw. beschreibende Begriffe – unkritisch.
+  - Weltwunder (Ewige Flamme, Terrassengärten, Himmelswarte, Großes Amphitheater, Hafen der Händler, Wall der Ahnen,
+    Akademie der Weisen, Weltausstellung, Leuchtfeuer des Wissens) und Großprojekt-Teile: eigene Namen, keine
+    Personennamen, keine Übernahme bekannter Wunderlisten.
+  - Völker, Herrscher, Leitbilder, Religionen: frei erfunden.
+  - Technologiebaum: eigene Struktur und eigene Kostenformel; Ähnlichkeiten nur dort, wo die Geschichte sie vorgibt
+    (Bronze → Eisen, Schießpulver → Musketen).
+  - **Zur Entscheidung:** Die Beförderungen (Kampferprobt I–III, Sturmtrupp, Stadtwache, Waldläufer, Flankenschutz,
+    Gewaltmarsch, Feldscher) ähneln in der Zusammenstellung dem Beförderungssystem eines bekannten Genre-Titels.
+    Namen und Werte sind eigene, das System als Ganzes aber nah dran – bei Bedarf umbauen (z. B. eigene Zweige statt
+    der klassischen Liste). Vor einer Veröffentlichung ggf. juristisch prüfen lassen.
+- **[Offen]** Lizenz für das Projekt ist noch nicht festgelegt (keine `LICENSE`-Datei).
