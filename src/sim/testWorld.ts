@@ -34,8 +34,9 @@ export function islands(): GameState {
   }
   s.units = [];
   s.cities = [];
-  // Der Mensch hat nur einen Späher weit weg (sonst gilt er als vernichtet).
+  // Der Mensch hat nur einen Späher und einen Siedler weit weg (ohne Stadt und Siedler schiede er aus).
   addUnit(s, HUMAN, UnitTypeId.Scout, T(14, 9));
+  addUnit(s, HUMAN, UnitTypeId.Settler, T(14, 9));
   return s;
 }
 

@@ -1,6 +1,6 @@
 import { assignTiles, type City, cityAt, recomputeOwnership, type TurnEvent } from './city';
 import { type Battlefield, bestDefender, type Fighter, resolveCombat } from './combat';
-import { CommandError, type GameState, Orders, refreshVision, type Unit } from './game';
+import { cargoOf, CommandError, type GameState, Orders, refreshVision, type Unit } from './game';
 import { tileDistance } from './hex';
 import { isWater } from './rules/terrain';
 import { isHostile, relation } from './diplomacy';
@@ -59,6 +59,18 @@ function playerName(state: GameState, id: number): string {
   return p.barbarian ? 'Plünderer' : p.human ? 'Du' : p.name;
 }
 
+/**
+ * Fremde Einheiten auf dem Zielfeld, die gegen diesen Angreifer verteidigen bzw. angegriffen werden können:
+ * nur dieselbe Sphäre (Land/See), keine Flugzeuge am Boden. Verladene Einheiten zählen nur im Hafen
+ * (Landfeld = Stadt) – auf See verteidigt das Schiff für seine Ladung.
+ */
+export function defendersAt(state: GameState, target: number, attacker: Unit): Unit[] {
+  const naval = !!UNIT_TYPES[attacker.type].naval;
+  const atSea = isWater(state.map.terrain[target]);
+  return state.units.filter((o) => o.tile === target && o.owner !== attacker.owner && !!UNIT_TYPES[o.type].naval === naval &&
+    !UNIT_TYPES[o.type].air && (!o.carriedBy || !atSea));
+}
+
 /** Grund, warum die Einheit dieses Ziel nicht angreifen kann – oder null. */
 export function attackBlocker(state: GameState, u: Unit, target: number): string | null {
   const t = UNIT_TYPES[u.type];
@@ -72,7 +84,7 @@ export function attackBlocker(state: GameState, u: Unit, target: number): string
   if (t.naval && !water) return 'Schiffe greifen nur Schiffe auf See an';
   if (!t.naval && water) return 'Schiffe auf See können nur Schiffe angreifen';
   // Flugzeuge am Boden verteidigen nicht und sind kein Ziel für Boden-/Seeangriffe.
-  const enemies = state.units.filter((o) => o.tile === target && o.owner !== u.owner && !!UNIT_TYPES[o.type].naval === !!t.naval && !UNIT_TYPES[o.type].air);
+  const enemies = defendersAt(state, target, u);
   const city = cityAt(state, target);
   const enemyCity = city && city.owner !== u.owner ? city : null;
   const camp = state.camps.some((c) => c.tile === target);
@@ -99,9 +111,7 @@ export function performAttack(state: GameState, u: Unit, target: number, events:
   const t = UNIT_TYPES[u.type];
   const ranged = t.ranged > 0;
   const bf: Battlefield = { map: state.map, attackerTile: u.tile, defenderTile: target, cityDefense: cityDefenseAt(state, target) };
-  const enemies = state.units.filter(
-    (o) => o.tile === target && o.owner !== u.owner && !!UNIT_TYPES[o.type].naval === !!t.naval && !o.carriedBy && !UNIT_TYPES[o.type].air,
-  );
+  const enemies = defendersAt(state, target, u);
   const att = fighterOf(u);
   const k = bestDefender(enemies.map(fighterOf), att, bf, ranged);
   const city = cityAt(state, target);
@@ -156,8 +166,9 @@ export function performAttack(state: GameState, u: Unit, target: number, events:
     const verdict = o.defenderDies ? `${dn} besiegt` : o.attackerDies ? `${an} gefallen` : `${dn} −${o.dmgDef} LP`;
     const text = `${playerName(state, u.owner)} (${an}) greift ${playerName(state, d.owner)} (${dn}) an: ${verdict}`;
     for (const p of new Set([u.owner, d.owner])) events.push({ player: p, text, tile: target });
+    // Frei ist das Feld, wenn kein weiterer Verteidiger nach denselben Regeln wie oben übrig ist.
     tileCleared = !ranged && o.defenderDies && !o.attackerDies &&
-      !state.units.some((x) => x.tile === target && x.owner !== u.owner && UNIT_TYPES[x.type].strength > 0);
+      !defendersAt(state, target, u).some((x) => UNIT_TYPES[x.type].strength > 0);
   }
 
   if (tileCleared && !ranged) {
@@ -178,6 +189,7 @@ function occupyTile(state: GameState, u: Unit, target: number, ev: CombatEvent, 
       state.units = state.units.filter((x) => x !== c);
     } else {
       c.owner = u.owner;
+      c.carriedBy = null; // das Schiff im Hafen geht verloren (s. o.)
       if (c.type === UnitTypeId.Settler) c.type = UnitTypeId.Worker;
       c.orders = Orders.None;
       c.path = null;
@@ -196,6 +208,8 @@ function occupyTile(state: GameState, u: Unit, target: number, ev: CombatEvent, 
     }
   }
   u.tile = target;
+  // Ein nachrückendes Schiff nimmt seine Ladung mit.
+  for (const c of cargoOf(state, u)) c.tile = target;
   const city = cityAt(state, target);
   if (city && city.owner !== u.owner) {
     ev.capturedCity = city.name;
@@ -207,6 +221,7 @@ function occupyTile(state: GameState, u: Unit, target: number, ev: CombatEvent, 
 export function captureCity(state: GameState, city: City, newOwner: number, events: TurnEvent[]): void {
   const old = city.owner;
   city.owner = newOwner;
+  state.players[newOwner].foundedCity = true;
   city.size = Math.max(1, city.size - 1);
   city.queue = [];
   city.prodStored = 0;
@@ -222,10 +237,24 @@ export function captureCity(state: GameState, city: City, newOwner: number, even
   recomputeOwnership(state);
   for (const c of state.cities) assignTiles(state, c);
   for (const p of [old, newOwner]) refreshVision(state, p);
-  const loser = state.players[old];
-  if (!loser.barbarian && !state.cities.some((c) => c.owner === old) && !state.units.some((x) => x.owner === old)) {
-    loser.alive = false;
-    for (const p of state.players) events.push({ player: p.id, text: `${loser.name} wurde vernichtet`, tile: -1 });
+  checkEliminations(state, events);
+}
+
+/**
+ * Völker ohne Stadt scheiden aus (Spieloption elimination = 'cities', Standard). Vor der ersten Gründung zählt
+ * ein Siedler als Stadt in spe. Mit 'units' scheidet ein Volk erst aus, wenn es weder Städte noch Einheiten hat.
+ * Restliche Einheiten und offene Angebote des Ausgeschiedenen verschwinden.
+ */
+export function checkEliminations(state: GameState, events: TurnEvent[]): void {
+  const untilLastUnit = state.options.elimination === 'units';
+  for (const p of state.players) {
+    if (p.barbarian || !p.alive || state.cities.some((c) => c.owner === p.id)) continue;
+    if (untilLastUnit && state.units.some((x) => x.owner === p.id)) continue;
+    if (!p.foundedCity && state.units.some((x) => x.owner === p.id && x.type === UnitTypeId.Settler)) continue;
+    p.alive = false;
+    state.units = state.units.filter((x) => x.owner !== p.id);
+    state.diplomacy.pending = state.diplomacy.pending.filter((x) => x.from !== p.id && x.to !== p.id);
+    for (const o of state.players) events.push({ player: o.id, text: `${p.name} wurde vernichtet`, tile: -1 });
   }
 }
 

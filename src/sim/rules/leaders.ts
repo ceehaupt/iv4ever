@@ -37,6 +37,38 @@ export const DIFFICULTY_NAMES: Record<Difficulty, string> = {
 /** Ertragsfaktor der KI auf Produktion, Forschung und Wachstum. */
 export const AI_BONUS: Record<Difficulty, number> = { easy: 0.8, normal: 1, hard: 1.25, expert: 1.5 };
 
+/**
+ * Platz in PERSONAS (Herrscher, Volk, Farbe) je Spieler, deterministisch je Seed und ohne Wiederholung.
+ * chosen[i] = vom Menschen gewählter Platz (oder undefined). Computerspieler bekommen der Reihe nach die Plätze
+ * ab dem Seed-Versatz – wie personaFor, nur ohne die gewählten –, danach Menschen ohne Wahl die übrigen.
+ */
+export function assignSlots(seed: number, human: readonly boolean[], chosen: readonly (number | undefined)[]): number[] {
+  const n = PERSONAS.length;
+  const valid = (x: number | undefined): x is number => x !== undefined && Number.isInteger(x) && x >= 0 && x < n;
+  const used = new Set<number>();
+  const slots = human.map((_, i) => {
+    const c = chosen[i];
+    if (human[i] && valid(c) && !used.has(c)) {
+      used.add(c);
+      return c;
+    }
+    return -1;
+  });
+  const offset = seed % n;
+  let k = 0;
+  const next = () => {
+    while (used.has((offset + k) % n) && k < 10 * n) k++;
+    const s = (offset + k++) % n;
+    used.add(s);
+    return s;
+  };
+  // Mehr Spieler als Völker: dann wiederholen sich Plätze (wie bisher bei personaFor).
+  const take = () => (used.size >= n ? (offset + k++) % n : next());
+  human.forEach((h, i) => { if (!h && slots[i] < 0) slots[i] = take(); });
+  human.forEach((h, i) => { if (h && slots[i] < 0) slots[i] = take(); });
+  return slots;
+}
+
 /** Persönlichkeit für Spieler-Index (deterministisch je Seed, ohne Wiederholung). */
 export function personaFor(seed: number, index: number): Persona {
   const offset = seed % PERSONAS.length;

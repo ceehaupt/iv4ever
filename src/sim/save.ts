@@ -43,6 +43,8 @@ interface SavedPlayer {
   doctrines: number[];
   upheaval: number;
   faith?: number;
+  foundedCity?: boolean;
+  slot?: number;
 }
 
 export interface SaveData {
@@ -110,6 +112,8 @@ export function toSaveData(s: GameState): SaveData {
       doctrines: p.doctrines.slice(),
       upheaval: p.upheaval,
       faith: p.faith ?? 0,
+      ...(p.foundedCity ? { foundedCity: true } : {}),
+      ...(p.slot !== undefined ? { slot: p.slot } : {}),
     })),
     units: s.units.map((u) => ({ ...u, path: u.path ? u.path.slice() : null, promotions: u.promotions.slice(), exploreSeen: u.exploreSeen?.slice() })),
     nextUnitId: s.nextUnitId,
@@ -213,7 +217,11 @@ export function fromSaveData(raw: SaveData): GameState {
     options: d.options,
     starts: d.starts,
     // Neue Technologien werden hinten angehängt: ältere Stände bekommen längere Arrays (unbekannt = 0).
-    players: d.players.map((p) => ({ ...p, techs: padTechs(p.techs), visible: new Uint8Array(n) })),
+    // foundedCity fehlt in älteren Ständen: wer gerade eine Stadt besitzt, hatte eine.
+    players: d.players.map((p) => ({
+      ...p, techs: padTechs(p.techs), visible: new Uint8Array(n),
+      foundedCity: p.foundedCity || d.cities.some((c) => c.owner === p.id),
+    })),
     units: d.units,
     nextUnitId: d.nextUnitId,
     cities: d.cities,

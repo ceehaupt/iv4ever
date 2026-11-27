@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { PERSONAS } from './rules/leaders';
 import { applyCommand, type Command, CommandError, createGame, endTurn, type GameState, handOverToAi } from './game';
 import { generateWorld } from './mapgen';
 import { relation } from './diplomacy';
@@ -34,7 +35,7 @@ describe('Mehrspieler', () => {
   it('legt mehrere menschliche Spieler an', () => {
     const s = fresh();
     expect(s.players.filter((p) => p.human).map((p) => p.id)).toEqual([0, 1]);
-    expect(s.players[0].name).toBe('Spieler 1');
+    expect(s.players[0].name).toBe(`Spieler 1 (${PERSONAS[s.players[0].slot!].people})`);
   });
 
   it('Lockstep: gleiche Befehle ergeben auf zwei Rechnern denselben Zustand', () => {

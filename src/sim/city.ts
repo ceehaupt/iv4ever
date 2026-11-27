@@ -229,6 +229,7 @@ export function foundCity(state: GameState, owner: number, tile: number): City {
     locked: [],
   };
   state.cities.push(city);
+  state.players[owner].foundedCity = true;
   // Städte gelten als Straßenknoten; eine Verbesserung unter der Stadt entfällt.
   state.map.road[tile] = 1;
   state.map.improvement[tile] = 0;

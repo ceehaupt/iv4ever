@@ -1,7 +1,7 @@
 import type { BuildItem, CityReport, TurnEvent } from './sim/city';
 import type { Command, Economy, MoveEvent } from './sim/game';
 import type { GameMap } from './sim/map';
-import type { Climate, MapScript, SeaLevel } from './sim/mapgen';
+import type { Climate, Elimination, MapScript, SeaLevel } from './sim/mapgen';
 import type { JobKind } from './sim/rules/improvements';
 import type { Difficulty } from './sim/rules/leaders';
 import type { CombatEvent } from './sim/war';
@@ -17,6 +17,10 @@ export interface NewGameOptions {
   seaLevel: SeaLevel;
   climate: Climate;
   difficulty: Difficulty;
+  /** Wann ein Volk ausscheidet (fehlt in älteren Spielständen = 'cities'). */
+  elimination?: Elimination;
+  /** Gewähltes Volk des ersten Menschen (Index in PERSONAS), fehlt = nach Seed. */
+  leader?: number;
   /** Spielmodus; Hotseat/Online mit mehreren Menschen. */
   mode?: GameMode;
   /** Anzahl menschlicher Spieler (Sitze 0 … humans−1). */
@@ -101,6 +105,8 @@ export interface PlayerView {
   alive: boolean;
   /** Herrscher (nur Computerspieler). */
   leader?: string;
+  /** Platz des Volks (Farbe); fehlt in älteren Spielständen. */
+  slot?: number;
 }
 
 /** Stadt aus Sicht des Menschen; Details nur für eigene Städte. */

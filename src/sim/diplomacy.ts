@@ -1,6 +1,7 @@
 import { religionAttitude } from './religion';
-import type { TurnEvent } from './city';
-import type { GameState, Player } from './game';
+import { isCoastal, type TurnEvent } from './city';
+import { type GameState, Orders, type Player, refreshVision } from './game';
+import { tileDistance } from './hex';
 import { TECHS, techCost } from './rules/techs';
 import { UNIT_TYPES } from './rules/units';
 import { AI_TACTICS } from './rules/leaders';
@@ -148,6 +149,7 @@ export function declareWar(state: GameState, a: number, b: number, events: TurnE
   if (r.war || !r.met) return;
   r.war = true;
   r.openBorders = false;
+  r.alliance = false; // Krieg beendet ein Bündnis (z. B. nach abgelehnter Forderung)
   r.since = state.turn;
   r.aggressor = a;
   remember(state, b, a, -4);
@@ -194,15 +196,21 @@ export function makePeace(state: GameState, a: number, b: number, events: TurnEv
   for (const [x, y] of [[a, b], [b, a]]) {
     const home = state.cities.filter((c) => c.owner === x);
     for (const u of state.units) {
+      // Verladene Einheiten reisen mit ihrem Schiff.
       if (u.owner !== x || state.tileOwner[u.tile] !== y || u.carriedBy) continue;
-      const target = home.sort((p, q) => Math.abs(p.tile - u.tile) - Math.abs(q.tile - u.tile))[0];
-      if (target) {
-        u.tile = target.tile;
-        u.path = null;
-        u.orders = 0;
-      }
+      // Schiffe nur in Küstenstädte; nächste Stadt nach echtem Hex-Abstand (Weltumrundung).
+      const naval = !!UNIT_TYPES[u.type].naval;
+      const target = home
+        .filter((c) => !naval || isCoastal(state.map, c.tile))
+        .sort((p, q) => tileDistance(state.map, p.tile, u.tile) - tileDistance(state.map, q.tile, u.tile) || p.id - q.id)[0];
+      if (!target) continue;
+      u.tile = target.tile;
+      u.path = null;
+      u.orders = Orders.None;
+      for (const c of state.units) if (c.carriedBy === u.id) c.tile = target.tile;
     }
   }
+  for (const p of [a, b]) refreshVision(state, p);
   for (const p of [a, b]) events.push({ player: p, text: `Frieden zwischen ${name(state.players[a])} und ${name(state.players[b])}`, tile: -1 });
 }
 

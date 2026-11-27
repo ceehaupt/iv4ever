@@ -1281,3 +1281,45 @@ button:disabled {
   color: var(--muted);
   font-size: 12px;
 }
+
+/* Farbfeld neben der Volksauswahl in der Kopfleiste */
+#leader-swatch {
+  flex: none;
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  margin: 0 4px 0 2px;
+  border-radius: 2px;
+  vertical-align: middle;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.4);
+}
+
+/* Dialog „Neues Spiel“ (Spieleinstellungen statt in der Kopfleiste) */
+.newgame-box {
+  width: min(440px, 100%);
+}
+
+.newgame-box select,
+.newgame-box input {
+  min-width: 0;
+  max-width: 62%;
+}
+
+.newgame-box .pick {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 62%;
+}
+
+.newgame-box .pick select {
+  max-width: 100%;
+}
+
+.newgame-box footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+}

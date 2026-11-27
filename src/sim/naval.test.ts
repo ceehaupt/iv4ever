@@ -28,6 +28,8 @@ function seaWorld(): GameState {
   }
   s.units = [];
   s.cities = [];
+  // Ein Siedler hält den Menschen im Spiel (ohne Stadt und Siedler schiede er am Rundenende aus).
+  addUnit(s, HUMAN, UnitTypeId.Settler, 3 * 14 + 2);
   return s;
 }
 const T = (c: number, r: number) => r * 14 + c;

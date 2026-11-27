@@ -12,6 +12,8 @@ export type MapScript = 'continents' | 'pangaea' | 'archipelago';
 export type SeaLevel = 'low' | 'normal' | 'high';
 export type Climate = 'cool' | 'temperate' | 'warm';
 
+export type Elimination = 'cities' | 'units';
+
 export interface MapGenOptions {
   width: number;
   height: number;
@@ -24,6 +26,10 @@ export interface MapGenOptions {
   difficulty?: Difficulty;
   /** Rundenlimit für den Punktsieg. */
   turnLimit?: number;
+  /** Wann ein Volk ausscheidet: ohne Städte (Standard) oder erst ohne Städte und Einheiten. */
+  elimination?: Elimination;
+  /** Gewähltes Volk des ersten Menschen (Index in PERSONAS), fehlt = nach Seed. */
+  leader?: number;
   /** Name des Szenarios, wenn die Karte aus dem Editor stammt. */
   scenario?: string;
   /** Mehrspieler: Modus, Anzahl Menschen, eigener Sitz (online). */

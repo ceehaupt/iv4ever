@@ -42,10 +42,23 @@ export function setColorblind(on: boolean): void {
   colorblind = on;
 }
 
+let slots: readonly (number | undefined)[] = [];
+
+/** Farbplatz je Spieler-ID (Volk; kommt mit jeder Spielansicht). Ohne Platz gilt die ID. */
+export function setPlayerSlots(s: readonly (number | undefined)[]): void {
+  slots = s;
+}
+
 export function playerColor(owner: number): number {
   if (owner === barbarianId) return BARBARIAN_COLOR;
   const pal = colorblind ? COLORBLIND_COLORS : PLAYER_COLORS;
-  return pal[owner % pal.length];
+  return pal[(slots[owner] ?? owner) % pal.length];
+}
+
+/** Farbe eines Volks-Platzes (Auswahl vor Spielbeginn). */
+export function slotColor(slot: number): number {
+  const pal = colorblind ? COLORBLIND_COLORS : PLAYER_COLORS;
+  return pal[slot % pal.length];
 }
 
 /** Oberflächenfarbe eines Feldes ohne Schattierung (für Minimap und Renderer). */

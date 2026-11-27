@@ -6,6 +6,7 @@ async function openLobby(page: Page, name: string): Promise<void> {
   page.on('dialog', (d) => void d.accept());
   await page.goto('/');
   await expect(page.locator('#turn')).toHaveText('Runde 1', { timeout: 20_000 });
+  await page.click('#newgamebtn');
   await page.selectOption('#mode', 'online');
   await page.click('#newmap');
   await page.fill('#onlineurl', RELAY);
@@ -65,6 +66,7 @@ test('Online: Wiedereinstieg nach dem Neuladen der Seite', async ({ browser }) =
 
   await guest.reload();
   await expect(guest.locator('#turn')).toHaveText('Runde 1', { timeout: 20_000 }); // frisches Einzelspiel nach dem Laden
+  await guest.click('#newgamebtn');
   await guest.selectOption('#mode', 'online');
   await guest.click('#newmap');
   await guest.click('[data-act="rejoin"]');
@@ -87,6 +89,7 @@ test('Online: Gastgeber speichert, später geht das Spiel im neuen Raum weiter',
   host.on('dialog', (d) => void d.accept());
   await host.goto('/');
   await expect(host.locator('#turn')).toHaveText('Runde 1', { timeout: 20_000 });
+  await host.click('#newgamebtn');
   await host.selectOption('#mode', 'online');
   await host.click('#newmap');
   await host.fill('#onlineurl', RELAY);

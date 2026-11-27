@@ -14,7 +14,7 @@ export const KEY_ACTIONS: { id: KeyAction; label: string; group: string }[] = [
   { id: 'diplomacy', label: 'Diplomatie', group: 'Allgemein' },
   { id: 'doctrines', label: 'Leitbilder', group: 'Allgemein' },
   { id: 'handbook', label: 'Handbuch', group: 'Allgemein' },
-  { id: 'newMap', label: 'Neue Karte', group: 'Allgemein' },
+  { id: 'newMap', label: 'Neues Spiel …', group: 'Allgemein' },
   { id: 'skip', label: 'Einheit überspringen', group: 'Einheiten' },
   { id: 'fortify', label: 'Befestigen / Aufwecken', group: 'Einheiten' },
   { id: 'moveMode', label: 'Bewegen (dann Feld wählen)', group: 'Einheiten' },

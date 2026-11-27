@@ -49,9 +49,9 @@ Einstellungen (⚙): Klang, Animationen, Kontrast, Schriftgröße, Farben für F
 
 ## Mehrspieler
 
-- **Hotseat**: In der Kopfleiste „Modus: Hotseat (2–4)“ wählen und „Neues Spiel“. Zwischen den Zügen verdeckt ein Übergabebildschirm die Karte.
+- **Hotseat**: „Neues Spiel …“ in der Kopfleiste öffnen, „Modus: Hotseat (2–4)“ wählen und „Spiel starten“. Zwischen den Zügen verdeckt ein Übergabebildschirm die Karte.
 - **Online** (2–8 Menschen): Einer startet den Relay-Server (`npm run server`, Port 8787, über `PORT` änderbar). Alle wählen
-  „Modus: Online …“ → „Neues Spiel“, tragen die Serveradresse ein (z. B. `ws://192.168.1.10:8787`), der Gastgeber erstellt einen
+  „Neues Spiel …“ → „Modus: Online …“ → „Spiel starten“, tragen die Serveradresse ein (z. B. `ws://192.168.1.10:8787`), der Gastgeber erstellt einen
   Raum, die anderen treten mit dem Code bei. Der Gastgeber startet mit den Karteneinstellungen aus seiner Kopfleiste oder setzt
   einen gespeicherten Spielstand fort; optional mit Zeitlimit je Runde. Alle brauchen dieselbe Spielversion.
   Die Runde endet, wenn alle Menschen „Runde beenden“ gedrückt haben. Chat unten links.

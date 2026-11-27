@@ -3,8 +3,9 @@ import { type GameMap, type Knows, resourceActive, tileYields, touchesRiver } fr
 import { IMPROVEMENTS, RESOURCE_IMPROVEMENT } from '../sim/rules/improvements';
 import { TECHS, TechId } from '../sim/rules/techs';
 import { isWater } from '../sim/rules/terrain';
-import type { Climate, MapScript, SeaLevel } from '../sim/mapgen';
-import { type Difficulty, DIFFICULTY_NAMES } from '../sim/rules/leaders';
+import type { Climate, Elimination, MapScript, SeaLevel } from '../sim/mapgen';
+import { type Difficulty, DIFFICULTY_NAMES, PERSONAS } from '../sim/rules/leaders';
+import { slotColor } from '../render/palette';
 import { RESOURCE_KIND_NAME, RESOURCES } from '../sim/rules/resources';
 import { RIVER_DEFENSE, tileDefense, tileMoveCost, tileName } from '../sim/rules/terrain';
 
@@ -67,9 +68,14 @@ export class Hud {
   private readonly sea = $<HTMLSelectElement>('sea');
   private readonly climate = $<HTMLSelectElement>('climate');
   private readonly difficulty = $<HTMLSelectElement>('difficulty');
+  private readonly elimination = $<HTMLSelectElement>('elimination');
+  private readonly leader = $<HTMLSelectElement>('leader');
+  private readonly leaderSwatch = $('leader-swatch');
   private readonly mode = $<HTMLSelectElement>('mode');
   private readonly seed = $<HTMLInputElement>('seed');
   private readonly stats = $('stats');
+  private readonly dialog = $('newgame');
+  private readonly opener = $<HTMLButtonElement>('newgamebtn');
   private readonly info = $('info');
   private pinned = -1;
   /** Technologiestand des Spielers – beeinflusst Erträge in der Feldinfo. */
@@ -85,11 +91,50 @@ export class Hud {
     fill(this.sea, SEA_LEVELS, 'normal');
     fill(this.climate, CLIMATES, 'temperate');
     fill(this.difficulty, Object.entries(DIFFICULTY_NAMES) as [Difficulty, string][], 'normal');
+    fill(this.leader, [['', 'Zufällig'], ...PERSONAS.map((p, i) => [String(i), `${p.people} (${p.leader})`] as const)], '');
+    this.leader.addEventListener('change', () => this.updateSwatch());
+    this.updateSwatch();
+    fill(this.elimination, [['cities', 'ohne Städte'], ['units', 'ohne Städte und Einheiten']], 'cities');
     fill(this.mode, [['single', 'Einzelspieler'], ['hotseat2', 'Hotseat (2)'], ['hotseat3', 'Hotseat (3)'], ['hotseat4', 'Hotseat (4)'], ['online', 'Online …']], 'single');
-    $('newmap').addEventListener('click', () => this.requestNewMap(true));
+    $('newmap').addEventListener('click', () => this.startFromDialog(true));
     this.seed.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') this.requestNewMap(false);
+      if (e.key === 'Enter') this.startFromDialog(false);
     });
+    this.opener.addEventListener('click', () => (this.dialog.hidden ? this.openDialog() : this.closeDialog()));
+    // Schließen: ✕, „Schließen“ oder Klick auf den abgedunkelten Hintergrund.
+    this.dialog.addEventListener('click', (e) => {
+      const t = e.target as HTMLElement;
+      if (t === this.dialog || t.closest('[data-close]')) this.closeDialog();
+    });
+    // Tasten im Dialog nicht ans Spiel durchreichen; Esc schließt.
+    this.dialog.addEventListener('keydown', (e) => {
+      e.stopPropagation();
+      if (e.key === 'Escape') this.closeDialog();
+    });
+  }
+
+  get dialogOpen(): boolean {
+    return !this.dialog.hidden;
+  }
+
+  openDialog(): void {
+    this.dialog.hidden = false;
+    this.opener.setAttribute('aria-expanded', 'true');
+    this.size.focus();
+  }
+
+  closeDialog(): void {
+    if (this.dialog.hidden) return;
+    this.dialog.hidden = true;
+    this.opener.setAttribute('aria-expanded', 'false');
+    this.opener.focus();
+    this.opener.blur();
+  }
+
+  private startFromDialog(randomSeed: boolean): void {
+    if (!this.confirmDiscard()) return;
+    this.closeDialog();
+    this.requestNewMap(randomSeed, false);
   }
 
   /** Neues Spiel. randomSeed = true würfelt neu, sonst wird der Seed aus dem Eingabefeld genommen. */
@@ -121,6 +166,8 @@ export class Hud {
       seaLevel: this.sea.value as SeaLevel,
       climate: this.climate.value as Climate,
       difficulty: this.difficulty.value as Difficulty,
+      elimination: this.elimination.value as Elimination,
+      ...(this.leader.value !== '' ? { leader: Number(this.leader.value) } : {}),
     };
   }
 
@@ -132,7 +179,17 @@ export class Hud {
     this.sea.value = o.seaLevel;
     this.climate.value = o.climate;
     this.difficulty.value = o.difficulty ?? 'normal';
+    this.elimination.value = o.elimination ?? 'cities';
+    this.leader.value = o.leader !== undefined ? String(o.leader) : '';
+    this.updateSwatch();
     this.seed.value = String(o.seed);
+  }
+
+  /** Farbfeld neben der Volksauswahl (leer bei „Zufällig“). */
+  private updateSwatch(): void {
+    const v = this.leader.value;
+    this.leaderSwatch.style.background = v === '' ? 'transparent' : `#${slotColor(Number(v)).toString(16).padStart(6, '0')}`;
+    this.leaderSwatch.style.visibility = v === '' ? 'hidden' : 'visible';
   }
 
   setStats(text: string): void {

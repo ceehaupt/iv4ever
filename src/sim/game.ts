@@ -20,7 +20,7 @@ import { markVisible } from './vision';
 import { DEFAULT_DOCTRINES, DOCTRINES } from './rules/doctrines';
 import { tileDistance } from './hex';
 import { randomEvents } from './events';
-import { type Persona, personaFor } from './rules/leaders';
+import { assignSlots, type Persona, PERSONAS, personaFor } from './rules/leaders';
 import { applyJob, jobBlocker, jobTurns } from './work';
 import { sailable, unitCost } from './naval';
 import { aiTurn } from './ai';
@@ -30,7 +30,7 @@ import {
 } from './diplomacy';
 import { checkVictory, type Victory } from './victory';
 import { barbarianTurn, type Camp } from './barbarians';
-import { type CombatEvent, healUnits, performAttack } from './war';
+import { checkEliminations, type CombatEvent, healUnits, performAttack } from './war';
 
 export const Orders = {
   None: 0,
@@ -101,6 +101,10 @@ export interface Player {
   upheaval: number;
   /** Angesammelter Glaube (Religion gründen). */
   faith?: number;
+  /** Platz in PERSONAS: bestimmt Volk, Herrscher und Farbe (fehlt in älteren Spielständen → Farbe nach ID). */
+  slot?: number;
+  /** Hatte schon einmal eine Stadt (danach scheidet das Volk ohne Städte aus, siehe checkEliminations). */
+  foundedCity?: boolean;
 }
 
 /** Wirtschaftsbilanz eines Spielers pro Runde. */
@@ -217,10 +221,18 @@ export function createGame(world: GeneratedWorld, options: MapGenOptions): GameS
   const n = world.map.width * world.map.height;
   // humans: 0 = reine KI-Partie (automatische Testpartien), sonst mindestens ein Mensch.
   const humans = options.humans === 0 ? 0 : Math.max(1, Math.min(world.starts.length, options.humans ?? 1));
-  const players = world.starts.map((_, id) => {
-    if (id < humans) return newPlayer(id, n, humans > 1 ? `Spieler ${id + 1}` : 'Du', true);
-    const persona = personaFor(options.seed, humans === 0 ? id : id - 1);
-    return { ...newPlayer(id, n, persona.people, false), persona };
+  // Völker verteilen: Der erste Mensch kann seines wählen (options.leader), alle anderen bekommen eines nach Seed.
+  const isHuman = world.starts.map((_, id) => id < humans);
+  const slots = humans === 0
+    ? world.starts.map((_, id) => PERSONAS.indexOf(personaFor(options.seed, id)))
+    : assignSlots(options.seed, isHuman, [options.leader]);
+  const players: Player[] = world.starts.map((_, id) => {
+    const persona = PERSONAS[slots[id]];
+    if (id < humans) {
+      const name = humans > 1 ? `Spieler ${id + 1} (${persona.people})` : persona.people;
+      return { ...newPlayer(id, n, name, true), slot: slots[id] };
+    }
+    return { ...newPlayer(id, n, persona.people, false), persona, slot: slots[id] };
   });
   const barbarian = players.length;
   players.push({ ...newPlayer(barbarian, n, 'Plünderer', false), barbarian: true });
@@ -262,7 +274,8 @@ export function handOverToAi(state: GameState, id: number): void {
   const p = state.players[id];
   if (!p || !p.human) return;
   p.human = false;
-  p.persona = personaFor(state.options.seed, id - 1 + state.players.length);
+  // Die KI führt das Volk mit dessen eigener Persönlichkeit weiter (ältere Stände ohne Platz: nach Seed).
+  p.persona = p.slot !== undefined ? PERSONAS[p.slot] : personaFor(state.options.seed, id - 1 + state.players.length);
   p.name = `${p.name} (KI)`;
 }
 
@@ -848,6 +861,8 @@ export function endTurn(state: GameState): { moves: MoveEvent[]; events: TurnEve
       if (ev) events.push(ev);
     }
   }
+  // Auch Völker, deren letzter Siedler unterwegs gefallen ist, scheiden aus (nicht nur bei Eroberung).
+  checkEliminations(state, turnEvents);
   for (const p of state.players) refreshVision(state, p.id);
   updateContacts(state, turnEvents);
   const won = checkVictory(state);

@@ -5,7 +5,7 @@ import { GameRenderer, isTyping } from './render/renderer';
 import { foundingBlockerAt } from './sim/city';
 import { type Battlefield, bestDefender, type Fighter, predictCombat } from './sim/combat';
 import { tileDistance } from './sim/hex';
-import { setBarbarianId } from './render/palette';
+import { setBarbarianId, setPlayerSlots } from './render/palette';
 import { Orders } from './sim/game';
 import { UNIT_TYPES } from './sim/rules/units';
 import { CityPanel } from './ui/cityPanel';
@@ -274,7 +274,7 @@ victoryEl.addEventListener('click', (e) => {
   if (act === 'continue') victoryEl.hidden = true;
   else if (act === 'new') {
     victoryEl.hidden = true;
-    hud.requestNewMap(true, false);
+    hud.openDialog(); // Einstellungen fürs nächste Spiel wählen
   }
 });
 
@@ -887,6 +887,9 @@ worker.onmessage = (e: MessageEvent<FromWorker>) => {
     case 'view': {
       const prevSelected = selected;
       view = msg.view;
+      // Farben vor allem Zeichnen setzen (Grenzen, Städte, Einheiten).
+      setPlayerSlots(view.players.map((p) => p.slot));
+      setBarbarianId(view.barbarian);
       busy = false;
       ui.setBusy(false);
       const changedTiles = applyLayers(view.layers);
@@ -912,7 +915,6 @@ worker.onmessage = (e: MessageEvent<FromWorker>) => {
       } else tutorial.update(view);
       if (msg.reason === 'command' && msg.events.length) ui.toast(msg.events[msg.events.length - 1].text);
       ui.setResearch(TechPanel.summary(view.research), view.research.current < 0);
-      setBarbarianId(view.barbarian);
       renderer.setCities(view.cities, view.tileOwner, view.camps);
       // Eigene Angriffe: Ergebnis kurz einblenden.
       for (const c of msg.combats) {
@@ -1190,7 +1192,7 @@ window.addEventListener('keydown', (e) => {
       void toggleHandbook();
       break;
     case 'newMap':
-      hud.requestNewMap(true);
+      hud.openDialog();
       break;
     case 'cursorMode':
       toggleCursor();

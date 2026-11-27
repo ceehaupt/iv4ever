@@ -10,14 +10,7 @@
 
     <header id="topbar" class="panel">
       <strong class="brand">iv4ever</strong>
-      <label>Größe <select id="size"></select></label>
-      <label>Typ <select id="script"></select></label>
-      <label>Meer <select id="sea"></select></label>
-      <label>Klima <select id="climate"></select></label>
-      <label>KI <select id="difficulty"></select></label>
-      <label>Modus <select id="mode"></select></label>
-      <label>Seed <input id="seed" type="text" inputmode="numeric" size="8" /></label>
-      <button id="newmap" type="button">Neues Spiel</button>
+      <button id="newgamebtn" type="button" aria-haspopup="dialog" aria-controls="newgame">Neues Spiel …</button>
       <a id="editorlink" class="btn" href="editor.html" title="Karteneditor: eigene Karten und Szenarien bauen">🗺️ Editor</a>
       <span class="sep"></span>
       <button id="save" type="button" title="Strg/⌘ + S">Speichern</button>
@@ -28,6 +21,29 @@
     </header>
 
     <div id="saves" class="panel" hidden></div>
+
+    <div id="newgame" class="overlay" hidden>
+      <div class="panel settings-box newgame-box" role="dialog" aria-modal="true" aria-labelledby="newgame-title">
+        <header><h2 id="newgame-title">Neues Spiel</h2><button type="button" class="x" data-close aria-label="Schließen">✕</button></header>
+        <section><h3>Karte</h3>
+          <label>Größe <select id="size"></select></label>
+          <label>Typ <select id="script"></select></label>
+          <label>Meer <select id="sea"></select></label>
+          <label>Klima <select id="climate"></select></label>
+          <label>Seed <input id="seed" type="text" inputmode="numeric" size="10" title="Gleicher Seed = gleiche Karte; Enter startet" /></label>
+        </section>
+        <section><h3>Spiel</h3>
+          <label>Volk <span class="pick"><span id="leader-swatch" class="swatch" aria-hidden="true"></span><select id="leader"></select></span></label>
+          <label>Computergegner <select id="difficulty"></select></label>
+          <label>Volk scheidet aus <select id="elimination"></select></label>
+          <label>Modus <select id="mode"></select></label>
+        </section>
+        <footer>
+          <button type="button" data-close>Schließen</button>
+          <button id="newmap" type="button" class="primary">Spiel starten</button>
+        </footer>
+      </div>
+    </div>
 
     <aside id="info" class="panel" hidden></aside>
 

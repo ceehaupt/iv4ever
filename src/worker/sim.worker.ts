@@ -156,7 +156,7 @@ function sendView(
     waitingFor: mode === 'online' ? aliveHumans(s).filter((h) => !ended.has(h)) : [],
     fog,
     players: s.players.map((pl) => ({
-      id: pl.id, name: pl.name, human: pl.human, barbarian: !!pl.barbarian, alive: pl.alive, leader: pl.persona?.leader,
+      id: pl.id, name: pl.name, human: pl.human, barbarian: !!pl.barbarian, alive: pl.alive, leader: pl.persona?.leader, slot: pl.slot,
     })),
     units: s.units
       .filter((u) => u.owner === viewer || p.visible[u.tile])

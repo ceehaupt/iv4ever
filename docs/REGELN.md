@@ -116,8 +116,11 @@ Mit der Technologie **Luftfahrt** (Stufe 13, nach Verbrennungsmotor und Funktech
   Stadt +25 % + Gebäude (Palisade 50, Burg 100) + Wunder, dazu Einheiten- und Beförderungsboni.
 - Gegen einen Stapel kämpft immer dessen **bester Verteidiger**. Fällt der letzte Kämpfer, rückt ein Nahkämpfer nach:
   Zivilisten werden gefangen (Siedler werden zu Arbeitern), Städte erobert, Lager ausgehoben (+25 Gold).
+  In einer Stadt verteidigen auch Einheiten, die auf ein Schiff verladen sind; Schiffe und Flugzeuge im Hafen gehen bei der Eroberung verloren.
 - **Eroberte Städte**: −1 Größe, Bauliste und Produktion verloren, der Palast zieht in die älteste verbleibende Stadt des Verlierers.
-  Wer keine Städte und Einheiten mehr hat, ist vernichtet.
+  Wer keine Stadt mehr hat, ist vernichtet; seine übrigen Einheiten verschwinden. Vor der ersten Stadtgründung
+  hält ein Siedler das Volk im Spiel. Spieloption „Aus: ohne Städte und Einheiten“: Ein Volk scheidet erst aus,
+  wenn auch seine letzte Einheit gefallen ist.
 - Angreifen beendet den Zug der Einheit. Die Vorhersage (Maus über dem Ziel) zeigt Siegchance und Schadensspannen.
 - **Heilung** am Rundenbeginn, wenn die Einheit nicht gezogen hat oder angegriffen wurde: +10 im Feld, +15 im eigenen Gebiet,
   +25 in eigener Stadt (+10 mit Feldscher auf dem Feld).
@@ -155,7 +158,7 @@ Je Bereich gilt ein Leitbild; ein Wechsel kostet eine Runde **Umbruch** (keine F
 - Angriffe auf Völker im Frieden erfordern eine **Kriegserklärung** (Rückfrage beim Angriff oder in der Diplomatie, D).
   Plünderer sind immer feindlich.
 - Im Frieden ohne **offene Grenzen** darf man fremdes Gebiet nicht betreten; bei Friedensschluss kehren Truppen
-  aus fremdem Gebiet in die nächste eigene Stadt zurück.
+  aus fremdem Gebiet in die nächste eigene Stadt zurück (Schiffe samt Ladung in die nächste Küstenstadt).
 - **Haltung** (−10 … +10): −4 im Krieg, bis +3 durch lange Friedenszeit, +2 offene Grenzen, ±Gedächtnis
   (erlittene Kriegserklärung −4, Handel +1, Dritte −1 gegenüber Aggressoren), aggressive Herrscher −1 bis −2.
 - **Angebote**: Frieden (nach mind. 6 Kriegsrunden; die KI willigt ein, wenn sie unterlegen ist oder der Krieg lange dauert),
