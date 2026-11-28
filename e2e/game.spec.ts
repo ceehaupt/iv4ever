@@ -28,6 +28,24 @@ test('Stadt gründen und Runde beenden', async ({ page }) => {
   await expect(page.locator('#turn')).toHaveText('Runde 2', { timeout: 20_000 });
 });
 
+test('Erneuter Klick auf die Stadt wählt die Einheiten darin aus', async ({ page }) => {
+  await newGame(page);
+  await page.keyboard.press('Escape');
+  await page.keyboard.press('Tab'); // erste Einheit = Siedler
+  await page.keyboard.press('h'); // Siedler (und damit die Stadt) in die Bildmitte
+  await page.keyboard.press('b');
+  await expect(page.locator('#citypanel')).toBeVisible({ timeout: 10_000 });
+  await page.keyboard.press('Escape');
+  const box = (await page.locator('#game').boundingBox())!;
+  const center = { x: box.x + box.width / 2, y: box.y + box.height / 2 };
+  await page.mouse.click(center.x, center.y);
+  await expect(page.locator('#citypanel')).toBeVisible();
+  await page.mouse.click(center.x, center.y);
+  await expect(page.locator('#citypanel')).toBeHidden();
+  await expect(page.locator('#unitpanel')).toBeVisible();
+  await expect(page.locator('#unitpanel')).toContainText(/Krieger|Späher/);
+});
+
 test('Späher erkundet automatisch', async ({ page }) => {
   await newGame(page);
   await page.keyboard.press('Escape');

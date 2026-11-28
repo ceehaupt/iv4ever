@@ -531,12 +531,21 @@ function handleClick(tile: number): void {
     return;
   }
   const city = cityAtTile(tile);
-  if (city?.own && (!u || u.tile !== tile)) {
-    openCity(city.id);
+  const visibleStack = (revealAll || view.fog[tile] === 2) ? stackAt(tile) : [];
+  // Eigene Stadt: Klick öffnet die Stadt; erneute Klicks wechseln durch die Einheiten darin und dann zurück zur Stadt.
+  if (city?.own) {
+    const ownHere = visibleStack.filter(isOwn);
+    const idx = u && u.tile === tile ? ownHere.findIndex((x) => x.id === u.id) : -1;
+    const cityOpen = cityPanel.openCityId === city.id;
+    if (!ownHere.length || (!cityOpen && idx < 0) || idx === ownHere.length - 1) {
+      openCity(city.id);
+      return;
+    }
+    if (cityOpen) closeCity();
+    selectUnit((idx < 0 ? (ownHere.find(isReady) ?? ownHere[0]) : ownHere[idx + 1]).id, false);
     return;
   }
   if (cityPanel.openCityId >= 0) closeCity();
-  const visibleStack = (revealAll || view.fog[tile] === 2) ? stackAt(tile) : [];
   // Ausgewählte eigene Einheit: Klick auf ein erreichbares freies Feld bewegt sie dorthin (wie Rechtsklick).
   // Angriffe bleiben beim Rechtsklick bzw. Bewegen-Modus, damit ein Klick nie versehentlich einen Kampf auslöst.
   if (u && isOwn(u) && u.moves > 0 && !UNIT_TYPES[u.type].air && !visibleStack.length && !city && !hasEnemyTarget(u, tile) &&

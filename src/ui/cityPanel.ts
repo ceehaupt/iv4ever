@@ -84,7 +84,7 @@ export class CityPanel {
       ? o.buildings.map((b) => `<span class="tag" title="${BUILDINGS[b].description}">${BUILDINGS[b].icon} ${BUILDINGS[b].name}</span>`).join('')
       : '<small>noch keine</small>';
     const units = unitsHere
-      .map((u) => `<button type="button" class="chip" data-unit="${u.id}" title="${UNIT_TYPES[u.type].name}">${UNIT_TYPES[u.type].icon}</button>`)
+      .map((u) => `<button type="button" class="chip" data-unit="${u.id}" title="Einheit auswählen">${UNIT_TYPES[u.type].icon} ${UNIT_TYPES[u.type].name}</button>`)
       .join('');
 
     const growth =
@@ -133,6 +133,6 @@ export class CityPanel {
       <section><h3>Gebäude</h3><div class="tags">${buildings}</div></section>
       ${o.routes.length ? `<section><h3>Handelsrouten</h3><div class="tags">${o.routes.map((r) => `<span class="tag">${r}</span>`).join('')}</div></section>` : ''}
       ${units ? `<section><h3>Einheiten in der Stadt</h3>${units}</section>` : ''}
-      <p class="hint">Felder auf der Karte anklicken: fest bewirtschaften bzw. wieder freigeben.</p>`;
+      <p class="hint">Felder auf der Karte anklicken: fest bewirtschaften bzw. wieder freigeben.${units ? ' Erneuter Klick auf die Stadt wählt die Einheiten darin aus.' : ''}</p>`;
   }
 }
