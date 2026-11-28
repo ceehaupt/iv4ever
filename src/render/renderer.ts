@@ -168,11 +168,16 @@ export class GameRenderer {
     return this.revealAll;
   }
 
-  /** Gibt die Dauer der Bewegungsanimationen in ms zurück. */
-  setUnits(units: UnitView[], human: number, moves: { unit: number; steps: number[] }[]): number {
-    const ms = this.units.setUnits(units, human, moves, performance.now());
+  /** Gibt die Dauer der Bewegungsanimationen in ms zurück. sequential = eigene Züge nacheinander zeigen (Rundenwechsel). */
+  setUnits(units: UnitView[], human: number, moves: { unit: number; steps: number[] }[], sequential = false): number {
+    const ms = this.units.setUnits(units, human, moves, performance.now(), sequential);
     this.dirty = true;
     return ms;
+  }
+
+  /** Laufen gerade Bewegungsanimationen? */
+  get animating(): boolean {
+    return this.units.animating;
   }
 
   setCities(cities: CityView[], tileOwner: Int16Array, camps: readonly number[] = []): void {

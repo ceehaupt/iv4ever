@@ -149,6 +149,43 @@ test('Kartencursor beschreibt Felder für Screenreader', async ({ page }) => {
   await expect(page.locator('#announcer')).toHaveText('Kartencursor aus');
 });
 
+test('Automatisches Rundenende, wenn keine Einheit mehr wartet', async ({ page }) => {
+  await newGame(page);
+  await page.click('#settingsbtn');
+  await page.check('#settingspanel input[name="autoEndTurn"]');
+  await page.click('#settingspanel [data-close]');
+  await page.keyboard.press('Escape');
+  await page.keyboard.press('t');
+  await page.locator('#techpanel [data-tech]:not(.known)').first().click();
+  await page.keyboard.press('Escape');
+  // Alle wartenden Einheiten überspringen – danach endet die Runde von selbst.
+  for (let k = 0; k < 5 && (await page.locator('#turn').textContent()) === 'Runde 1'; k++) {
+    await page.keyboard.press('Tab');
+    await page.keyboard.press('Space');
+    await page.waitForTimeout(300);
+  }
+  await expect(page.locator('#turn')).toHaveText('Runde 2', { timeout: 20_000 });
+});
+
+test('Automatisches Rundenende auch zu Rundenbeginn, wenn nichts zu tun ist', async ({ page }) => {
+  await newGame(page);
+  await page.click('#settingsbtn');
+  await page.check('#settingspanel input[name="autoEndTurn"]');
+  await page.click('#settingspanel [data-close]');
+  await page.keyboard.press('Escape');
+  // Forschungsziel wählen, sonst hält das automatische Rundenende an.
+  await page.keyboard.press('t');
+  await page.locator('#techpanel [data-tech]:not(.known)').first().click();
+  await page.keyboard.press('Escape');
+  // Alle Einheiten dauerhaft beschäftigen: befestigen (Siedler ebenfalls, ohne Stadt gibt es keine Bauaufträge).
+  for (let k = 0; k < 5 && (await page.locator('#turn').textContent()) === 'Runde 1'; k++) {
+    await page.keyboard.press('Tab');
+    await page.keyboard.press('f');
+    await page.waitForTimeout(300);
+  }
+  await expect(page.locator('#turn')).toHaveText('Runde 3', { timeout: 20_000 });
+});
+
 test('Tasten lassen sich umbelegen', async ({ page }) => {
   await newGame(page);
   await page.click('#settingsbtn');

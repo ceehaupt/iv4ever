@@ -10,6 +10,8 @@ export interface Settings extends SoundSettings {
   colorblind: boolean;
   largeText: boolean;
   tutorial: boolean;
+  /** Runde automatisch beenden, sobald nach einem Befehl keine Einheit mehr auf Befehle wartet. */
+  autoEndTurn: boolean;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -22,6 +24,7 @@ export const DEFAULT_SETTINGS: Settings = {
   colorblind: false,
   largeText: false,
   tutorial: true,
+  autoEndTurn: false,
 };
 
 const KEY = 'iv4ever.settings';
@@ -144,6 +147,10 @@ export class SettingsPanel {
       <header><h2>Einstellungen</h2><button type="button" class="x" data-close aria-label="Schließen">✕</button></header>
       <section><h3>Klang</h3>
         ${range('master', 'Gesamt')} ${range('sfx', 'Effekte')} ${range('music', 'Musik')} ${check('musicOn', 'Musik an')}
+      </section>
+      <section><h3>Spiel</h3>
+        ${check('autoEndTurn', 'Runde automatisch beenden')}
+        <p class="hint">Ist nichts mehr zu tun, endet die Runde von selbst – nach dem letzten Befehl und auch zu Rundenbeginn, sobald die Züge der automatischen Einheiten (nacheinander) zu sehen waren. Angehalten wird bei wartender Einheit, Stadt ohne Bauauftrag, fehlendem Forschungsziel oder offenem Angebot; offene Fenster schieben das Rundenende auf.</p>
       </section>
       <section><h3>Darstellung</h3>
         <label>Animationen <select name="animations">

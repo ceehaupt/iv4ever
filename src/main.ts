@@ -13,7 +13,7 @@ import type { GameMap } from './sim/map';
 import { findPath, roadStepCost } from './sim/path';
 import { unitCost } from './sim/naval';
 import { isWater } from './sim/rules/terrain';
-import { TechId } from './sim/rules/techs';
+import { TechId, TECHS } from './sim/rules/techs';
 import { ALL_JOBS, jobBlocker, jobTech, jobTurns } from './sim/work';
 import { TechPanel } from './ui/techPanel';
 import { DiploPanel } from './ui/diploPanel';
@@ -468,6 +468,49 @@ function openCity(id: number): void {
 function closeCity(): void {
   cityPanel.hide();
   renderer.setCityFocus(null);
+}
+
+/**
+ * Automatisches Rundenende (Einstellung). Nach jedem Befehl und zu Rundenbeginn wird geprüft, ob noch etwas zu tun ist.
+ * Echte Gründe zum Anhalten (wartende Einheit, Stadt ohne Bauauftrag, kein Forschungsziel, Angebot, Sieg) entschärfen;
+ * offene Fenster, laufende Befehle und Animationen nur aufschieben.
+ */
+let autoEndTimer = 0;
+function scheduleAutoEnd(delayMs: number): void {
+  window.clearTimeout(autoEndTimer);
+  if (!settings.autoEndTurn || !view) return;
+  autoEndTimer = window.setTimeout(tryAutoEndTurn, delayMs);
+}
+/** Grund, warum die Runde nicht von selbst enden darf, oder null. */
+function autoEndBlocker(v: GameView): string | null {
+  if (readyUnits().length) return 'Einheit wartet';
+  if (v.victory.winner) return 'Sieg';
+  if (v.diplomacy.pending.length) return 'offenes Angebot';
+  if (v.research.current < 0 && v.research.known.length < TECHS.length) return 'kein Forschungsziel gewählt';
+  const idle = v.cities.find((c) => c.owner === v.human && c.own && !c.own.queue.length);
+  return idle ? `${idle.name} baut nichts` : null;
+}
+/** Zuletzt gemeldeter Grund (je Runde nur einmal melden). */
+let autoEndNotice = '';
+function tryAutoEndTurn(): void {
+  if (!settings.autoEndTurn || !view) return;
+  const blocker = autoEndBlocker(view);
+  if (blocker) {
+    const key = `${view.turn}:${blocker}`;
+    if (blocker !== 'Einheit wartet' && blocker !== 'Sieg' && key !== autoEndNotice) {
+      autoEndNotice = key;
+      ui.toast(`Runde endet nicht automatisch: ${blocker}`);
+    }
+    return;
+  }
+  // Spieler ist noch beschäftigt oder es läuft etwas: später erneut prüfen.
+  const uiOpen = cityPanel.openCityId >= 0 || techPanel.open || diploPanel.open || doctrinePanel.open || settingsPanel.open ||
+    !handoffEl.hidden || !victoryEl.hidden || !handbookEl.hidden;
+  if (busy || uiOpen || renderer.animating) {
+    scheduleAutoEnd(400);
+    return;
+  }
+  endTurn();
 }
 
 function refreshCityPanel(): void {
@@ -939,7 +982,9 @@ worker.onmessage = (e: MessageEvent<FromWorker>) => {
                 : `Gegner −${c.dmgDef} LP${c.dmgAtt ? `, eigene −${c.dmgAtt} LP` : ''}`;
         ui.toast(text, c.attackerDied ? 'error' : 'info');
       }
-      const animMs = renderer.setUnits(view.units, view.human, msg.moves);
+      const animMs = renderer.setUnits(view.units, view.human, msg.moves, msg.reason === 'turn' || msg.reason === 'handoff');
+      // Nach Befehlen und zu Rundenbeginn (nicht nach Laden/Neustart): ggf. automatisch weiter, wenn die Animationen durch sind.
+      if (msg.reason === 'command' || msg.reason === 'turn' || msg.reason === 'handoff') scheduleAutoEnd(animMs + 500);
       minimap.update(fogForUi(), view.units, view.tileOwner, view.cities);
       ui.setTurn(view.turn, readyUnits().length);
       ui.setEconomy(view.economy);

@@ -60,12 +60,16 @@ export class UnitLayer {
     });
   }
 
-  /** Neue Einheitenliste; moves = Wege, die animiert werden sollen. Gibt die Animationsdauer in ms zurück. */
-  setUnits(units: UnitView[], human: number, moves: { unit: number; steps: number[] }[], now: number): number {
+  /**
+   * Neue Einheitenliste; moves = Wege, die animiert werden sollen. Gibt die Animationsdauer in ms zurück.
+   * sequential: eigene Einheiten ziehen nacheinander (automatische Züge beim Rundenwechsel), fremde gleichzeitig.
+   */
+  setUnits(units: UnitView[], human: number, moves: { unit: number; steps: number[] }[], now: number, sequential = false): number {
     this.units = units;
     this.human = human;
     this.finishAnimations();
     let longest = 0;
+    let queued = 0; // Startverzögerung für den nächsten eigenen Zug
     if (this.map) {
       for (const m of moves) {
         const u = units.find((x) => x.id === m.unit);
@@ -76,8 +80,11 @@ export class UnitLayer {
           copy.addChild(t);
           return t;
         });
-        this.animations.push({ unit: u, points, start: now, tokens });
-        longest = Math.max(longest, (m.steps.length - 1) * STEP_MS);
+        const duration = (m.steps.length - 1) * STEP_MS;
+        const delay = sequential && u.owner === human ? queued : 0;
+        if (sequential && u.owner === human) queued += duration + STEP_MS;
+        this.animations.push({ unit: u, points, start: now + delay, tokens });
+        longest = Math.max(longest, delay + duration);
       }
     }
     this.rebuild();
