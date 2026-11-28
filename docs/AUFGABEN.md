@@ -18,3 +18,4 @@ Text einer Aufgabe nach Möglichkeit nicht ändern – er dient dem Abgleich als
 - [ ] Flaky e2e: „Spielstand als Datei exportieren und wieder importieren“ schlug am 27.11. lokal einmal im Parallellauf fehl (56 Wiederholungen danach grün) – bei erneutem Auftreten die Diagnoseausgabe auswerten
 - [ ] Veröffentlichung klären: Hosting für `dist/` und den Relay-Server (`docs/SERVER.md`), dazu die Domain
 - [ ] Lizenz festlegen und `LICENSE` anlegen (Entscheidung des Projektinhabers, ganz zum Schluss)
+- [ ] Balancing nach Arbeiter-Automatik: Projektsieg häufiger (6 Partien: 4 statt 2) – mit mehr Partien (`GAMES=12`, auch Archipel) prüfen und ggf. nachjustieren

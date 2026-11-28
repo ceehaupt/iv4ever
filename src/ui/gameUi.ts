@@ -8,7 +8,7 @@ import type { SaveMeta } from '../sim/save';
 import { CLASS_NAMES, MOVE_SCALE, PROMOTIONS, UNIT_TYPES } from '../sim/rules/units';
 
 export type UnitAction =
-  | 'fortify' | 'skip' | 'wake' | 'explore' | 'disband' | 'found' | 'moveMode' | 'load' | 'route' | 'spread' | `job:${JobKind}` | `promote:${number}`;
+  | 'fortify' | 'skip' | 'wake' | 'explore' | 'automate' | 'disband' | 'found' | 'moveMode' | 'load' | 'route' | 'spread' | `job:${JobKind}` | `promote:${number}`;
 
 /** Arbeiteraufträge, die der Spieler grundsätzlich kennt, mit Grund, falls hier nicht möglich. */
 export interface JobOption {
@@ -179,8 +179,13 @@ export class GameUi {
     const t = UNIT_TYPES[selected.type];
     const own = selected.owner === human;
     const cargo = stack.filter((x) => x.carriedBy === selected.id);
+    const activity = selected.orders === Orders.Work && selected.job
+      ? `${JOB_NAMES[selected.job.kind]} (${selected.job.progress}/${selected.job.turns})`
+      : selected.orders === Orders.Goto ? 'unterwegs zum nächsten Feld' : 'sucht Arbeit';
     const status = selected.carriedBy
       ? 'an Bord'
+      : selected.auto
+        ? `automatisch: ${activity}`
       : selected.orders === Orders.Fortify
         ? t.strength > 0 ? 'befestigt' : 'schläft'
         : selected.orders === Orders.Goto
@@ -202,10 +207,12 @@ export class GameUi {
           t.air
             ? btn('moveMode', 'Einsatz', 'M', selected.moves > 0, `Feindliches Ziel im Einsatzradius (${t.range} Felder) = Luftangriff; eigene Stadt oder Träger bis ${t.range * 2} Felder = verlegen`)
             : btn('moveMode', 'Bewegen', 'M', selected.moves > 0, 'Danach Zielfeld anklicken (oder Rechtsklick auf das Ziel)'),
-          selected.orders === Orders.None || selected.orders === Orders.Skip
+          !selected.auto && (selected.orders === Orders.None || selected.orders === Orders.Skip)
             ? btn('fortify', t.strength > 0 ? 'Befestigen' : 'Schlafen', 'F')
             : btn('wake', 'Aufwecken', 'F'),
           btn('skip', 'Überspringen', 'Leer', selected.moves > 0),
+          ...(t.canWork && !selected.auto ? [btn('automate', 'Automatisch arbeiten', 'Shift+A', true,
+            'Wählt selbst Felder und Aufträge nach Bedarf der Städte (Nahrung, Produktion, Straßen, Roden); Aufwecken beendet den Modus')] : []),
           ...(t.air || selected.orders === Orders.Explore ? [] : [btn('explore', 'Erkunden', 'E', true,
             'Zieht jede Runde selbst ins Unbekannte; hält an, sobald eine fremde Einheit in Sicht kommt oder nichts mehr zu entdecken ist')]),
           ...(t.missionary ? [btn('spread', 'Religion verbreiten', 'V', true, 'In einer eigenen oder neben einer fremden Stadt: Stadt folgt eurer Staatsreligion')] : []),

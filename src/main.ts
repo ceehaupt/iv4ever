@@ -853,6 +853,9 @@ function runAction(action: UnitAction, unitId: number): void {
     case 'explore':
       command({ type: 'command', command: { type: 'explore', unit: u.id } });
       break;
+    case 'automate':
+      command({ type: 'command', command: { type: 'automate', unit: u.id } });
+      break;
     case 'skip':
       command({ type: 'command', command: { type: 'skip', unit: u.id } });
       break;
@@ -1201,13 +1204,16 @@ window.addEventListener('keydown', (e) => {
       if (own) runAction('disband', u.id);
       break;
     case 'fortify':
-      if (own) runAction(u.orders === Orders.Fortify || u.orders === Orders.Goto || u.orders === Orders.Explore ? 'wake' : 'fortify', u.id);
+      if (own) runAction(u.auto || u.orders === Orders.Fortify || u.orders === Orders.Goto || u.orders === Orders.Explore ? 'wake' : 'fortify', u.id);
       break;
     case 'moveMode':
       if (own) runAction('moveMode', u.id);
       break;
     case 'explore':
       if (own && !UNIT_TYPES[u.type].air) runAction('explore', u.id);
+      break;
+    case 'automate':
+      if (own && UNIT_TYPES[u.type].canWork && !u.auto) runAction('automate', u.id);
       break;
     case 'found':
       if (own) runAction('found', u.id);

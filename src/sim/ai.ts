@@ -16,10 +16,8 @@ import { isWater, Relief } from './rules/terrain';
 import { TECHS, TechId } from './rules/techs';
 import { isNaval, MOVE_SCALE, promotionChoices, UNIT_TYPES, UnitTypeId } from './rules/units';
 import { cityDefenseAt, fighterOf } from './war';
-import { ALL_JOBS, jobBlocker } from './work';
+import { chooseWorkerTask, claimedWorkTiles, desiredRoads } from './autoWork';
 import { isHostile, mayEnterTerritory } from './diplomacy';
-import { RESOURCES } from './rules/resources';
-import { RESOURCE_IMPROVEMENT, improvementForJob } from './rules/improvements';
 import { DOCTRINES } from './rules/doctrines';
 
 /**
@@ -357,51 +355,13 @@ function trade(state: GameState, u: Unit, out: Out): void {
 }
 
 /** Straßenfelder, die Städte mit der Hauptstadt verbinden würden. */
-function desiredRoads(state: GameState, pid: number): Set<number> {
-  const out = new Set<number>();
-  const cities = state.cities.filter((c) => c.owner === pid);
-  const capital = cities.find((c) => c.buildings.includes(BuildingId.Palace));
-  if (!capital) return out;
-  const ctx = playerContext(state, pid);
-  const cost = landCost(state.map, () => true, (i) => state.tileOwner[i] >= 0 && state.tileOwner[i] !== pid);
-  for (const c of cities) {
-    if (c === capital || ctx.connected.has(c.id)) continue;
-    const path = findPath({ map: state.map, from: c.tile, to: capital.tile, maxMoves: MOVE_SCALE, movesLeft: MOVE_SCALE, cost, limit: 2500 });
-    if (path) for (const t of path.tiles) if (!state.map.road[t]) out.add(t);
-  }
-  return out;
-}
-
 function work(state: GameState, u: Unit, out: Out, roads: Set<number>, claimed: Set<number>): void {
   if (u.orders === Orders.Work || (u.orders === Orders.Goto && u.aiTarget !== undefined)) return;
   const pid = u.owner;
-  const p = state.players[pid];
-  const knows = (t: number) => p.techs[t] === 1;
-  let best: { tile: number; job: (typeof ALL_JOBS)[number]; v: number } | null = null;
-  for (const t of tilesAround(state.map, u.tile, 6)) {
-    if (claimed.has(t)) continue;
-    const ownTile = state.tileOwner[t] === pid;
-    if (!ownTile && !roads.has(t)) continue;
-    const d = tileDistance(state.map, u.tile, t);
-    const res = RESOURCES[state.map.resource[t]];
-    for (const job of ALL_JOBS) {
-      if (jobBlocker(state.map, state.tileOwner, pid, t, job, knows)) continue;
-      let v = 0;
-      if (job === 'road') v = roads.has(t) ? 5 : 0;
-      else if (job === 'cleanup') v = state.cities.some((c) => c.worked.includes(t)) ? 9 : 6;
-      else if (job === 'clear') v = 0;
-      else {
-        const imp = improvementForJob(job);
-        if (res && RESOURCE_IMPROVEMENT[res.key] === imp) v = 8;
-        else if (state.map.improvement[t]) v = 0;
-        else if (job === 'farm') v = state.cities.some((c) => c.worked.includes(t)) ? 4 : 2.5;
-        else if (job === 'mine') v = state.map.relief[t] === Relief.Hill ? 3 : 0;
-        else if (job === 'lumbermill') v = 1.5;
-      }
-      v -= d * 0.6;
-      if (v > 0 && (!best || v > best.v)) best = { tile: t, job, v };
-    }
-  }
+  // Gemeinsame Auswahl mit dem Automatikmodus des Menschen (autoWork.ts); diese Runde schon vergebene Felder meiden.
+  const taken = claimedWorkTiles(state, u);
+  for (const t of claimed) taken.add(t);
+  const best = chooseWorkerTask(state, u, roads, taken);
   if (!best) {
     run(state, pid, { type: 'skip', unit: u.id }, out);
     return;

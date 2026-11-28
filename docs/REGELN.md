@@ -34,6 +34,16 @@ Fisch und Perlen wirken mit der Technologie Fischerei.
 
 Verbesserungen nur im eigenen Gebiet. Mehrere Arbeiter am selben Auftrag addieren ihren Fortschritt. Städte zählen als Straße.
 
+**Automatisch arbeiten (Umschalt+A):** Der Arbeiter sucht sich jede Runde selbst den lohnendsten Auftrag im Umkreis von 6 Feldern
+(dieselbe Logik nutzt die KI). Bewertet wird der Mehrertrag je Arbeitsrunde inklusive Weg, gewichtet nach dem Bedarf der Stadt,
+zu der das Feld gehört: bei Hunger zählt Nahrung dreifach, bei schwacher Produktion Produktion mehr. Bewirtschaftete Felder
+(und das Stadtfeld) haben Vorrang. Ressourcen erschließen und Verschmutzung säubern zählen extra; Straßen baut er auf der
+Verbindung nicht angebundener Städte zur Hauptstadt. Wald oder Dschungel rodet er nur, wenn die Folgeverbesserung (z. B. Farm)
+nach Bedarf mehr bringt als der Bewuchs, und nie auf Ressourcenfeldern; vorhandene Verbesserungen ersetzt er nur, um eine
+Ressource zu erschließen. Mehrere automatische Arbeiter teilen sich die Felder auf. Ohne lohnende Arbeit wartet er (braucht
+keinen Befehl). Steht ein Kriegsgegner oder Plünderer höchstens 2 Felder entfernt, endet die Automatik mit Meldung.
+Jeder andere Befehl, auch Aufwecken (F), beendet sie.
+
 ## Technologien
 
 56 Technologien in 15 Stufen (Kosten von 24 🔬 in Stufe 1 bis 1500 🔬 in Stufe 15, je Stufe gleich). Man wählt ein **Ziel**;

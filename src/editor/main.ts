@@ -72,7 +72,7 @@ function loadIntoView(): void {
 function drawStarts(): void {
   const units: UnitView[] = sc.starts.map((tile, k) => ({
     id: k + 1, type: UnitTypeId.Settler, owner: k, tile, moves: 0, maxMoves: 0, orders: 0, path: null, job: null,
-    hp: 100, xp: 0, promotions: [], xpNext: 0, promotable: [], carriedBy: null,
+    hp: 100, xp: 0, promotions: [], xpNext: 0, promotable: [], carriedBy: null, auto: false,
   }));
   renderer.setUnits(units, -1, []);
 }

@@ -179,6 +179,7 @@ function sendView(
         xpNext: xpForNext(u.promotions.length),
         promotable: u.owner === viewer && canPromote(u) ? promotionChoices(u.type, u.promotions) : [],
         carriedBy: u.carriedBy ?? null,
+        auto: u.owner === viewer && u.auto === true,
       })),
     camps: s.camps.filter((c) => p.explored[c.tile]).map((c) => c.tile),
     barbarian: s.barbarian,

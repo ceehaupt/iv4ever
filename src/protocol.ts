@@ -65,6 +65,8 @@ export interface UnitView {
   promotable: number[];
   /** An Bord dieses Schiffes. */
   carriedBy: number | null;
+  /** Arbeiter im Automatikmodus (nur eigene Einheiten). */
+  auto: boolean;
 }
 
 export interface ResearchView {

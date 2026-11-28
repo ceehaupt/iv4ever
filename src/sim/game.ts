@@ -22,6 +22,7 @@ import { tileDistance } from './hex';
 import { randomEvents } from './events';
 import { assignSlots, type Persona, PERSONAS, personaFor } from './rules/leaders';
 import { applyJob, jobBlocker, jobTurns } from './work';
+import { chooseWorkerTask, claimedWorkTiles, desiredRoads } from './autoWork';
 import { sailable, unitCost } from './naval';
 import { aiTurn } from './ai';
 import {
@@ -71,6 +72,8 @@ export interface Unit {
   interceptedTurn?: number;
   /** Erkunden: fremde Einheiten, die diese Einheit schon im Blick hat (nur neue lassen sie anhalten). */
   exploreSeen?: number[];
+  /** Arbeiter im Automatikmodus (Mensch): wählt selbst Felder und Aufträge; Ziel in aiTarget. */
+  auto?: boolean;
 }
 
 export interface Player {
@@ -161,6 +164,7 @@ export type Command =
   | { type: 'skip'; unit: number }
   | { type: 'wake'; unit: number }
   | { type: 'explore'; unit: number }
+  | { type: 'automate'; unit: number }
   | { type: 'disband'; unit: number }
   | { type: 'found'; unit: number }
   | { type: 'build'; city: number; item: BuildItem; append: boolean }
@@ -558,6 +562,66 @@ function continueExplore(state: GameState, u: Unit, events: TurnEvent[], initial
   return steps.length > 1 ? { unit: u.id, owner: u.owner, steps } : null;
 }
 
+/**
+ * Automatischer Arbeiter (Mensch): Auftrag wählen (autoWork.ts), hinlaufen, Arbeit beginnen.
+ * Hält an (Automatik aus, Meldung), wenn ein Kriegsgegner oder Plünderer nahe ist. Ohne lohnende Arbeit
+ * wartet er diese Runde (bleibt automatisch und braucht keinen Befehl).
+ */
+function continueAutoWork(state: GameState, u: Unit, events: TurnEvent[]): MoveEvent | null {
+  const name = UNIT_TYPES[u.type].name;
+  const stop = (text: string) => {
+    u.auto = false;
+    u.aiTarget = undefined;
+    u.orders = Orders.None;
+    u.path = null;
+    events.push({ player: u.owner, text: `${name}: ${text}`, tile: u.tile });
+  };
+  // Sicht des ganzen Volks (Arbeiter selbst sehen nur 1 Feld weit).
+  const visible = state.players[u.owner].visible;
+  const danger = state.units.find((o) => o.owner !== u.owner && visible[o.tile] && UNIT_TYPES[o.type].strength > 0 &&
+    tileDistance(state.map, u.tile, o.tile) <= EXPLORE_DANGER_RADIUS &&
+    (state.players[o.owner].barbarian || relation(state, u.owner, o.owner).war));
+  if (danger) {
+    stop(`Automatik unterbrochen – Gegner in der Nähe (${state.players[danger.owner].name})`);
+    return null;
+  }
+  const roads = desiredRoads(state, u.owner);
+  // Unterwegs nicht ständig umplanen: am bisherigen Ziel bleiben, solange dort noch etwas Lohnendes zu tun ist.
+  const kept = u.aiTarget !== undefined ? chooseWorkerTask(state, u, roads, claimedWorkTiles(state, u), u.aiTarget) : null;
+  const task = kept ?? chooseWorkerTask(state, u, roads);
+  if (!task) {
+    u.aiTarget = undefined;
+    u.path = null;
+    u.orders = Orders.Skip;
+    return null;
+  }
+  const steps = [u.tile];
+  if (u.tile !== task.tile) {
+    u.aiTarget = task.tile;
+    u.path = planPath(state, u, task.tile, occupancy(state));
+    if (!u.path) {
+      u.aiTarget = undefined;
+      u.orders = Orders.Skip;
+      return null;
+    }
+    u.orders = Orders.Goto;
+    const ev = continueMove(state, u, events);
+    if (ev) steps.push(...ev.steps.slice(1));
+  }
+  if (u.tile === task.tile && u.moves > 0) {
+    u.aiTarget = undefined;
+    u.orders = Orders.Work;
+    u.job = task.job;
+    u.path = null;
+    u.moves = 0;
+  } else if (u.tile === task.tile) {
+    u.orders = Orders.Skip; // angekommen, Arbeit beginnt nächste Runde
+  } else if (u.orders !== Orders.Goto) {
+    u.orders = Orders.Skip;
+  }
+  return steps.length > 1 ? { unit: u.id, owner: u.owner, steps } : null;
+}
+
 export interface CommandResult {
   moves: MoveEvent[];
   /** Neu gegründete Stadt (für die Oberfläche: Stadtansicht öffnen). */
@@ -699,6 +763,11 @@ export function applyCommand(state: GameState, player: number, cmd: Command): Co
 function unitCommand(state: GameState, player: number, cmd: Extract<Command, { unit: number }>): CommandResult {
   const u = findUnit(state, cmd.unit);
   if (!u || u.owner !== player) throw new CommandError('Einheit nicht gefunden');
+  // Jeder andere Befehl an die Einheit beendet den Automatikmodus.
+  if (cmd.type !== 'automate' && u.auto) {
+    u.auto = false;
+    u.aiTarget = undefined;
+  }
   switch (cmd.type) {
     case 'found': {
       if (!UNIT_TYPES[u.type].canFound) throw new CommandError('Diese Einheit kann keine Stadt gründen');
@@ -774,6 +843,18 @@ function unitCommand(state: GameState, player: number, cmd: Extract<Command, { u
       u.job = null;
       const events: TurnEvent[] = [];
       const ev = continueExplore(state, u, events, true);
+      return { moves: ev ? [ev] : [], events };
+    }
+    case 'automate': {
+      if (!UNIT_TYPES[u.type].canWork) throw new CommandError('Nur Arbeiter können automatisch arbeiten');
+      if (u.carriedBy) throw new CommandError('Erst an Land gehen');
+      u.auto = true;
+      u.aiTarget = undefined;
+      u.path = null;
+      u.job = null;
+      u.orders = Orders.None;
+      const events: TurnEvent[] = [];
+      const ev = continueAutoWork(state, u, events);
       return { moves: ev ? [ev] : [], events };
     }
     case 'wake':
@@ -875,7 +956,10 @@ export function endTurn(state: GameState): { moves: MoveEvent[]; events: TurnEve
     if (u.orders === Orders.Skip) u.orders = Orders.None;
   }
   for (const u of state.units) {
-    if (u.orders === Orders.Goto && u.path) {
+    if (u.auto && u.orders !== Orders.Work) {
+      const ev = continueAutoWork(state, u, turnEvents);
+      if (ev) events.push(ev);
+    } else if (u.orders === Orders.Goto && u.path) {
       const ev = continueMove(state, u, turnEvents);
       if (ev) events.push(ev);
     } else if (u.orders === Orders.Explore) {
