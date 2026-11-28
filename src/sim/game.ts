@@ -460,7 +460,9 @@ function continueMove(state: GameState, u: Unit, events: TurnEvent[], stopAfterS
 }
 
 /** Wie viele Randfelder je Zug als Ziel geprüft werden (das nächste erreichbare gewinnt). */
-const EXPLORE_CANDIDATES = 8;
+const EXPLORE_CANDIDATES = 16;
+/** Mindestabstand des Ziels zu Zielen anderer eigener Erkunder, damit sie nicht im Pulk laufen. */
+const EXPLORE_SPREAD = 4;
 /** Erkunder halten an, wenn ein sichtbarer Gegner höchstens so weit entfernt steht. */
 export const EXPLORE_DANGER_RADIUS = 2;
 
@@ -470,11 +472,25 @@ function exploreTargetPath(state: GameState, u: Unit, occ: Int16Array): number[]
   const passable = naval
     ? (t: number) => isWater(m.terrain[t])
     : (t: number) => !isWater(m.terrain[t]) && Number.isFinite(tileMoveCost(m.terrain[t], m.relief[t], m.feature[t]));
-  for (const t of frontierTiles(m, state.players[u.owner].explored, u.tile, passable, EXPLORE_CANDIDATES)) {
-    const path = planPath(state, u, t, occ);
-    if (path) return path;
+  const candidates = frontierTiles(m, state.players[u.owner].explored, u.tile, passable, EXPLORE_CANDIDATES);
+  // Ziele der anderen eigenen Erkunder (gleiche Art: Land/See) meiden; nur wenn es keine Alternative gibt, doch hin.
+  const taken: number[] = [];
+  for (const o of state.units) {
+    if (o === u || o.owner !== u.owner || o.orders !== Orders.Explore || !o.path?.length) continue;
+    if ((UNIT_TYPES[o.type].naval === true) !== naval) continue;
+    taken.push(o.path[o.path.length - 1]);
   }
-  return null;
+  const crowded = (t: number) => taken.some((x) => tileDistance(m, t, x) < EXPLORE_SPREAD);
+  let fallback: number[] | null = null;
+  for (const t of candidates) {
+    const isCrowded = crowded(t);
+    if (isCrowded && fallback) continue;
+    const path = planPath(state, u, t, occ);
+    if (!path) continue;
+    if (!isCrowded) return path;
+    fallback = path;
+  }
+  return fallback;
 }
 
 /** Fremde Einheiten im eigenen Sichtfeld der Einheit (nicht dem des ganzen Volks). */

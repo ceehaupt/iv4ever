@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { addUnit, applyCommand, CommandError, endTurn, type GameState, HUMAN, Orders, refreshVision } from './game';
+import { addUnit, applyCommand, CommandError, createGame, endTurn, type GameState, HUMAN, Orders, refreshVision } from './game';
 import { tileDistance } from './hex';
+import { generateWorld } from './mapgen';
 import { isWater } from './rules/terrain';
 import { UnitTypeId } from './rules/units';
 import { islands, T } from './testWorld';
@@ -102,6 +103,24 @@ describe('Erkunden', () => {
 
     const plane = addUnit(s, HUMAN, UnitTypeId.Fighter, T(12, 5));
     expect(() => applyCommand(s, HUMAN, { type: 'explore', unit: plane.id })).toThrow(CommandError);
+  });
+
+  it('mehrere Erkunder wählen verschiedene Ziele statt im Pulk zu laufen', () => {
+    const opts = { width: 64, height: 40, seed: 77, players: 2 };
+    const s = createGame(generateWorld(opts), opts);
+    const home = s.units.find((u) => u.owner === HUMAN)!.tile;
+    const a = addUnit(s, HUMAN, UnitTypeId.Warrior, home);
+    const b = addUnit(s, HUMAN, UnitTypeId.Spearman, home);
+    s.units = s.units.filter((u) => u.owner !== HUMAN || u === a || u === b || u.type === UnitTypeId.Settler);
+    refreshVision(s, HUMAN);
+    applyCommand(s, HUMAN, { type: 'explore', unit: a.id });
+    applyCommand(s, HUMAN, { type: 'explore', unit: b.id });
+    let together = 0;
+    for (let k = 0; k < 6 && a.orders === Orders.Explore && b.orders === Orders.Explore; k++) {
+      endTurn(s);
+      if (tileDistance(s.map, a.tile, b.tile) <= 1) together++;
+    }
+    expect(together).toBeLessThanOrEqual(1);
   });
 
   it('ist deterministisch', () => {
